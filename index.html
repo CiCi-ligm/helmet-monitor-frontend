@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>智能头盔系统</title>
+  <!-- 1. 引入高德地图SDK（替换成你的API Key！！） -->
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
+  <style>
+   /* 全局基础：极致干净 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "SF Pro Display", "Microsoft Yahei", sans-serif;
+}
+
+body {
+  background: #ffffff;
+  min-height: 100vh;
+  padding: 40px;
+  color: #1a1a1a;
+  line-height: 1.5;
+}
+
+/* 登录模块：极简卡片 */
+.login-box {
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 16px;
+  max-width: 420px;
+  margin: 0 auto 48px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+.login-box:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+.login-box h3 {
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 32px;
+  color: #1a1a1a;
+  letter-spacing: -0.5px;
+}
+.login-box input {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  margin: 12px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.3s;
+}
+.login-box input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+.login-box button {
+  width: 100%;
+  height: 44px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  margin-top: 16px;
+  transition: background 0.3s;
+}
+.login-box button:hover {
+  background: #1d4ed8;
+}
+
+/* 体征数据模块：极简仪表盘 */
+.vital-signs {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 16px;
+  margin-bottom: 32px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 24px;
+}
+.vital-signs h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 8px;
+  text-align: center;
+  width: 100%;
+}
+.vital-signs div {
+  text-align: center;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  min-width: 120px;
+}
+.vital-signs span {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -1px;
+}
+
+/* 地图模块：沉浸式窗口 */
+.map-box {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+.map-box h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 20px;
+}
+#mapContainer {
+  width: 100%;
+  height: 550px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+/* 功能按钮：极简交互 */
+.btn-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn-group button {
+  height: 40px;
+  padding: 0 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #ffffff;
+  transition: all 0.2s;
+}
+.btn-group button:hover {
+  background: #f9fafb;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+.btn-group button:active {
+  transform: scale(0.98);
+}
+  </style>
+</head>
+<body>
+  <!-- 1. 登录模块（你原有功能） -->
+  <div class="login-box">
+    <h3>用户登录</h3>
+    账号：<input type="text" id="username" placeholder="输入账号">
+    密码：<input type="password" id="password" placeholder="输入密码">
+    <button onclick="login()">登录</button>
+  </div>
+
+  <!-- 2. 心率血氧模块（你原有功能） -->
+  <div class="vital-signs" style="display: none;">
+    <h3>实时体征数据</h3>
+    心率：<span id="heartRate">72</span> BPM | 血氧：<span id="bloodOxygen">98</span> %
+  </div>
+
+  <!-- 3. 地图+导航+路径记录模块（新增核心功能） -->
+  <div class="map-box" style="display: none;">
+    <h3>智能头盔导航</h3>
+    <!-- 地图容器 -->
+    <div id="mapContainer" style="width: 100%; height: 500px;"></div>
+    <!-- 功能按钮（导航+路径记录） -->
+    <div class="btn-group">
+      <button onclick="startNavigation()">开始导航</button>
+      <button onclick="startRecordPath()">开始记录路径</button>
+      <button onclick="stopRecordPath()">停止记录路径</button>
+      <button onclick="showAllPaths()">查看历史路径</button>
+    </div>
+  </div>
+
+  <script>
+    // ========== 你原有功能（登录+心率血氧） ==========
+    let isLogin = false;
+    // 模拟心率血氧实时更新
+    function updateVitalSigns() {
+      setInterval(() => {
+        if (isLogin) {
+          document.getElementById('heartRate').innerText = Math.floor(Math.random() * 20) + 60;
+          document.getElementById('bloodOxygen').innerText = Math.floor(Math.random() * 5) + 95;
+        }
+      }, 3000);
+    }
+    // 登录函数
+    function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      // 简单验证（你可以改成自己的逻辑）
+      if (username && password) {
+        isLogin = true;
+        // 显示心率血氧和地图模块
+        document.querySelector('.vital-signs').style.display = 'block';
+        document.querySelector('.map-box').style.display = 'block';
+        // 初始化地图
+        initMap();
+        // 开始更新体征数据
+        updateVitalSigns();
+        alert('登录成功，已加载地图！');
+      } else {
+        alert('请输入账号密码！');
+      }
+    }
+
+    // ========== 新增：地图+导航+路径记录核心逻辑 ==========
+    let map = null; // 地图实例
+    let isRecording = false; // 是否正在记录路径
+    let currentPath = []; // 当前路径坐标
+    let allPaths = []; // 所有历史路径（每次使用头盔的路径）
+
+    // 1. 初始化地图（登录后自动执行）
+    function initMap() {
+      // 创建地图实例，中心点设为你的城市（比如北京）
+      map = new AMap.Map('mapContainer', {
+        zoom: 13,
+        center: [116.397428, 39.90923]
+      });
+
+      // 自动定位到当前位置
+      map.plugin('AMap.Geolocation', function() {
+        const geolocation = new AMap.Geolocation({
+          enableHighAccuracy: true
+        });
+        geolocation.getCurrentPosition(function(status, result) {
+          if (status === 'complete') {
+            // 定位成功，标记当前位置
+            new AMap.Marker({
+              position: result.position,
+              map: map,
+              title: '当前位置'
+            });
+            map.setCenter(result.position);
+          }
+        });
+      });
+    }
+
+    // 2. 开始导航（调用高德导航接口）
+    function startNavigation() {
+      if (!map) return alert('地图未加载！');
+      // 导航起点：当前定位，终点：示例坐标（你可以改成自定义终点）
+      map.plugin('AMap.Driving', function() {
+        const driving = new AMap.Driving({ map: map });
+        // 先获取当前定位作为起点
+        map.getCenter(function(center) {
+          driving.search(
+            new AMap.LngLat(center.lng, center.lat), // 起点（当前位置）
+            new AMap.LngLat(116.417428, 39.91923), // 终点（可自定义）
+            function(status) {
+              if (status === 'complete') {
+                alert('导航路线已规划！');
+              } else {
+                alert('导航规划失败！');
+              }
+            }
+          );
+        });
+      });
+    }
+
+    // 3. 开始记录路径
+    function startRecordPath() {
+      if (!map) return alert('地图未加载！');
+      isRecording = true;
+      currentPath = []; // 清空当前路径
+      alert('开始记录路径！');
+
+      // 每2秒记录一次当前位置（模拟头盔实时上传坐标）
+      recordInterval = setInterval(() => {
+        if (isRecording) {
+          const center = map.getCenter(); // 获取当前地图中心点（模拟定位坐标）
+          currentPath.push([center.lng, center.lat]); // 保存坐标
+          // 实时绘制当前路径
+          drawPath(currentPath, '#FF0000'); // 红色当前路径
+        }
+      }, 2000);
+    }
+
+    // 4. 停止记录路径
+    function stopRecordPath() {
+      if (!isRecording) return alert('未在记录路径！');
+      isRecording = false;
+      clearInterval(recordInterval);
+      // 保存当前路径到历史路径
+      allPaths.push({
+        path: [...currentPath],
+        time: new Date().toLocaleString() // 记录时间
+      });
+      alert(`停止记录！本次路径共${currentPath.length}个坐标点，已保存到历史记录`);
+    }
+
+    // 5. 查看所有历史路径
+    function showAllPaths() {
+      if (allPaths.length === 0) return alert('暂无历史路径！');
+      // 清空地图上原有路径，重新绘制所有历史路径
+      map.clearMap();
+      // 重新定位到当前位置
+      initMap();
+      // 遍历所有历史路径，用不同颜色绘制
+      const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'];
+      allPaths.forEach((item, index) => {
+        drawPath(item.path, colors[index % colors.length]);
+      });
+      alert(`共查询到${allPaths.length}条历史路径，已在地图上显示！`);
+    }
+
+    // 辅助函数：绘制路径线
+    function drawPath(pathPoints, color) {
+      if (pathPoints.length < 2) return;
+      const polyline = new AMap.Polyline({
+        path: pathPoints,
+        strokeColor: color,
+        strokeWeight: 5,
+        strokeOpacity: 0.8
+      });
+      polyline.setMap(map);
+    }
+  </script>
+</body>
+</html>
