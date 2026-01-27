@@ -34,7 +34,7 @@
             padding-bottom: 10px;
         }
 
-        /* 登录模块 */
+        /* 登录模块（默认显示） */
         .login-module {
             width: 400px;
             margin: 50px auto;
@@ -63,12 +63,11 @@
             background-color: #005a9e;
         }
 
-        /* 监控面板 */
+        /* 监控面板（默认隐藏，登录后显示） */
         .monitor-module {
-            display: flex;
+            display: none;
             gap: 20px;
             flex-wrap: wrap;
-            display: none; /* 默认隐藏，登录后显示 */
         }
         .monitor-card {
             flex: 1;
@@ -88,9 +87,9 @@
             color: #0078d7;
         }
 
-        /* 导航模块 */
+        /* 导航模块（默认隐藏，登录后显示） */
         .nav-module {
-            display: none; /* 默认隐藏，登录后显示 */
+            display: none;
         }
         .nav-controls {
             display: flex;
@@ -133,22 +132,22 @@
         .success { color: #00b42a; }
         .error { color: #f53f3f; }
     </style>
-    <!-- 高德地图API（导航用，已配测试Key） -->
+    <!-- 高德地图API（测试Key，直接用） -->
     <script src="https://webapi.amap.com/maps?v=2.0&key=e2e067c5006e95799f9f27327f568f88e"></script>
     <script src="https://webapi.amap.com/ui/1.1/main.js?v=1.1.1"></script>
 </head>
 <body>
     <div class="container">
-        <!-- 登录模块（初始显示） -->
-        <div class="module login-module">
+        <!-- 登录模块 -->
+        <div class="module login-module" id="loginBox">
             <h2>智能头盔系统登录</h2>
             <input type="text" id="username" placeholder="请输入用户名">
             <input type="password" id="password" placeholder="请输入密码">
             <button onclick="login()">登录</button>
         </div>
 
-        <!-- 监控面板（初始隐藏） -->
-        <div class="module monitor-module">
+        <!-- 监控面板 -->
+        <div class="module monitor-module" id="monitorBox">
             <h2>头盔实时监控</h2>
             <div class="monitor-card">
                 <h3>心率</h3>
@@ -168,8 +167,8 @@
             </div>
         </div>
 
-        <!-- 导航模块（初始隐藏） -->
-        <div class="module nav-module">
+        <!-- 导航模块 -->
+        <div class="module nav-module" id="navBox">
             <h2>头盔导航功能</h2>
             <div class="nav-controls">
                 <input type="text" id="dest-input" placeholder="请输入目的地（例：北京市东城区天安门广场）">
@@ -182,116 +181,144 @@
     </div>
 
     <script>
-        // 全局变量
         let map, myLocation;
+        // 给模块加ID，直接获取，避免选择器出错
+        const loginBox = document.getElementById('loginBox');
+        const monitorBox = document.getElementById('monitorBox');
+        const navBox = document.getElementById('navBox');
+        const locationStatus = document.getElementById('locationStatus');
+        const navTip = document.getElementById('nav-tip');
 
-        // 1. 登录功能（验证成功后显示监控+导航）
+        // 1. 登录功能（彻底简化，登录后直接显示+初始化地图）
         function login() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             if (username && password) {
                 alert(`登录成功！欢迎 ${username} 使用智能头盔系统`);
-                // 隐藏登录模块，显示监控和导航
-                document.querySelector('.login-module').style.display = 'none';
-                document.querySelector('.monitor-module').style.display = 'flex';
-                document.querySelector('.nav-module').style.display = 'block';
-                // 初始化地图（登录后才初始化，避免提前加载）
+                // 隐藏登录，显示监控+导航（直接改display，无任何歧义）
+                loginBox.style.display = 'none';
+                monitorBox.style.display = 'flex';
+                navBox.style.display = 'block';
+                // 立即初始化地图，确保按钮点击时地图已存在
                 initMap();
             } else {
-                alert('请输入用户名和密码！');
+                alert('请输入用户名和密码后再登录！');
             }
         }
 
-        // 2. 初始化地图（登录后执行）
+        // 2. 初始化地图（登录后必执行，地图一定能加载）
         function initMap() {
             map = new AMap.Map('map-container', {
                 zoom: 15,
-                center: [116.397428, 39.90923]
+                center: [116.397428, 39.90923] // 北京默认坐标
             });
-            map.addControl(new AMap.ToolBar());
+            map.addControl(new AMap.ToolBar()); // 地图缩放控件
         }
 
-        // 3. 获取当前定位
+        // 3. 获取当前定位（移除多余校验，只做核心逻辑）
         function getMyLocation() {
+            // 只校验地图是否初始化（登录后必初始化，不会触发这个提示）
             if (!map) {
-                showNavTip("❌ 请先登录！", "error");
+                showTip("❌ 请先完成系统登录！", "error");
                 return;
             }
+            // 校验浏览器是否支持定位
             if (!navigator.geolocation) {
-                showNavTip("❌ 浏览器不支持定位，请换Chrome/Edge！", "error");
-                alert("请换Chrome/Edge浏览器测试！");
+                showTip("❌ 你的浏览器不支持定位，请更换Chrome/Edge！", "error");
+                alert("建议使用Chrome/Edge浏览器测试定位功能！");
                 return;
             }
+            // 开始定位，带加载提示
+            showTip("🔍 正在获取你的当前位置，请稍候...", "");
             navigator.geolocation.getCurrentPosition(
+                // 定位成功
                 function(pos) {
-                    const gps = [pos.coords.longitude, pos.coords.latitude];
-                    AMap.convertFrom(gps, 'gps', (status, res) => {
-                        if (status === 'complete') {
+                    const gpsLng = pos.coords.longitude;
+                    const gpsLat = pos.coords.latitude;
+                    // GPS转高德坐标，解决定位偏移
+                    AMap.convertFrom([gpsLng, gpsLat], 'gps', function(status, res) {
+                        if (status === 'complete' && res.info === 'OK') {
                             myLocation = res.locations[0];
-                            map.setCenter(myLocation);
+                            map.setCenter(myLocation); // 地图跳转到当前位置
+                            // 添加蓝色标记（当前位置）
                             new AMap.Marker({
                                 position: myLocation,
                                 map: map,
                                 icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png'
                             });
-                            showNavTip(`✅ 定位成功！`, "success");
-                            document.getElementById('locationStatus').innerText = "已定位";
+                            showTip(`✅ 定位成功！当前坐标：${myLocation.lng.toFixed(6)}, ${myLocation.lat.toFixed(6)}`, "success");
+                            locationStatus.innerText = "已定位"; // 更新监控面板状态
                         }
                     });
                 },
+                // 定位失败
                 function(err) {
-                    showNavTip("❌ 定位失败（请允许定位权限）", "error");
+                    const errText = {
+                        1: "❌ 你拒绝了定位权限，请允许后重试！",
+                        2: "❌ 无法获取位置，请检查网络！",
+                        3: "❌ 定位超时，请重新点击！"
+                    }[err.code] || "❌ 定位失败，请重试！";
+                    showTip(errText, "error");
+                    locationStatus.innerText = "定位失败";
                 }
             );
         }
 
-        // 4. 开始导航
+        // 4. 开始导航（只做必要校验，不搞多余判断）
         function startNavigation() {
+            // 校验是否已定位
             if (!myLocation) {
-                showNavTip("⚠️ 先点击「获取当前定位」！", "error");
-                alert("请先获取定位！");
+                showTip("⚠️ 请先点击「获取当前定位」完成定位！", "error");
+                alert("请先获取你的当前位置再进行导航！");
                 return;
             }
-            const dest = document.getElementById('dest-input').value.trim();
-            if (!dest) {
-                showNavTip("⚠️ 请输入目的地！", "error");
-                alert("请输入目的地！");
+            // 校验是否输入目的地
+            const destText = document.getElementById('dest-input').value.trim();
+            if (!destText) {
+                showTip("⚠️ 请输入目的地（例：北京市东城区天安门广场）！", "error");
+                alert("请输入准确的目的地地址！");
                 return;
             }
-
-            AMap.plugin(['AMap.Geocoder', 'AMap.Driving'], () => {
-                new AMap.Geocoder().getLocation(dest, (status, res) => {
-                    if (status !== 'complete') {
-                        showNavTip("❌ 地址解析失败！", "error");
+            // 开始导航，带加载提示
+            showTip("🗺️ 正在规划路线，请稍候...", "");
+            // 加载高德插件，规划路线
+            AMap.plugin(['AMap.Geocoder', 'AMap.Driving'], function() {
+                // 地址转坐标
+                new AMap.Geocoder({ city: '全国' }).getLocation(destText, function(status, res) {
+                    if (status !== 'complete' || res.info !== 'OK') {
+                        showTip("❌ 地址解析失败，请输入准确的目的地！", "error");
                         return;
                     }
                     const destLoc = res.geocodes[0].location;
+                    // 添加红色标记（目的地）
                     new AMap.Marker({
                         position: destLoc,
                         map: map,
                         icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
                     });
-                    new AMap.Driving({ map: map }).search(myLocation, destLoc, (status, res) => {
-                        if (status === 'complete') {
+                    // 规划驾车路线并显示在地图上
+                    new AMap.Driving({ map: map }).search(myLocation, destLoc, function(status, res) {
+                        if (status === 'complete' && res.info === 'OK') {
                             const route = res.routes[0];
-                            showNavTip(`🎉 导航成功！预计${Math.ceil(route.time/60)}分钟`, "success");
+                            const time = Math.ceil(route.time / 60); // 预计分钟
+                            const distance = (route.distance / 1000).toFixed(2); // 预计公里
+                            showTip(`🎉 导航成功！预计${time}分钟，全程${distance}公里`, "success");
                         } else {
-                            showNavTip("❌ 路线规划失败！", "error");
+                            showTip("❌ 路线规划失败，请更换目的地重试！", "error");
                         }
                     });
                 });
             });
         }
 
-        // 导航提示
-        function showNavTip(text, type) {
-            const tip = document.getElementById('nav-tip');
-            tip.innerText = text;
-            tip.className = type;
+        // 简易提示函数，避免重复代码
+        function showTip(text, type) {
+            navTip.innerText = text;
+            navTip.className = type;
         }
 
-        // 模拟监控数据更新
-        setInterval(() => {
+        // 模拟监控数据实时更新
+        setInterval(function() {
             document.getElementById('heartRate').innerText = Math.floor(Math.random()*20 + 80) + " 次/分";
             document.getElementById('speed').innerText = Math.floor(Math.random()*10 + 10) + " km/h";
         }, 5000);
