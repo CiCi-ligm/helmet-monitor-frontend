@@ -149,7 +149,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- 登录模块（默认隐藏/显示根据登录状态） -->
+        <!-- 登录模块 -->
         <div class="module login-module" id="loginBox">
             <h2>智能头盔系统登录</h2>
             <input type="text" id="username" placeholder="请输入用户名">
@@ -157,11 +157,10 @@
             <button onclick="login()">登录</button>
         </div>
 
-        <!-- 功能模块（默认隐藏，登录后显示） -->
+        <!-- 功能模块 -->
         <div id="functionBox" style="display: none;">
-            <!-- 退出按钮 -->
             <button class="logout-btn" onclick="logout()">退出登录</button>
-            
+
             <!-- 监控面板 -->
             <div class="module monitor-module">
                 <h2>头盔实时监控</h2>
@@ -207,17 +206,16 @@
             checkLoginStatus();
         };
 
-        // 1. 检查登录状态（核心！）
+        // 1. 检查登录状态
         function checkLoginStatus() {
-            const isLogin = localStorage.getItem('isLogin');
-            const username = localStorage.getItem('username');
+            const isLogin = sessionStorage.getItem('isLogin');
+            const username = sessionStorage.getItem('username');
             
             if (isLogin === 'true' && username) {
-                // 已登录：隐藏登录框，显示功能模块，初始化地图
+                // 已登录：显示功能模块，初始化地图
                 loginBox.style.display = 'none';
                 functionBox.style.display = 'block';
-                initMap(); // 直接初始化地图，不用等点击
-                alert(`欢迎回来，${username}！`);
+                initMap();
             } else {
                 // 未登录：显示登录框
                 loginBox.style.display = 'block';
@@ -225,15 +223,15 @@
             }
         }
 
-        // 2. 登录功能（保存状态到本地）
+        // 2. 登录功能
         function login() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             
             if (username && password) {
-                // 保存登录状态（永久保存，除非手动退出）
-                localStorage.setItem('isLogin', 'true');
-                localStorage.setItem('username', username);
+                // 保存登录状态到sessionStorage
+                sessionStorage.setItem('isLogin', 'true');
+                sessionStorage.setItem('username', username);
                 
                 // 刷新状态
                 checkLoginStatus();
@@ -242,15 +240,15 @@
             }
         }
 
-        // 3. 退出登录（清除状态）
+        // 3. 退出登录
         function logout() {
-            localStorage.removeItem('isLogin');
-            localStorage.removeItem('username');
+            sessionStorage.removeItem('isLogin');
+            sessionStorage.removeItem('username');
             checkLoginStatus();
             alert('已退出登录！');
         }
 
-        // 4. 初始化地图（登录后自动执行）
+        // 4. 初始化地图
         function initMap() {
             map = new AMap.Map('map-container', {
                 zoom: 15,
@@ -259,7 +257,7 @@
             map.addControl(new AMap.ToolBar());
         }
 
-        // 5. 获取定位（无多余校验，直接用）
+        // 5. 获取定位
         function getMyLocation() {
             if (!navigator.geolocation) {
                 showTip("❌ 浏览器不支持定位！", "error");
