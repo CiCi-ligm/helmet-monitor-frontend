@@ -285,8 +285,8 @@
             }
         }
     </style>
-    <!-- 高德地图API -->
-    <script src="https://webapi.amap.com/maps?v=2.0&key=e2e067c5006e95799f9f27327f568f88e&plugin=AMap.Geolocation,AMap.Geocoder,AMap.Driving,AMap.ToolBar"></script>
+    <!-- 高德地图API - 使用您的Key -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Geocoder,AMap.Driving,AMap.ToolBar"></script>
     <link rel="stylesheet" href="https://webapi.amap.com/ui/1.1/main.css">
     <script src="https://webapi.amap.com/ui/1.1/main.js"></script>
 </head>
@@ -362,9 +362,11 @@
         let isLoggedIn = false;
         let markers = [];
         let currentRoute = null;
+        let geolocation = null;
 
         // 页面加载
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，检查登录状态...');
             checkLogin();
             // 模拟设备数据更新
             setInterval(updateDeviceData, 3000);
@@ -373,6 +375,7 @@
         // 检查登录状态
         function checkLogin() {
             const savedLogin = localStorage.getItem('helmet_login');
+            console.log('登录状态:', savedLogin);
             if (savedLogin === 'true') {
                 showMainPage();
             } else {
@@ -382,6 +385,7 @@
 
         // 显示登录页
         function showLoginPage() {
+            console.log('显示登录页');
             document.getElementById('loginPage').style.display = 'block';
             document.getElementById('funcPage').style.display = 'none';
             isLoggedIn = false;
@@ -389,18 +393,21 @@
 
         // 显示主页面
         function showMainPage() {
+            console.log('显示主页面');
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('funcPage').style.display = 'block';
             isLoggedIn = true;
             
             // 延迟初始化地图，确保DOM完全加载
-            setTimeout(initMap, 100);
+            setTimeout(initMap, 500);
         }
 
         // 登录
         function login() {
             const user = document.getElementById('user').value.trim();
             const pwd = document.getElementById('pwd').value.trim();
+            
+            console.log('登录尝试:', user, pwd);
             
             // 简单验证（比赛项目可简化）
             if (user === 'admin' && pwd === '123456') {
@@ -421,24 +428,34 @@
 
         // 初始化地图
         function initMap() {
-            if (map) return;
+            console.log('开始初始化地图...');
+            
+            if (map) {
+                console.log('地图已存在，无需重新初始化');
+                return;
+            }
             
             // 检查高德地图API是否加载
             if (!window.AMap) {
+                console.error('高德地图API未加载');
                 document.getElementById('mapLoading').innerHTML = 
-                    '<div style="color: #ff4757;">⚠️ 地图API加载失败<br>请检查网络连接后刷新页面</div>';
+                    '<div style="color: #ff4757;">⚠️ 地图API加载失败<br>请检查：<br>1. 网络连接<br>2. 地图Key是否正确<br>3. 是否支持HTTPS</div>';
                 return;
             }
             
             try {
+                console.log('创建地图实例...');
+                
                 // 创建地图实例
                 map = new AMap.Map('map-container', {
                     zoom: 13,
-                    center: [116.397428, 39.90923],
+                    center: [116.397428, 39.90923], // 北京天安门
                     resizeEnable: true,
                     animateEnable: true,
-                    viewMode: '3D'
+                    viewMode: '2D'
                 });
+                
+                console.log('地图实例创建成功');
                 
                 // 添加工具栏
                 map.addControl(new AMap.ToolBar({
@@ -447,19 +464,37 @@
                 
                 // 隐藏加载提示
                 document.getElementById('mapLoading').style.display = 'none';
-                showTip('🗺️ 地图初始化完成！可以开始使用导航功能', 'success');
+                
+                // 检查地图是否渲染成功
+                setTimeout(function() {
+                    if (map && map.getSize().width > 0) {
+                        showTip('🗺️ 地图初始化完成！可以开始使用导航功能', 'success');
+                        console.log('地图渲染成功');
+                    } else {
+                        showTip('⚠️ 地图渲染异常，请尝试刷新页面', 'error');
+                        console.error('地图渲染异常');
+                    }
+                }, 1000);
                 
             } catch (error) {
                 console.error('地图初始化错误:', error);
                 document.getElementById('mapLoading').innerHTML = 
-                    `<div style="color: #ff4757;">⚠️ 地图初始化失败：${error.message}</div>`;
+                    `<div style="color: #ff4757;">
+                        ⚠️ 地图初始化失败<br>
+                        错误：${error.message}<br>
+                        Key是否正确：977b6123358698744cd4f2a96e219145
+                    </div>`;
             }
         }
 
         // 获取当前位置
         function getLocation() {
+            console.log('开始获取位置...');
+            
             if (!map) {
+                showTip('⚠️ 地图未初始化，请稍候...', 'error');
                 initMap();
+                setTimeout(getLocation, 1000);
                 return;
             }
             
@@ -469,18 +504,26 @@
             
             showTip('🔍 正在获取您的位置信息...', 'loading');
             
-            // 使用高德地图定位
-            const geolocation = new AMap.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0,
-                convert: true,
-                showButton: false
-            });
+            // 清除旧标记
+            clearMarkers();
             
-            map.addControl(geolocation);
+            // 使用高德地图定位
+            if (!geolocation) {
+                geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: true, // 高精度定位
+                    timeout: 10000, // 10秒超时
+                    maximumAge: 0,
+                    convert: true,
+                    showButton: false,
+                    panToLocation: true,
+                    zoomToAccuracy: true
+                });
+                map.addControl(geolocation);
+            }
             
             geolocation.getCurrentPosition(function(status, result) {
+                console.log('定位结果:', status, result);
+                
                 if (status === 'complete') {
                     onLocationSuccess(result);
                 } else {
@@ -493,10 +536,8 @@
 
         // 定位成功
         function onLocationSuccess(result) {
+            console.log('定位成功:', result);
             myLoc = result.position;
-            
-            // 清除旧标记
-            clearMarkers();
             
             // 添加当前位置标记
             const marker = new AMap.Marker({
@@ -517,8 +558,15 @@
             document.getElementById('navBtn').disabled = false;
             
             // 显示位置信息
-            const address = result.addressComponent;
-            const locationText = `${address.province || ''}${address.city || ''}${address.district || ''}${address.township || ''}`;
+            const address = result.addressComponent || {};
+            let locationText = '';
+            if (address.province) locationText += address.province;
+            if (address.city) locationText += address.city;
+            if (address.district) locationText += address.district;
+            if (address.township) locationText += address.township;
+            
+            if (!locationText) locationText = '当前位置';
+            
             showTip(`✅ 定位成功！位置：${locationText}`, 'success');
             
             // 更新GPS状态显示
@@ -530,33 +578,49 @@
         function onLocationError(error) {
             console.error('定位失败:', error);
             
-            // 尝试使用IP城市定位
-            showTip('⚠️ 精确定位失败，尝试城市定位...', 'loading');
+            // 首先尝试使用IP定位
+            showTip('⚠️ 高精度定位失败，尝试IP定位...', 'loading');
             
-            AMap.plugin('AMap.CitySearch', function() {
-                const citySearch = new AMap.CitySearch();
-                citySearch.getLocalCity(function(status, result) {
-                    if (status === 'complete' && result.city) {
-                        myLoc = result.center;
-                        map.setCenter(myLoc);
-                        map.setZoom(12);
-                        
-                        // 添加标记
-                        const marker = new AMap.Marker({
-                            position: myLoc,
-                            map: map,
-                            title: '大致位置',
-                            content: '<div style="background:#faad14;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>'
-                        });
-                        
-                        markers.push(marker);
-                        
-                        document.getElementById('navBtn').disabled = false;
-                        showTip(`⚠️ 使用城市定位：${result.city}（精度较低）`, 'default');
-                    } else {
-                        showTip('❌ 定位失败！请检查定位权限和网络连接', 'error');
-                    }
-                });
+            // 创建城市搜索实例
+            const citySearch = new AMap.CitySearch();
+            
+            citySearch.getLocalCity(function(status, result) {
+                if (status === 'complete' && result.city) {
+                    console.log('IP定位成功:', result);
+                    myLoc = result.center;
+                    map.setCenter(myLoc);
+                    map.setZoom(12);
+                    
+                    // 添加标记
+                    const marker = new AMap.Marker({
+                        position: myLoc,
+                        map: map,
+                        title: '大致位置',
+                        content: '<div style="background:#faad14;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>'
+                    });
+                    
+                    markers.push(marker);
+                    
+                    document.getElementById('navBtn').disabled = false;
+                    showTip(`⚠️ 使用IP定位：${result.city}（精度较低）`, 'default');
+                    
+                    // 更新GPS状态
+                    document.getElementById('gps-status').textContent = '弱信号';
+                    document.getElementById('gps-status').className = 'error';
+                    
+                } else {
+                    // 如果IP定位也失败，使用默认位置
+                    console.log('IP定位失败，使用默认位置');
+                    myLoc = [116.397428, 39.90923]; // 北京天安门
+                    map.setCenter(myLoc);
+                    map.setZoom(10);
+                    
+                    showTip('❌ 定位失败！使用默认位置，请检查定位权限', 'error');
+                    
+                    // 更新GPS状态
+                    document.getElementById('gps-status').textContent = '未连接';
+                    document.getElementById('gps-status').className = 'error';
+                }
             });
         }
 
@@ -572,6 +636,8 @@
                 showTip('⚠️ 请输入目的地！', 'error');
                 return;
             }
+            
+            console.log('开始导航到:', dest);
             
             const btn = document.getElementById('navBtn');
             btn.disabled = true;
@@ -591,6 +657,8 @@
                 if (status === 'complete' && result.geocodes.length > 0) {
                     const destLoc = result.geocodes[0].location;
                     const destName = result.geocodes[0].formattedAddress;
+                    
+                    console.log('目的地解析成功:', destName, destLoc);
                     
                     // 添加目的地标记
                     const destMarker = new AMap.Marker({
@@ -612,6 +680,8 @@
                     });
                     
                     driving.search(myLoc, destLoc, function(status, result) {
+                        console.log('路线规划结果:', status);
+                        
                         btn.disabled = false;
                         btn.innerHTML = '🚀 开始导航';
                         
@@ -629,6 +699,7 @@
                         }
                     });
                 } else {
+                    console.log('目的地解析失败');
                     btn.disabled = false;
                     btn.innerHTML = '🚀 开始导航';
                     showTip('❌ 找不到目的地，请检查地址是否正确', 'error');
@@ -688,10 +759,17 @@
             if (!document.hidden && map) {
                 // 页面重新可见时刷新地图
                 setTimeout(() => {
-                    map.setFitView();
+                    if (map) {
+                        map.setFitView();
+                    }
                 }, 100);
             }
         });
+        
+        // 调试：打印地图API状态
+        window.onerror = function(msg, url, line) {
+            console.error('全局错误:', msg, 'at', url, ':', line);
+        };
     </script>
 </body>
 </html>
