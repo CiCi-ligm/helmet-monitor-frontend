@@ -1,227 +1,348 @@
-<!DOCTYPE HTML>
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta name="viewport" content="width=device-width initial-scale=1.0 maximum-scale=1.0 user-scalable=0">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>智能头盔3D导航系统</title>
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Microsoft Yahei", sans-serif;
-    }
-    
-    body, html { 
-        width: 100%;
-        height: 100%;
-        background: #f5f5f5;
-    }
-    
-    /* 登录界面 */
-    .login-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-    
-    .login-box {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 40px;
-        border-radius: 20px;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-        width: 350px;
-        text-align: center;
-    }
-    
-    .login-box h2 {
-        color: #333;
-        margin-bottom: 30px;
-        font-size: 24px;
-    }
-    
-    .login-input {
-        width: 100%;
-        height: 45px;
-        margin: 15px 0;
-        padding: 0 15px;
-        border: 2px solid #e1e5e9;
-        border-radius: 10px;
-        font-size: 16px;
-        outline: none;
-    }
-    
-    .login-input:focus {
-        border-color: #667eea;
-    }
-    
-    .login-btn {
-        width: 100%;
-        height: 45px;
-        background: linear-gradient(to right, #667eea, #764ba2);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    
-    .login-btn:hover {
-        opacity: 0.9;
-    }
-    
-    /* 主界面 */
-    .main-container {
-        width: 100%;
-        height: 100%;
-        display: none;
-    }
-    
-    /* 顶部控制栏 */
-    .top-controls {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 15px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        z-index: 999;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    
-    .top-controls h1 {
-        color: #1890ff;
-        font-size: 18px;
-    }
-    
-    .control-buttons {
-        display: flex;
-        gap: 10px;
-    }
-    
-    .control-btn {
-        padding: 8px 20px;
-        background: #1890ff;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    
-    .control-btn.logout {
-        background: #ff4d4f;
-    }
-    
-    .control-btn:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-    }
-    
-    /* 侧边控制面板 */
-    .side-panel {
-        position: fixed;
-        left: 20px;
-        top: 80px;
-        width: 300px;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        z-index: 998;
-    }
-    
-    .panel-section {
-        margin-bottom: 20px;
-    }
-    
-    .panel-section h3 {
-        color: #333;
-        margin-bottom: 15px;
-        font-size: 16px;
-        border-bottom: 2px solid #f0f0f0;
-        padding-bottom: 5px;
-    }
-    
-    .status-item {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-        font-size: 14px;
-    }
-    
-    .status-value {
-        font-weight: bold;
-    }
-    
-    .status-good { color: #52c41a; }
-    .status-warning { color: #faad14; }
-    .status-danger { color: #ff4d4f; }
-    
-    /* 导航输入 */
-    .nav-input-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
-    
-    #dest-input {
-        flex: 1;
-        height: 40px;
-        padding: 0 15px;
-        border: 1px solid #d9d9d9;
-        border-radius: 5px;
-        font-size: 14px;
-    }
-    
-    .nav-btn {
-        width: 100%;
-        height: 40px;
-        background: #1890ff;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 14px;
-        margin-bottom: 10px;
-    }
-    
-    .nav-btn.clear {
-        background: #ff4d4f;
-    }
-    
-    /* 状态提示 */
-    #status-tip {
-        padding: 10px;
-        background: #f6ffed;
-        border: 1px solid #b7eb8f;
-        border-radius: 5px;
-        font-size: 14px;
-        margin-top: 15px;
-    }
-    
-    /* 地图容器 */
-    #map-container {
-        width: 100%;
-        height: 100%;
-    }
-</style>
-<!-- 高德地图API - 使用您的Key和必要插件 -->
-<script language="javascript" src="//webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.ControlBar,AMap.ToolBar,AMap.Geolocation,AMap.Geocoder,AMap.Driving,AMap.Marker,AMap.Polyline"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能头盔监控导航系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        
+        body, html { 
+            width: 100%;
+            height: 100%;
+            background: #f5f5f5;
+        }
+        
+        /* 登录界面 */
+        .login-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .login-box {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            width: 350px;
+            text-align: center;
+        }
+        
+        .login-box h2 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+        
+        .login-input {
+            width: 100%;
+            height: 45px;
+            margin: 15px 0;
+            padding: 0 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .login-input:focus {
+            border-color: #667eea;
+        }
+        
+        .login-btn {
+            width: 100%;
+            height: 45px;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .login-btn:hover {
+            opacity: 0.9;
+        }
+        
+        /* 主界面 */
+        .main-container {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        
+        /* 顶部控制栏 */
+        .top-controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 999;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .top-controls h1 {
+            color: #1890ff;
+            font-size: 18px;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            padding: 8px 20px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .control-btn.logout {
+            background: #ff4d4f;
+        }
+        
+        .control-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* 侧边控制面板 */
+        .side-panel {
+            position: fixed;
+            left: 20px;
+            top: 80px;
+            width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            z-index: 998;
+        }
+        
+        .panel-section {
+            margin-bottom: 20px;
+        }
+        
+        .panel-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 5px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .status-value {
+            font-weight: bold;
+        }
+        
+        .status-good { color: #52c41a; }
+        .status-warning { color: #faad14; }
+        .status-danger { color: #ff4d4f; }
+        
+        /* 导航输入 */
+        .nav-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        #dest-input {
+            flex: 1;
+            height: 40px;
+            padding: 0 15px;
+            border: 1px solid #d9d9d9;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .nav-btn {
+            width: 100%;
+            height: 40px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .nav-btn.clear {
+            background: #ff4d4f;
+        }
+        
+        .nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* 状态提示 */
+        #status-tip {
+            padding: 10px;
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            border-radius: 5px;
+            font-size: 14px;
+            margin-top: 15px;
+            min-height: 60px;
+        }
+        
+        /* 地图容器 */
+        #map-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 定位权限提示 */
+        .permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .permission-box {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .permission-box h3 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .permission-btn {
+            padding: 10px 30px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        
+        /* 设备连接状态 */
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 997;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .status-connected {
+            background: #52c41a;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-disconnected {
+            background: #ff4d4f;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* 模拟控制面板 */
+        .simulation-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 997;
+        }
+        
+        .sim-btn {
+            padding: 8px 15px;
+            background: #722ed1;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .sim-btn:hover {
+            opacity: 0.8;
+        }
+    </style>
+    <!-- 高德地图API -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Geocoder,AMap.Driving,AMap.Marker,AMap.Polyline,AMap.CitySearch"></script>
 </head>
 <body>
+    <!-- 定位权限提示 -->
+    <div class="permission-modal" id="permissionModal">
+        <div class="permission-box">
+            <h3>📍 需要位置权限</h3>
+            <p>智能头盔导航系统需要获取您的位置信息</p>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                请点击下方按钮，然后在浏览器弹出的权限请求中选择"允许"
+            </p>
+            <button class="permission-btn" onclick="requestLocationPermission()">允许定位</button>
+            <button class="permission-btn" onclick="useSimulationMode()" style="background: #722ed1; margin-top: 10px;">使用模拟模式</button>
+        </div>
+    </div>
+
     <!-- 登录界面 -->
     <div class="login-container" id="loginPage">
         <div class="login-box">
@@ -239,9 +360,9 @@
     <div class="main-container" id="mainPage">
         <!-- 顶部控制栏 -->
         <div class="top-controls">
-            <h1>🏍️ 智能头盔3D导航监控系统</h1>
+            <h1>🏍️ 智能头盔监控导航系统</h1>
             <div class="control-buttons">
-                <button class="control-btn" onclick="getMyLocation()">📍 定位</button>
+                <button class="control-btn" onclick="getMyLocation()" id="loc-btn">📍 获取位置</button>
                 <button class="control-btn logout" onclick="logout()">退出</button>
             </div>
         </div>
@@ -253,7 +374,7 @@
                 <h3>📊 设备状态</h3>
                 <div class="status-item">
                     <span>GPS信号：</span>
-                    <span id="gps-signal" class="status-value status-good">强</span>
+                    <span id="gps-signal" class="status-value status-warning">未连接</span>
                 </div>
                 <div class="status-item">
                     <span>电池电量：</span>
@@ -267,382 +388,806 @@
                     <span>碰撞检测：</span>
                     <span id="crash-detect" class="status-value status-good">正常</span>
                 </div>
+                <div class="status-item">
+                    <span>速度：</span>
+                    <span id="speed" class="status-value">0 km/h</span>
+                </div>
             </div>
             
             <!-- 导航控制 -->
             <div class="panel-section">
                 <h3>🧭 实时导航</h3>
                 <div class="nav-input-group">
-                    <input type="text" id="dest-input" placeholder="输入目的地">
+                    <input type="text" id="dest-input" placeholder="输入目的地，如：天安门">
+                    <button class="nav-btn" onclick="searchDestination()">🔍</button>
                 </div>
-                <button class="nav-btn" onclick="startNavigation()" id="nav-btn">🚀 开始导航</button>
+                <button class="nav-btn" onclick="startNavigation()" id="nav-btn" disabled>🚀 开始导航</button>
                 <button class="nav-btn clear" onclick="clearNavigation()">🗑️ 清除路线</button>
                 
                 <!-- 状态提示 -->
                 <div id="status-tip">
-                    👋 欢迎使用3D导航系统
+                    👋 登录成功！请先获取位置或使用模拟模式
+                </div>
+            </div>
+            
+            <!-- 历史记录 -->
+            <div class="panel-section">
+                <h3>📝 历史记录</h3>
+                <div id="history-list" style="font-size: 12px; color: #666;">
+                    <p>最近位置：未记录</p>
+                    <p>导航次数：0</p>
+                    <p>总里程：0 km</p>
                 </div>
             </div>
         </div>
         
-        <!-- 3D地图容器 -->
+        <!-- 连接状态 -->
+        <div class="connection-status" id="connectionStatus">
+            <div class="status-dot status-disconnected"></div>
+            <span>设备未连接</span>
+        </div>
+        
+        <!-- 模拟控制面板 -->
+        <div class="simulation-controls">
+            <button class="sim-btn" onclick="startSimulation()">▶ 开始模拟</button>
+            <button class="sim-btn" onclick="stopSimulation()">⏹ 停止模拟</button>
+            <button class="sim-btn" onclick="simulateCrash()">💥 模拟碰撞</button>
+            <button class="sim-btn" onclick="simulateSOS()">🆘 模拟求救</button>
+        </div>
+        
+        <!-- 地图容器 -->
         <div id="map-container"></div>
     </div>
 
-<script language="javascript">
-    // 全局变量
-    let map = null;
-    let myLocation = null;
-    let currentMarker = null;
-    let destinationMarker = null;
-    let currentRoute = null;
-    let geolocation = null;
-    
-    // 页面加载
-    window.onload = function() {
-        checkLoginStatus();
-    };
-    
-    // 检查登录状态
-    function checkLoginStatus() {
-        const isLogin = localStorage.getItem('helmet_3d_login');
-        if (isLogin === 'true') {
-            showMainPage();
-        } else {
-            showLoginPage();
-        }
-    }
-    
-    // 显示登录页
-    function showLoginPage() {
-        document.getElementById('loginPage').style.display = 'flex';
-        document.getElementById('mainPage').style.display = 'none';
-    }
-    
-    // 显示主页面
-    function showMainPage() {
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('mainPage').style.display = 'block';
+    <script>
+        // 全局变量
+        let map = null;
+        let myLocation = null;
+        let currentMarker = null;
+        let destinationMarker = null;
+        let currentRoute = null;
+        let isLocationReady = false;
+        let simulationInterval = null;
+        let isSimulationMode = false;
+        let pathIndex = 0;
+        let ws = null;
         
-        // 延迟初始化地图
-        setTimeout(init3DMap, 100);
+        // 模拟路径点（北京天安门周边）
+        const simulationPath = [
+            [116.397428, 39.90923],   // 天安门
+            [116.403865, 39.913685],  // 故宫
+            [116.415358, 39.908482],  // 王府井
+            [116.406605, 39.921894],  // 景山公园
+            [116.390214, 39.911861],  // 国家大剧院
+            [116.397428, 39.90923]    // 回到起点
+        ];
         
-        // 开始模拟设备数据更新
-        startDeviceSimulation();
-    }
-    
-    // 登录
-    function login() {
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value.trim();
+        // 页面加载
+        window.onload = function() {
+            console.log('智能头盔系统初始化...');
+            checkLoginStatus();
+            initWebSocket(); // 初始化WebSocket连接
+        };
         
-        // 简单验证
-        if (username === 'admin' && password === '123456') {
-            localStorage.setItem('helmet_3d_login', 'true');
-            showMainPage();
-            updateStatus('✅ 登录成功！欢迎使用智能头盔3D导航系统', 'success');
-        } else {
-            updateStatus('❌ 用户名或密码错误', 'error');
-        }
-    }
-    
-    // 退出
-    function logout() {
-        localStorage.removeItem('helmet_3d_login');
-        showLoginPage();
-    }
-    
-    // 初始化3D地图
-    function init3DMap() {
-        try {
-            map = new AMap.Map('map-container', {
-                rotateEnable: true,      // 开启旋转
-                pitchEnable: true,       // 开启俯仰
-                zoom: 17,                // 缩放级别
-                pitch: 50,               // 俯仰角度
-                rotation: -15,           // 旋转角度
-                viewMode: '3D',          // 开启3D视图
-                zooms: [3, 20],          // 缩放范围
-                center: [116.333926, 39.997245], // 北京中心
-                resizeEnable: true
-            });
+        // 初始化WebSocket连接（用于真实设备连接）
+        function initWebSocket() {
+            // WebSocket服务器地址（根据实际情况修改）
+            const wsUrl = 'ws://' + window.location.hostname + ':8080/ws';
             
-            // 添加控制栏
-            var controlBar = new AMap.ControlBar({
-                position: {
-                    right: '20px',
-                    top: '100px'
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket连接成功');
+                updateConnectionStatus(true);
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleRealDeviceData(data);
+                } catch (e) {
+                    console.error('数据解析错误:', e);
                 }
-            });
-            controlBar.addTo(map);
+            };
             
-            // 添加工具栏
-            var toolBar = new AMap.ToolBar({
-                position: {
-                    right: '20px',
-                    top: '200px'
-                }
-            });
-            toolBar.addTo(map);
+            ws.onclose = function() {
+                console.log('WebSocket连接关闭');
+                updateConnectionStatus(false);
+                // 5秒后重连
+                setTimeout(initWebSocket, 5000);
+            };
             
-            updateStatus('🗺️ 3D地图初始化完成！', 'success');
-            
-        } catch (error) {
-            console.error('地图初始化失败:', error);
-            updateStatus('❌ 地图初始化失败，请刷新页面', 'error');
-        }
-    }
-    
-    // 获取我的位置
-    function getMyLocation() {
-        if (!map) {
-            updateStatus('⚠️ 地图未就绪', 'warning');
-            return;
+            ws.onerror = function(error) {
+                console.error('WebSocket错误:', error);
+            };
         }
         
-        updateStatus('🔍 正在获取位置信息...', 'info');
-        
-        // 创建定位实例
-        geolocation = new AMap.Geolocation({
-            enableHighAccuracy: true,
-            timeout: 10000,
-            showButton: false
-        });
-        
-        map.addControl(geolocation);
-        
-        geolocation.getCurrentPosition(function(status, result) {
-            if (status === 'complete') {
-                onLocationSuccess(result);
+        // 更新连接状态
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            const dot = statusEl.querySelector('.status-dot');
+            
+            if (connected) {
+                dot.className = 'status-dot status-connected';
+                statusEl.querySelector('span').textContent = '设备已连接';
             } else {
-                onLocationError(result);
+                dot.className = 'status-dot status-disconnected';
+                statusEl.querySelector('span').textContent = '设备未连接';
             }
-        });
-    }
-    
-    // 定位成功
-    function onLocationSuccess(result) {
-        myLocation = result.position;
-        
-        // 清除旧标记
-        if (currentMarker) {
-            map.remove(currentMarker);
         }
         
-        // 创建3D标记（当前位置）
-        currentMarker = new AMap.Marker({
-            position: myLocation,
-            map: map,
-            title: '我的位置',
-            content: createMarkerHTML('#1890ff', '📍')
-        });
-        
-        // 移动到位置（3D视角）
-        map.setCenter(myLocation);
-        map.setZoom(17);
-        map.setPitch(50);
-        map.setRotation(-15);
-        
-        // 更新状态
-        const address = result.addressComponent;
-        const locationText = address ? `${address.city || ''}${address.district || ''}` : '当前位置';
-        
-        updateStatus(`✅ 定位成功！位置：${locationText}`, 'success');
-        
-        // 更新GPS状态
-        updateDeviceStatus('gps-signal', '强', 'status-good');
-        
-        // 启用导航按钮
-        document.getElementById('nav-btn').disabled = false;
-    }
-    
-    // 创建标记HTML
-    function createMarkerHTML(color, icon) {
-        return `
-            <div style="
-                background: ${color};
-                width: 30px;
-                height: 30px;
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 16px;
-                color: white;
-            ">
-                ${icon}
-            </div>
-        `;
-    }
-    
-    // 定位失败
-    function onLocationError(error) {
-        console.error('定位失败:', error);
-        
-        updateStatus('⚠️ 精确定位失败，使用默认位置', 'warning');
-        
-        // 使用默认位置（北京天安门）
-        myLocation = [116.397428, 39.90923];
-        
-        // 创建标记
-        currentMarker = new AMap.Marker({
-            position: myLocation,
-            map: map,
-            title: '默认位置',
-            content: createMarkerHTML('#faad14', '📍')
-        });
-        
-        map.setCenter(myLocation);
-        map.setZoom(14);
-        
-        document.getElementById('nav-btn').disabled = false;
-        updateDeviceStatus('gps-signal', '弱', 'status-warning');
-    }
-    
-    // 开始导航
-    function startNavigation() {
-        if (!myLocation) {
-            updateStatus('⚠️ 请先获取当前位置', 'warning');
-            return;
+        // 处理真实设备数据
+        function handleRealDeviceData(data) {
+            console.log('收到设备数据:', data);
+            
+            if (data.type === 'location') {
+                // 更新位置
+                updateRealLocation(data);
+            } else if (data.type === 'sensor') {
+                // 更新传感器数据
+                updateRealSensorData(data);
+            } else if (data.type === 'status') {
+                // 更新设备状态
+                updateDeviceStatus(data);
+            }
         }
         
-        const dest = document.getElementById('dest-input').value.trim();
-        if (!dest) {
-            updateStatus('⚠️ 请输入目的地', 'warning');
-            return;
-        }
-        
-        updateStatus('🗺️ 正在规划路线...', 'info');
-        
-        // 清除旧路线和目的地标记
-        if (destinationMarker) {
-            map.remove(destinationMarker);
-        }
-        if (currentRoute) {
-            map.remove(currentRoute);
-        }
-        
-        // 地理编码（地址转坐标）
-        const geocoder = new AMap.Geocoder();
-        geocoder.getLocation(dest, function(status, result) {
-            if (status === 'complete' && result.geocodes.length > 0) {
-                const destLoc = result.geocodes[0].location;
-                const destName = result.geocodes[0].formattedAddress;
-                
-                // 创建目的地标记
-                destinationMarker = new AMap.Marker({
-                    position: destLoc,
+        // 更新真实位置
+        function updateRealLocation(locData) {
+            const lng = locData.longitude;
+            const lat = locData.latitude;
+            
+            myLocation = [lng, lat];
+            isLocationReady = true;
+            
+            // 更新标记
+            if (!currentMarker) {
+                currentMarker = new AMap.Marker({
+                    position: myLocation,
                     map: map,
-                    title: destName,
-                    content: createMarkerHTML('#f5222d', '🏁')
+                    title: '当前位置',
+                    content: createMarkerHTML('#1890ff', '📍')
                 });
-                
-                // 路线规划
-                const driving = new AMap.Driving({
-                    map: map,
-                    policy: AMap.DrivingPolicy.LEAST_TIME,
-                    showTraffic: true,
-                    hideMarkers: true
-                });
-                
-                driving.search(myLocation, destLoc, function(status, result) {
-                    if (status === 'complete') {
-                        const route = result.routes[0];
-                        const time = Math.ceil(route.time / 60);
-                        const distance = (route.distance / 1000).toFixed(1);
-                        
-                        // 调整3D视角
-                        map.setFitView();
-                        map.setPitch(50);
-                        map.setRotation(-15);
-                        
-                        updateStatus(`✅ 导航规划完成！<br>📍 ${destName}<br>📏 ${distance}公里 | ⏱️ ${time}分钟`, 'success');
-                    } else {
-                        updateStatus('❌ 路线规划失败', 'error');
+            } else {
+                currentMarker.setPosition(myLocation);
+            }
+            
+            // 移动地图
+            if (map) {
+                map.setCenter(myLocation);
+            }
+            
+            // 更新显示
+            document.getElementById('gps-signal').textContent = '强';
+            document.getElementById('gps-signal').className = 'status-value status-good';
+            
+            document.getElementById('nav-btn').disabled = false;
+            
+            updateStatus(`✅ 设备定位更新: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'success');
+        }
+        
+        // 更新真实传感器数据
+        function updateRealSensorData(sensorData) {
+            if (sensorData.battery !== undefined) {
+                updateDeviceStatus('battery', sensorData.battery + '%', 
+                    sensorData.battery > 30 ? 'status-good' : 
+                    sensorData.battery > 15 ? 'status-warning' : 'status-danger');
+            }
+            
+            if (sensorData.temperature !== undefined) {
+                // 温度显示
+            }
+            
+            if (sensorData.speed !== undefined) {
+                document.getElementById('speed').textContent = sensorData.speed + ' km/h';
+            }
+            
+            if (sensorData.crash) {
+                simulateCrash();
+            }
+            
+            if (sensorData.sos) {
+                simulateSOS();
+            }
+        }
+        
+        // 检查登录状态
+        function checkLoginStatus() {
+            const isLogin = localStorage.getItem('helmet_login');
+            if (isLogin === 'true') {
+                showMainPage();
+            } else {
+                showLoginPage();
+            }
+        }
+        
+        // 显示登录页
+        function showLoginPage() {
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('mainPage').style.display = 'none';
+        }
+        
+        // 显示主页面
+        function showMainPage() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainPage').style.display = 'block';
+            
+            // 初始化地图
+            initMap();
+            
+            // 显示定位权限提示（延迟显示）
+            setTimeout(() => {
+                checkAndShowPermissionTip();
+            }, 1000);
+            
+            // 开始设备数据模拟更新
+            startDeviceSimulation();
+        }
+        
+        // 检查并显示权限提示
+        function checkAndShowPermissionTip() {
+            // 如果已经有位置了，就不显示提示
+            if (isLocationReady) return;
+            
+            // 检查是否已有定位权限
+            if (navigator.permissions && navigator.permissions.query) {
+                navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+                    if (result.state === 'prompt') {
+                        document.getElementById('permissionModal').style.display = 'flex';
                     }
                 });
-                
             } else {
-                updateStatus('❌ 找不到目的地，请检查地址', 'error');
+                document.getElementById('permissionModal').style.display = 'flex';
             }
-        });
-    }
-    
-    // 清除导航
-    function clearNavigation() {
-        if (destinationMarker) {
-            map.remove(destinationMarker);
-            destinationMarker = null;
         }
-        if (currentRoute) {
-            map.remove(currentRoute);
-            currentRoute = null;
-        }
-        document.getElementById('dest-input').value = '';
-        updateStatus('🗑️ 已清除路线和标记', 'info');
-    }
-    
-    // 更新状态提示
-    function updateStatus(text, type) {
-        const statusEl = document.getElementById('status-tip');
-        statusEl.innerHTML = text;
         
-        // 根据类型设置样式
-        switch(type) {
-            case 'success':
-                statusEl.style.background = '#f6ffed';
-                statusEl.style.border = '1px solid #b7eb8f';
-                statusEl.style.color = '#52c41a';
-                break;
-            case 'error':
-                statusEl.style.background = '#fff2f0';
-                statusEl.style.border = '1px solid #ffccc7';
-                statusEl.style.color = '#ff4d4f';
-                break;
-            case 'warning':
-                statusEl.style.background = '#fffbe6';
-                statusEl.style.border = '1px solid #ffe58f';
-                statusEl.style.color = '#faad14';
-                break;
-            case 'info':
-                statusEl.style.background = '#e6f7ff';
-                statusEl.style.border = '1px solid #91d5ff';
-                statusEl.style.color = '#1890ff';
-                break;
+        // 请求定位权限
+        function requestLocationPermission() {
+            document.getElementById('permissionModal').style.display = 'none';
+            updateStatus('🔍 正在请求定位权限...', 'info');
+            
+            // 直接调用定位
+            getMyLocation();
         }
-    }
-    
-    // 更新设备状态
-    function updateDeviceStatus(elementId, text, statusClass) {
-        const element = document.getElementById(elementId);
-        element.textContent = text;
-        element.className = 'status-value ' + statusClass;
-    }
-    
-    // 模拟设备数据更新
-    function startDeviceSimulation() {
-        setInterval(() => {
-            // 模拟电池电量变化
-            const battery = 80 + Math.floor(Math.random() * 20);
-            updateDeviceStatus('battery', battery + '%', 
-                battery > 60 ? 'status-good' : 
-                battery > 30 ? 'status-warning' : 'status-danger');
+        
+        // 使用模拟模式
+        function useSimulationMode() {
+            document.getElementById('permissionModal').style.display = 'none';
+            isSimulationMode = true;
+            updateStatus('🎮 进入模拟演示模式', 'success');
             
-            // 模拟温度变化
-            const temp = 25 + Math.floor(Math.random() * 15);
+            // 默认位置
+            myLocation = [116.397428, 39.90923];
+            isLocationReady = true;
             
-            // 随机模拟碰撞检测
-            if (Math.random() > 0.95) {
-                updateDeviceStatus('crash-detect', '警告', 'status-danger');
-                updateStatus('🚨 检测到异常震动！请检查安全状况', 'error');
-            } else {
-                updateDeviceStatus('crash-detect', '正常', 'status-good');
+            // 创建默认标记
+            if (map) {
+                currentMarker = new AMap.Marker({
+                    position: myLocation,
+                    map: map,
+                    title: '模拟位置',
+                    content: createMarkerHTML('#722ed1', '📍')
+                });
+                
+                map.setCenter(myLocation);
+                map.setZoom(16);
             }
             
-        }, 3000);
-    }
-</script>
+            document.getElementById('nav-btn').disabled = false;
+            document.getElementById('gps-signal').textContent = '模拟';
+            document.getElementById('gps-signal').className = 'status-value status-warning';
+        }
+        
+        // 登录
+        function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (username === 'admin' && password === '123456') {
+                localStorage.setItem('helmet_login', 'true');
+                showMainPage();
+                updateStatus('✅ 登录成功！欢迎使用智能头盔系统', 'success');
+            } else {
+                updateStatus('❌ 用户名或密码错误', 'error');
+            }
+        }
+        
+        // 退出
+        function logout() {
+            localStorage.removeItem('helmet_login');
+            showLoginPage();
+        }
+        
+        // 初始化地图
+        function initMap() {
+            try {
+                console.log('初始化地图...');
+                
+                map = new AMap.Map('map-container', {
+                    zoom: 14,
+                    center: [116.397428, 39.90923], // 北京
+                    resizeEnable: true
+                });
+                
+                console.log('地图初始化成功');
+                updateStatus('🗺️ 地图加载完成！', 'success');
+                
+            } catch (error) {
+                console.error('地图初始化失败:', error);
+                updateStatus('❌ 地图初始化失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 获取我的位置 - 双保险定位
+        function getMyLocation() {
+            if (!map) {
+                updateStatus('⚠️ 地图未就绪，请稍候...', 'warning');
+                return;
+            }
+            
+            const btn = document.getElementById('loc-btn');
+            btn.disabled = true;
+            btn.textContent = '定位中...';
+            
+            updateStatus('🔍 正在获取您的位置...', 'info');
+            
+            // 清除旧标记
+            if (currentMarker) {
+                map.remove(currentMarker);
+                currentMarker = null;
+            }
+            
+            // 方法1：先尝试浏览器原生定位
+            if (navigator.geolocation && !isSimulationMode) {
+                console.log('尝试浏览器原生定位...');
+                
+                navigator.geolocation.getCurrentPosition(
+                    // 成功回调
+                    function(position) {
+                        console.log('浏览器定位成功:', position);
+                        handleLocationSuccess(
+                            position.coords.longitude, 
+                            position.coords.latitude, 
+                            '浏览器定位'
+                        );
+                        btn.disabled = false;
+                        btn.textContent = '📍 获取位置';
+                    },
+                    // 失败回调
+                    function(error) {
+                        console.log('浏览器定位失败，尝试高德定位:', error);
+                        // 方法2：使用高德定位
+                        useAmapGeolocation(btn);
+                    },
+                    // 配置
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                console.log('使用模拟模式或高德定位');
+                if (isSimulationMode) {
+                    useSimulationMode();
+                    btn.disabled = false;
+                    btn.textContent = '📍 获取位置';
+                } else {
+                    useAmapGeolocation(btn);
+                }
+            }
+        }
+        
+        // 使用高德定位
+        function useAmapGeolocation(btn) {
+            console.log('使用高德地图定位...');
+            
+            try {
+                // 创建高德定位实例
+                const geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0,
+                    convert: true,
+                    showButton: false,
+                    panToLocation: true,
+                    zoomToAccuracy: true
+                });
+                
+                map.addControl(geolocation);
+                
+                geolocation.getCurrentPosition(function(status, result) {
+                    console.log('高德定位结果:', status, result);
+                    
+                    if (status === 'complete') {
+                        handleAmapLocationSuccess(result);
+                    } else {
+                        handleLocationError('高德定位失败');
+                        // 如果失败，启用模拟模式
+                        useSimulationMode();
+                    }
+                    
+                    btn.disabled = false;
+                    btn.textContent = '📍 获取位置';
+                });
+                
+            } catch (error) {
+                console.error('高德定位出错:', error);
+                handleLocationError('定位服务异常');
+                useSimulationMode();
+                btn.disabled = false;
+                btn.textContent = '📍 获取位置';
+            }
+        }
+        
+        // 处理浏览器定位成功
+        function handleLocationSuccess(lng, lat, source) {
+            myLocation = [lng, lat];
+            isLocationReady = true;
+            
+            // 创建标记
+            currentMarker = new AMap.Marker({
+                position: myLocation,
+                map: map,
+                title: source,
+                content: createMarkerHTML('#1890ff', '📍')
+            });
+            
+            // 移动到位置
+            map.setCenter(myLocation);
+            map.setZoom(16);
+            
+            // 启用导航按钮
+            document.getElementById('nav-btn').disabled = false;
+            
+            updateStatus(`✅ ${source}成功！位置已获取`, 'success');
+            updateDeviceStatus('gps-signal', '强', 'status-good');
+        }
+        
+        // 处理高德定位成功
+        function handleAmapLocationSuccess(result) {
+            myLocation = result.position;
+            isLocationReady = true;
+            
+            // 创建标记
+            currentMarker = new AMap.Marker({
+                position: myLocation,
+                map: map,
+                title: '高德定位',
+                content: createMarkerHTML('#1890ff', '📍')
+            });
+            
+            // 移动到位置
+            map.setCenter(myLocation);
+            map.setZoom(16);
+            
+            // 启用导航按钮
+            document.getElementById('nav-btn').disabled = false;
+            
+            // 显示地址信息
+            const address = result.addressComponent || {};
+            const locationText = address.city ? `${address.city}${address.district || ''}` : '当前位置';
+            
+            updateStatus(`✅ 高德定位成功！位置：${locationText}`, 'success');
+            updateDeviceStatus('gps-signal', '强', 'status-good');
+        }
+        
+        // 处理定位错误
+        function handleLocationError(errorMsg) {
+            console.error(errorMsg);
+            updateStatus('⚠️ ' + errorMsg, 'warning');
+            updateDeviceStatus('gps-signal', '弱', 'status-danger');
+        }
+        
+        // 创建标记HTML
+        function createMarkerHTML(color, icon) {
+            return `
+                <div style="
+                    background: ${color};
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 16px;
+                    color: white;
+                    cursor: pointer;
+                ">
+                    ${icon}
+                </div>
+            `;
+        }
+        
+        // 搜索目的地
+        function searchDestination() {
+            const dest = document.getElementById('dest-input').value.trim();
+            if (!dest) return;
+            
+            updateStatus('🔍 搜索目的地...', 'info');
+            
+            // 使用高德地理编码
+            const geocoder = new AMap.Geocoder();
+            geocoder.getLocation(dest, function(status, result) {
+                if (status === 'complete' && result.geocodes.length > 0) {
+                    const destLoc = result.geocodes[0].location;
+                    const destName = result.geocodes[0].formattedAddress;
+                    
+                    // 清除旧的目的地标记
+                    if (destinationMarker) {
+                        map.remove(destinationMarker);
+                    }
+                    
+                    // 创建目的地标记
+                    destinationMarker = new AMap.Marker({
+                        position: destLoc,
+                        map: map,
+                        title: destName,
+                        content: createMarkerHTML('#f5222d', '🏁')
+                    });
+                    
+                    // 移动到目的地
+                    map.setCenter(destLoc);
+                    map.setZoom(15);
+                    
+                    updateStatus(`📍 找到目的地：${destName}`, 'success');
+                    
+                    // 如果已经有当前位置，启用导航按钮
+                    if (isLocationReady) {
+                        document.getElementById('nav-btn').disabled = false;
+                    }
+                } else {
+                    updateStatus('❌ 找不到目的地，请检查地址', 'error');
+                }
+            });
+        }
+        
+        // 开始导航
+        function startNavigation() {
+            if (!isLocationReady || !myLocation) {
+                updateStatus('⚠️ 请先获取当前位置', 'warning');
+                return;
+            }
+            
+            const dest = document.getElementById('dest-input').value.trim();
+            if (!dest) {
+                updateStatus('⚠️ 请输入目的地', 'warning');
+                return;
+            }
+            
+            updateStatus('🗺️ 正在规划路线...', 'info');
+            
+            // 清除旧路线
+            if (currentRoute) {
+                map.remove(currentRoute);
+            }
+            
+            // 地理编码
+            const geocoder = new AMap.Geocoder();
+            geocoder.getLocation(dest, function(status, result) {
+                if (status === 'complete' && result.geocodes.length > 0) {
+                    const destLoc = result.geocodes[0].location;
+                    const destName = result.geocodes[0].formattedAddress;
+                    
+                    // 创建目的地标记（如果还没有）
+                    if (!destinationMarker) {
+                        destinationMarker = new AMap.Marker({
+                            position: destLoc,
+                            map: map,
+                            title: destName,
+                            content: createMarkerHTML('#f5222d', '🏁')
+                        });
+                    }
+                    
+                    // 路线规划
+                    const driving = new AMap.Driving({
+                        map: map,
+                        policy: AMap.DrivingPolicy.LEAST_TIME,
+                        showTraffic: true,
+                        hideMarkers: true
+                    });
+                    
+                    driving.search(myLocation, destLoc, function(status, result) {
+                        if (status === 'complete') {
+                            const route = result.routes[0];
+                            const time = Math.ceil(route.time / 60);
+                            const distance = (route.distance / 1000).toFixed(1);
+                            
+                            currentRoute = result.routes;
+                            map.setFitView();
+                            
+                            updateStatus(`✅ 导航规划完成！<br>📍 ${destName}<br>📏 ${distance}公里 | ⏱️ ${time}分钟`, 'success');
+                            
+                            // 记录历史
+                            recordNavigation(destName, distance, time);
+                        } else {
+                            updateStatus('❌ 路线规划失败', 'error');
+                        }
+                    });
+                    
+                } else {
+                    updateStatus('❌ 找不到目的地，请检查地址', 'error');
+                }
+            });
+        }
+        
+        // 记录导航历史
+        function recordNavigation(destName, distance, time) {
+            const historyList = document.getElementById('history-list');
+            const now = new Date().toLocaleTimeString();
+            
+            historyList.innerHTML = `
+                <p>最近导航：${destName}</p>
+                <p>距离：${distance} km</p>
+                <p>时间：${time} 分钟</p>
+                <p>时间：${now}</p>
+            `;
+        }
+        
+        // 清除导航
+        function clearNavigation() {
+            if (destinationMarker) {
+                map.remove(destinationMarker);
+                destinationMarker = null;
+            }
+            if (currentRoute) {
+                map.remove(currentRoute);
+                currentRoute = null;
+            }
+            document.getElementById('dest-input').value = '';
+            document.getElementById('nav-btn').disabled = true;
+            updateStatus('🗑️ 已清除路线和标记', 'info');
+        }
+        
+        // 开始模拟
+        function startSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+            }
+            
+            if (!map) return;
+            
+            isSimulationMode = true;
+            updateStatus('🎮 开始模拟移动...', 'success');
+            
+            pathIndex = 0;
+            simulationInterval = setInterval(() => {
+                if (pathIndex >= simulationPath.length) {
+                    pathIndex = 0;
+                }
+                
+                const newLocation = simulationPath[pathIndex];
+                
+                // 更新位置
+                if (currentMarker) {
+                    currentMarker.setPosition(newLocation);
+                } else {
+                    currentMarker = new AMap.Marker({
+                        position: newLocation,
+                        map: map,
+                        title: '模拟位置',
+                        content: createMarkerHTML('#722ed1', '📍')
+                    });
+                }
+                
+                // 移动地图
+                map.setCenter(newLocation);
+                
+                // 更新显示
+                const speed = Math.floor(Math.random() * 30 + 20);
+                document.getElementById('speed').textContent = speed + ' km/h';
+                
+                pathIndex++;
+            }, 2000);
+        }
+        
+        // 停止模拟
+        function stopSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                updateStatus('⏹ 模拟已停止', 'info');
+            }
+        }
+        
+        // 模拟碰撞
+        function simulateCrash() {
+            updateStatus('🚨 检测到剧烈碰撞！紧急制动启动...', 'error');
+            updateDeviceStatus('crash-detect', '碰撞警告', 'status-danger');
+            
+            // 在地图上显示警告
+            if (currentMarker && map) {
+                const crashMarker = new AMap.Marker({
+                    position: currentMarker.getPosition(),
+                    map: map,
+                    content: '<div style="background:red;color:white;padding:10px;border-radius:5px;animation:blink 1s infinite;">💥 碰撞</div>'
+                });
+                
+                // 10秒后移除
+                setTimeout(() => map.remove(crashMarker), 10000);
+            }
+            
+            // 5秒后恢复正常
+            setTimeout(() => {
+                updateDeviceStatus('crash-detect', '正常', 'status-good');
+            }, 5000);
+        }
+        
+        // 模拟求救
+        function simulateSOS() {
+            updateStatus('🆘 SOS紧急求助已发送！位置信息已共享', 'error');
+            
+            if (currentMarker && map) {
+                const sosMarker = new AMap.Marker({
+                    position: currentMarker.getPosition(),
+                    map: map,
+                    content: '<div style="background:red;color:white;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;animation:blink 0.5s infinite;">🆘</div>'
+                });
+                
+                setTimeout(() => map.remove(sosMarker), 10000);
+            }
+        }
+        
+        // 更新状态提示
+        function updateStatus(text, type) {
+            const statusEl = document.getElementById('status-tip');
+            statusEl.innerHTML = text;
+            
+            switch(type) {
+                case 'success':
+                    statusEl.style.background = '#f6ffed';
+                    statusEl.style.border = '1px solid #b7eb8f';
+                    statusEl.style.color = '#52c41a';
+                    break;
+                case 'error':
+                    statusEl.style.background = '#fff2f0';
+                    statusEl.style.border = '1px solid #ffccc7';
+                    statusEl.style.color = '#ff4d4f';
+                    break;
+                case 'warning':
+                    statusEl.style.background = '#fffbe6';
+                    statusEl.style.border = '1px solid #ffe58f';
+                    statusEl.style.color = '#faad14';
+                    break;
+                case 'info':
+                    statusEl.style.background = '#e6f7ff';
+                    statusEl.style.border = '1px solid #91d5ff';
+                    statusEl.style.color = '#1890ff';
+                    break;
+            }
+        }
+        
+        // 更新设备状态
+        function updateDeviceStatus(elementId, text, statusClass) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = text;
+                element.className = 'status-value ' + statusClass;
+            }
+        }
+        
+        // 设备数据模拟更新
+        function startDeviceSimulation() {
+            setInterval(() => {
+                // 模拟电池电量变化
+                const battery = 80 + Math.floor(Math.random() * 20);
+                updateDeviceStatus('battery', battery + '%', 
+                    battery > 60 ? 'status-good' : 
+                    battery > 30 ? 'status-warning' : 'status-danger');
+            }, 5000);
+        }
+        
+        // 调试信息
+        console.log('智能头盔监控导航系统加载完成');
+    </script>
+    
+    <style>
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
 </body>
 </html>
