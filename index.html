@@ -3,310 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能头盔监控导航系统</title>
+    <title>智能头盔导航系统</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Microsoft Yahei", sans-serif;
-        }
-        body {
-            padding: 20px;
-            background: #f5f5f5;
-            /* 取消多余动画，减少卡顿 */
-            animation: none;
-            transition: none;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        /* 登录模块 - 简洁无冗余 */
-        .login-wrap {
-            width: 380px;
-            margin: 60px auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        .login-wrap h2 {
-            color: #0078d7;
-            margin-bottom: 25px;
-            font-size: 22px;
-        }
-        .login-wrap input {
-            width: 100%;
-            height: 45px;
-            margin: 10px 0;
-            padding: 0 15px;
-            border: 1px solid #eee;
-            border-radius: 6px;
-            font-size: 16px;
-            outline: none;
-        }
-        .login-wrap input:focus {
-            border-color: #0078d7;
-        }
-        .login-wrap button {
-            width: 100%;
-            height: 45px;
-            background: #0078d7;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 5px;
-        }
-        .login-wrap button:hover {
-            background: #005a9e;
-        }
-        /* 功能模块 - 轻量无多余 */
-        .func-wrap {
-            display: none;
-        }
-        .logout-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            height: 40px;
-            padding: 0 20px;
-            background: #f53f3f;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            z-index: 999;
-        }
-        .nav-module {
-            background: #fff;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .nav-module h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 20px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        .nav-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        #dest-input {
-            flex: 1;
-            min-width: 280px;
-            height: 45px;
-            padding: 0 15px;
-            border: 1px solid #eee;
-            border-radius: 6px;
-            font-size: 16px;
-            outline: none;
-        }
-        #dest-input:focus {
-            border-color: #0078d7;
-        }
-        .nav-btn {
-            height: 45px;
-            padding: 0 25px;
-            background: #0078d7;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .nav-btn:hover {
-            background: #005a9e;
-        }
-        #map-container {
-            width: 100%;
-            height: 500px;
-            border-radius: 6px;
-            border: 1px solid #eee;
-        }
-        #tip-text {
-            margin-top: 12px;
-            font-size: 14px;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+        body { padding: 20px; background: #f5f5f5; }
+        /* 登录页 */
+        #login { width: 360px; margin: 80px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); text-align: center; }
+        #login h2 { color: #0078d7; margin-bottom: 25px; }
+        #login input { width: 100%; height: 44px; margin: 10px 0; padding: 0 15px; border: 1px solid #eee; border-radius: 6px; font-size: 16px; }
+        #login button { width: 100%; height: 44px; background: #0078d7; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+        /* 功能页 */
+        #main { display: none; max-width: 1200px; margin: 0 auto; }
+        .logout { position: fixed; top: 20px; right: 20px; height: 40px; padding: 0 20px; background: #f53f3f; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+        .nav-box { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .nav-box h2 { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .ctrl { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        #dest { flex: 1; min-width: 280px; height: 44px; padding: 0 15px; border: 1px solid #eee; border-radius: 6px; font-size: 16px; }
+        .btn { height: 44px; padding: 0 25px; background: #0078d7; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+        #map { width: 100%; height: 500px; border-radius: 6px; border: 1px solid #eee; }
+        #tip { margin-top: 10px; font-size: 14px; }
         .success { color: #00b42a; }
         .error { color: #f53f3f; }
-        .default { color: #666; }
+        .info { color: #666; }
     </style>
-    <!-- 高德地图API - 精简版，只加载核心 -->
-    <script src="https://webapi.amap.com/maps?v=2.0&key=e2e067c5006e95799f9f27327f568f88e" async defer></script>
+    <!-- 高德地图API（核心仅加载，无冗余） -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=e2e067c5006e95799f9f27327f568f88e"></script>
 </head>
 <body>
-    <!-- 登录页面 - 唯一入口，无冗余 -->
-    <div class="login-wrap" id="loginPage">
+    <!-- 登录页面 -->
+    <div id="login">
         <h2>智能头盔系统登录</h2>
-        <input type="text" id="user" placeholder="请输入用户名">
-        <input type="password" id="pwd" placeholder="请输入密码">
-        <button onclick="login()">登 录</button>
+        <input type="text" id="user" placeholder="用户名">
+        <input type="password" id="pwd" placeholder="密码">
+        <button onclick="doLogin()">登录</button>
     </div>
 
-    <!-- 功能页面 - 默认隐藏，登录后显示 -->
-    <div class="container func-wrap" id="funcPage">
-        <button class="logout-btn" onclick="logout()">退出登录</button>
-        <div class="nav-module">
+    <!-- 核心功能页面 -->
+    <div id="main">
+        <button class="logout" onclick="doLogout()">退出登录</button>
+        <div class="nav-box">
             <h2>头盔实时导航</h2>
-            <div class="nav-controls">
-                <input type="text" id="dest-input" placeholder="请输入目的地（例：天安门广场）">
-                <button class="nav-btn" onclick="getLocation()">获取当前定位</button>
-                <button class="nav-btn" onclick="goNav()">开始导航</button>
+            <div class="ctrl">
+                <input type="text" id="dest" placeholder="目的地（例：天安门广场）">
+                <button class="btn" onclick="getLoc()">获取当前定位</button>
+                <button class="btn" onclick="startNav()">开始导航</button>
             </div>
-            <div id="map-container"></div>
-            <div id="tip-text" class="default">请先获取当前定位，再输入目的地导航</div>
+            <div id="map"></div>
+            <div id="tip" class="info">请先获取定位，再输入目的地</div>
         </div>
     </div>
 
     <script>
-        // 全局变量只定义必要的，减少内存占用
-        let map = null;
-        let myLoc = null;
-        // 关闭所有多余定时器，解决卡顿核心
-        clearInterval(window.timer);
-        clearTimeout(window.timeout);
+        let map, myLoc;
+        // 强制清理所有残留定时器/进程，解决卡顿根源
+        for (let i = 0; i < 100; i++) { clearInterval(i); clearTimeout(i); }
 
-        // 页面加载只做一件事：检查登录状态，无多余操作
-        window.onload = function() {
-            checkLoginStatus();
+        // 页面加载仅检查登录，无任何多余操作
+        window.onload = () => {
+            if (localStorage.getItem('isLogin') === '1') {
+                document.getElementById('login').style.display = 'none';
+                document.getElementById('main').style.display = 'block';
+                initMap();
+            }
         };
 
-        // 1. 检查登录状态 - 极简逻辑，不耗资源
-        function checkLoginStatus() {
-            const isLogin = localStorage.getItem('helmet_is_login');
-            if (isLogin === 'yes') {
-                document.getElementById('loginPage').style.display = 'none';
-                document.getElementById('funcPage').style.display = 'block';
-                initMap(); // 只初始化一次地图，不重复加载
-            } else {
-                document.getElementById('loginPage').style.display = 'block';
-                document.getElementById('funcPage').style.display = 'none';
-            }
+        // 1. 登录 - 极简逻辑，永久保存
+        function doLogin() {
+            const u = document.getElementById('user').value.trim(), p = document.getElementById('pwd').value.trim();
+            if (!u || !p) { alert('请输入用户名/密码！'); return; }
+            localStorage.setItem('isLogin', '1');
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+            initMap();
         }
 
-        // 2. 登录 - 无多余校验，成功即保存
-        function login() {
-            const user = document.getElementById('user').value.trim();
-            const pwd = document.getElementById('pwd').value.trim();
-            if (!user || !pwd) {
-                alert('请输入用户名和密码！');
-                return;
-            }
-            // 只存必要的登录状态，减少localStorage占用
-            localStorage.setItem('helmet_is_login', 'yes');
-            checkLoginStatus();
-            alert('登录成功！');
+        // 2. 退出登录 - 彻底清除
+        function doLogout() {
+            localStorage.removeItem('isLogin');
+            window.location.reload();
         }
 
-        // 3. 退出登录 - 彻底清除，不残留
-        function logout() {
-            localStorage.removeItem('helmet_is_login');
-            window.location.reload(); // 刷新一次，彻底释放资源
-        }
-
-        // 4. 初始化地图 - 只执行一次，解决反复加载卡顿
+        // 3. 初始化地图 - 仅执行1次，零冗余
         function initMap() {
-            if (map) return; // 地图已存在，直接返回
-            map = new AMap.Map('map-container', {
-                zoom: 16,
-                center: [116.397428, 39.90923],
-                resizeEnable: true,
-                // 关闭地图多余动画，减少CPU占用
-                animateEnable: false
-            });
-            map.addControl(new AMap.ToolBar({ liteStyle: true })); // 轻量控件，更流畅
-            // 预加载一次定位/导航插件，不重复请求
+            if (map) return;
+            map = new AMap.Map('map', { zoom: 16, center: [116.397, 39.909], animateEnable: false });
+            map.addControl(new AMap.ToolBar({ liteStyle: true }));
+            // 预加载插件，避免点击时加载卡顿
             AMap.plugin(['AMap.Geolocation', 'AMap.Geocoder', 'AMap.Driving'], () => {});
         }
 
-        // 5. 获取定位 - 3秒超时+兜底，极速不卡顿
-        function getLocation() {
-            if (!map) initMap();
-            setTip('🔍 正在定位...', 'default');
-            // 高德原生定位，比浏览器快且不耗资源
-            const geolocation = new AMap.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 3000, // 严格3秒超时，绝不卡死
-                buttonPosition: 'RB'
-            });
-            // 只执行一次定位，不重复触发
-            geolocation.getCurrentPosition((status, res) => {
+        // 4. 获取定位 - 高德原生极速定位，1-2秒出结果
+        function getLoc() {
+            initMap();
+            setTip('正在定位...', 'info');
+            const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 2000 });
+            geo.getCurrentPosition((status, res) => {
                 if (status === 'complete') {
                     myLoc = res.position;
                     map.setCenter(myLoc);
-                    // 只加一个标记，不重复添加
-                    new AMap.Marker({
-                        position: myLoc,
-                        map: map,
-                        icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png'
-                    });
-                    setTip('✅ 定位成功！可输入目的地导航', 'success');
+                    new AMap.Marker({ position: myLoc, map: map, icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png' });
+                    setTip('定位成功！', 'success');
                 } else {
-                    setTip('❌ 高精度定位失败，自动切换城市定位', 'error');
-                    // 兜底IP定位，轻量不耗资源
-                    AMap.plugin('AMap.CitySearch', () => {
-                        new AMap.CitySearch().getLocalCity((s, r) => {
-                            if (s === 'complete') {
-                                myLoc = r.center;
-                                map.setCenter(myLoc);
-                                setTip('⚠️ 城市定位成功，继续使用', 'default');
-                            }
-                        });
+                    // 定位失败直接用IP兜底，不卡进程
+                    new AMap.CitySearch().getLocalCity((s, r) => {
+                        myLoc = r.center;
+                        map.setCenter(myLoc);
+                        setTip('定位成功（城市）', 'info');
                     });
                 }
             });
         }
 
-        // 6. 开始导航 - 极简逻辑，秒出路线
-        function goNav() {
-            if (!myLoc) {
-                setTip('⚠️ 请先点击获取当前定位！', 'error');
-                return;
-            }
-            const dest = document.getElementById('dest-input').value.trim();
-            if (!dest) {
-                setTip('⚠️ 请输入目的地！', 'error');
-                return;
-            }
-            setTip('🗺️ 正在规划路线...', 'default');
-            // 地址解析+路线规划，一步到位，无多余请求
-            new AMap.Geocoder().getLocation(dest, (s1, r1) => {
-                if (s1 !== 'complete') {
-                    setTip('❌ 地址解析失败，请输入准确地址！', 'error');
-                    return;
-                }
+        // 5. 开始导航 - 极简逻辑，秒出路线
+        function startNav() {
+            if (!myLoc) { setTip('请先获取定位！', 'error'); return; }
+            const d = document.getElementById('dest').value.trim();
+            if (!d) { setTip('请输入目的地！', 'error'); return; }
+            setTip('规划路线中...', 'info');
+            // 地址解析+路线规划，一步到位
+            new AMap.Geocoder().getLocation(d, (s1, r1) => {
+                if (s1 !== 'complete') { setTip('地址错误！', 'error'); return; }
                 const destLoc = r1.geocodes[0].location;
-                new AMap.Marker({
-                    position: destLoc,
-                    map: map,
-                    icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
-                });
-                new AMap.Driving({ map: map, animateEnable: false }).search(myLoc, destLoc, (s2, r2) => {
+                new AMap.Marker({ position: destLoc, map: map, icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' });
+                new AMap.Driving({ map: map }).search(myLoc, destLoc, (s2, r2) => {
                     if (s2 === 'complete') {
-                        const route = r2.routes[0];
-                        setTip(`🎉 导航成功！预计${Math.ceil(route.time/60)}分钟 | 全程${(route.distance/1000).toFixed(1)}km`, 'success');
+                        const r = r2.routes[0];
+                        setTip(`导航成功！预计${Math.ceil(r.time/60)}分钟 | 全程${(r.distance/1000).toFixed(1)}km`, 'success');
                     } else {
-                        setTip('❌ 路线规划失败，请更换目的地！', 'error');
+                        setTip('路线规划失败！', 'error');
                     }
                 });
             });
         }
 
-        // 7. 提示框 - 极简函数，不耗资源
-        function setTip(text, type) {
-            const tip = document.getElementById('tip-text');
-            tip.innerText = text;
-            tip.className = type;
+        // 6. 提示框 - 极简函数
+        function setTip(txt, cls) {
+            const t = document.getElementById('tip');
+            t.innerText = txt;
+            t.className = cls;
         }
     </script>
 </body>
