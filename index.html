@@ -2,273 +2,90 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>智能头盔导航系统</title>
+    <title>智能头盔 - 原始定位版</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { padding: 20px; font-family: Arial; background: #f0f2f5; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { text-align: center; color: #1890ff; margin: 20px 0; }
-        #map { width: 100%; height: 500px; border: 2px solid #1890ff; border-radius: 10px; margin: 20px 0; }
-        .controls { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
-        input { flex: 1; min-width: 300px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
-        button { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        #locBtn { background: #1890ff; color: white; }
-        #navBtn { background: #52c41a; color: white; }
-        #simBtn { background: #722ed1; color: white; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        #status { padding: 15px; margin: 15px 0; background: #e6f7ff; border-radius: 8px; }
+        #map { width:100%; height:500px; border:2px solid blue; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🏍️ 智能头盔导航系统</h1>
-        
-        <div class="controls">
-            <input type="text" id="dest" placeholder="输入目的地" value="天安门广场">
-            <button onclick="getLocation()" id="locBtn">📍 获取真实位置</button>
-            <button onclick="useSimLocation()" id="simBtn">🎮 使用模拟位置</button>
-            <button onclick="startNav()" id="navBtn" disabled>🚀 开始导航</button>
-        </div>
-        
-        <div id="map"></div>
-        <div id="status">系统初始化完成！点击按钮开始</div>
-        
-        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
-            <p>说明：真实定位需要GPS信号，模拟位置用于演示</p>
-        </div>
-    </div>
+    <h1>🏍️ 智能头盔定位</h1>
+    <button onclick="getLoc()" style="padding:20px; font-size:20px;">
+        🔍 点我定位
+    </button>
+    <div id="map"></div>
+    <div id="result" style="margin-top:20px; padding:20px; background:#f0f0f0;"></div>
     
     <!-- 高德地图API -->
     <script src="https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145"></script>
     
     <script>
-        // 全局变量
         let map = null;
-        let myLocation = null;
         let marker = null;
         
         // 初始化地图
         function initMap() {
-            try {
-                map = new AMap.Map('map', {
-                    zoom: 14,
-                    center: [116.397428, 39.90923],
-                    resizeEnable: true
-                });
-                
-                console.log('✅ 地图创建成功');
-                updateStatus('地图加载完成！');
-                
-            } catch (error) {
-                updateStatus('地图初始化失败');
-            }
+            map = new AMap.Map('map', {
+                zoom: 15,
+                center: [116.397428, 39.90923]
+            });
+            console.log('地图OK');
         }
         
-        // 获取真实位置 - 修复版（更长超时时间）
-        function getLocation() {
-            const btn = document.getElementById('locBtn');
-            btn.disabled = true;
-            btn.innerHTML = '定位中...';
-            
-            updateStatus('正在获取GPS位置...（可能需要15秒）');
+        // 获取位置 - 最原始的方法
+        function getLoc() {
+            document.getElementById('result').innerHTML = '定位请求已发送...';
             
             if (navigator.geolocation) {
-                console.log('开始获取位置，超时设为15秒...');
+                console.log('开始定位，使用30秒超时...');
                 
+                // 关键：使用超长超时时间
                 navigator.geolocation.getCurrentPosition(
-                    // 成功
-                    function(position) {
-                        console.log('定位成功:', position);
-                        const lng = position.coords.longitude;
-                        const lat = position.coords.latitude;
+                    function(pos) {
+                        console.log('成功！', pos);
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
                         
-                        updateStatus('✅ GPS定位成功！');
-                        setLocation(lng, lat, 'GPS定位');
-                        btn.disabled = false;
-                        btn.innerHTML = '📍 获取真实位置';
+                        // 在地图上显示
+                        if (marker) map.remove(marker);
+                        marker = new AMap.Marker({
+                            position: [lng, lat],
+                            map: map
+                        });
+                        
+                        map.setCenter([lng, lat]);
+                        map.setZoom(16);
+                        
+                        document.getElementById('result').innerHTML = 
+                            '✅ 定位成功！<br>' +
+                            '纬度：' + lat + '<br>' +
+                            '经度：' + lng;
                     },
-                    // 失败
-                    function(error) {
-                        console.log('定位失败:', error.code, error.message);
-                        
-                        let msg = '';
-                        switch(error.code) {
-                            case 1:
-                                msg = '❌ 用户拒绝定位权限';
-                                break;
-                            case 2:
-                                msg = '❌ 位置信息不可用';
-                                break;
-                            case 3:
-                                msg = '⏱️ GPS定位超时，使用网络定位';
-                                // 尝试IP定位
-                                setTimeout(() => {
-                                    updateStatus('尝试网络定位...');
-                                    useIPLocation();
-                                }, 1000);
-                                break;
-                        }
-                        
-                        if (error.code !== 3) {
-                            updateStatus(msg);
-                            btn.disabled = false;
-                            btn.innerHTML = '📍 获取真实位置';
-                        }
+                    function(err) {
+                        console.log('失败：', err.code, err.message);
+                        document.getElementById('result').innerHTML = 
+                            '❌ 定位失败<br>' +
+                            '错误码：' + err.code + '<br>' +
+                            '信息：' + err.message;
                     },
-                    // 配置 - 更长超时时间
                     {
-                        enableHighAccuracy: true,  // 使用GPS
-                        timeout: 15000,           // 15秒超时
+                        enableHighAccuracy: true,  // 关键：要求高精度
+                        timeout: 30000,            // 关键：30秒超时
                         maximumAge: 0
                     }
                 );
             } else {
-                updateStatus('浏览器不支持定位');
-                btn.disabled = false;
-                btn.innerHTML = '📍 获取真实位置';
+                document.getElementById('result').innerHTML = '浏览器不支持';
             }
         }
         
-        // 使用IP定位
-        function useIPLocation() {
-            updateStatus('正在获取网络位置...');
-            
-            // 尝试使用高德IP定位
-            AMap.plugin('AMap.CitySearch', function() {
-                const citySearch = new AMap.CitySearch();
-                
-                citySearch.getLocalCity(function(status, result) {
-                    if (status === 'complete' && result.city) {
-                        // 使用城市中心
-                        const center = result.center;
-                        updateStatus('✅ 网络定位成功（精度较低）');
-                        setLocation(center.lng, center.lat, '网络定位');
-                    } else {
-                        updateStatus('网络定位失败，使用模拟位置');
-                        useSimLocation();
-                    }
-                });
-            });
-        }
-        
-        // 使用模拟位置
-        function useSimLocation() {
-            // 在北京范围内随机位置
-            const baseLat = 39.90923;
-            const baseLng = 116.397428;
-            const range = 0.02; // 约2公里范围
-            
-            const lat = baseLat + (Math.random() - 0.5) * range;
-            const lng = baseLng + (Math.random() - 0.5) * range;
-            
-            updateStatus('✅ 使用模拟位置（演示用）');
-            setLocation(lng, lat, '模拟位置');
-        }
-        
-        // 设置位置
-        function setLocation(lng, lat, source) {
-            myLocation = [lng, lat];
-            
-            // 更新标记
-            if (marker) {
-                map.remove(marker);
-            }
-            
-            marker = new AMap.Marker({
-                position: myLocation,
-                map: map,
-                title: '我的位置 (' + source + ')',
-                content: '<div style="background:#1890ff;width:24px;height:24px;border-radius:50%;border:3px solid white;"></div>'
-            });
-            
-            // 移动到位置
-            map.setCenter(myLocation);
-            map.setZoom(16);
-            
-            // 启用导航按钮
-            document.getElementById('navBtn').disabled = false;
-            
-            // 更新状态
-            updateStatus(
-                '✅ ' + source + '成功！<br>' +
-                '纬度: ' + lat.toFixed(6) + '<br>' +
-                '经度: ' + lng.toFixed(6)
-            );
-            
-            console.log('位置设置:', source, myLocation);
-        }
-        
-        // 开始导航
-        function startNav() {
-            if (!myLocation) return;
-            
-            const dest = document.getElementById('dest').value.trim();
-            if (!dest) {
-                updateStatus('请输入目的地');
-                return;
-            }
-            
-            const btn = document.getElementById('navBtn');
-            btn.disabled = true;
-            btn.innerHTML = '规划中...';
-            
-            updateStatus('正在规划路线...');
-            
-            AMap.plugin(['AMap.Geocoder', 'AMap.Driving'], function() {
-                const geocoder = new AMap.Geocoder();
-                
-                geocoder.getLocation(dest, function(status, result) {
-                    if (status === 'complete' && result.geocodes.length > 0) {
-                        const destPos = result.geocodes[0].location;
-                        const destName = result.geocodes[0].formattedAddress;
-                        
-                        // 目的地标记
-                        new AMap.Marker({
-                            position: destPos,
-                            map: map,
-                            title: destName,
-                            content: '<div style="background:red;width:24px;height:24px;border-radius:50%;">🏁</div>'
-                        });
-                        
-                        // 路线规划
-                        const driving = new AMap.Driving({
-                            map: map,
-                            policy: AMap.DrivingPolicy.LEAST_TIME
-                        });
-                        
-                        driving.search(myLocation, destPos, function(status, result) {
-                            btn.disabled = false;
-                            btn.innerHTML = '🚀 开始导航';
-                            
-                            if (status === 'complete') {
-                                map.setFitView();
-                                updateStatus('✅ 导航路线规划完成！<br>目的地：' + destName);
-                            } else {
-                                updateStatus('路线规划失败');
-                            }
-                        });
-                        
-                    } else {
-                        btn.disabled = false;
-                        btn.innerHTML = '🚀 开始导航';
-                        updateStatus('找不到目的地');
-                    }
-                });
-            });
-        }
-        
-        // 更新状态
-        function updateStatus(text) {
-            document.getElementById('status').innerHTML = text;
-        }
-        
-        // 页面加载
+        // 自动初始化
         window.onload = initMap;
         
-        // 自动使用模拟位置（演示用）
-        setTimeout(useSimLocation, 2000);
-        
-        console.log('系统初始化完成');
+        // 自动测试
+        setTimeout(function() {
+            console.log('3秒后自动测试定位...');
+            getLoc();
+        }, 3000);
     </script>
 </body>
 </html>
