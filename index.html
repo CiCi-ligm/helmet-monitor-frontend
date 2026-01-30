@@ -2,153 +2,250 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>完整导航系统</title>
+    <title>智能头盔导航 - 修复版</title>
     <style>
-        #map { width:100%; height:500px; border:2px solid #1890ff; }
-        .controls { margin:20px 0; }
-        button { padding:12px 24px; margin:5px; background:#1890ff; color:white; border:none; }
-        #status { padding:15px; margin:10px 0; }
+        #map { width:100%; height:500px; border:2px solid #1890ff; margin:20px 0; }
+        button { padding:12px 24px; margin:5px; background:#1890ff; color:white; border:none; cursor:pointer; }
+        button:disabled { background:#ccc; }
+        .step { margin:20px 0; padding:15px; background:#f0f8ff; border-radius:8px; }
     </style>
 </head>
 <body>
-    <h1>🏍️ 智能头盔导航 - 分开加载版本</h1>
+    <h1>🏍️ 智能头盔导航 - 先定位后地图</h1>
     
-    <div class="controls">
-        <input type="text" id="dest" placeholder="目的地" style="padding:10px; width:250px;">
-        <button onclick="step1_getLocation()" id="btn1">1. 获取位置</button>
-        <button onclick="step2_searchDest()" id="btn2" disabled>2. 搜索目的地</button>
-        <button onclick="step3_startNav()" id="btn3" disabled>3. 开始导航</button>
+    <!-- 第一步：先获取位置（不加载地图） -->
+    <div class="step" id="step1">
+        <h3>第一步：先获取位置</h3>
+        <button onclick="getLocationFirst()">📍 只获取位置（不显示地图）</button>
+        <div id="locationResult" style="margin-top:10px;"></div>
     </div>
     
-    <div id="map"></div>
-    <div id="status">第一步：点击"获取位置"</div>
+    <!-- 第二步：加载地图显示位置 -->
+    <div class="step" id="step2" style="display:none;">
+        <h3>第二步：在地图上显示位置</h3>
+        <button onclick="showOnMap()">🗺️ 在地图上显示</button>
+        <div id="mapResult" style="margin-top:10px;"></div>
+    </div>
     
-    <!-- 只加载基础地图 -->
-    <script src="https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145"></script>
+    <!-- 第三步：导航 -->
+    <div class="step" id="step3" style="display:none;">
+        <h3>第三步：开始导航</h3>
+        <input type="text" id="dest" placeholder="输入目的地" style="padding:10px; width:250px;">
+        <button onclick="startNavigation()">🚀 开始导航</button>
+        <div id="navResult" style="margin-top:10px;"></div>
+    </div>
     
+    <!-- 地图容器（一开始隐藏） -->
+    <div id="mapContainer" style="display:none;">
+        <div id="map"></div>
+    </div>
+    
+    <!-- 关键：先不加载地图API -->
     <script>
-        let map = null;
-        let myPos = null;
-        let destPos = null;
-        let myMarker = null;
-        let destMarker = null;
-        let geocoder = null;
-        let driving = null;
+        // 全局变量
+        let myLocation = null;  // 保存位置信息
+        let map = null;         // 地图对象
+        let geocoder = null;    // 地理编码
+        let driving = null;     // 导航
         
-        // 初始化
-        function init() {
-            map = new AMap.Map('map', {
-                zoom: 14,
-                center: [116.397428, 39.90923],
-                resizeEnable: true
-            });
-            console.log('✅ 基础地图加载完成');
-        }
-        
-        // 第一步：获取位置（只用浏览器定位）
-        function step1_getLocation() {
-            document.getElementById('status').innerHTML = '正在获取位置...';
-            document.getElementById('btn1').disabled = true;
+        // 第一步：先获取位置（不涉及地图）
+        function getLocationFirst() {
+            document.getElementById('locationResult').innerHTML = '正在获取位置...';
             
-            navigator.geolocation.getCurrentPosition(
-                function(pos) {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    myPos = [lng, lat];
-                    
-                    // 显示在地图上
-                    if (myMarker) map.remove(myMarker);
-                    myMarker = new AMap.Marker({
-                        position: myPos,
-                        map: map
-                    });
-                    
-                    map.setCenter(myPos);
-                    map.setZoom(16);
-                    
-                    document.getElementById('status').innerHTML = 
-                        '✅ 位置获取成功<br>' +
-                        '纬度: ' + lat.toFixed(6) + '<br>' +
-                        '经度: ' + lng.toFixed(6);
-                    
-                    document.getElementById('btn2').disabled = false;
-                },
-                function(err) {
-                    document.getElementById('status').innerHTML = 
-                        '❌ 定位失败: ' + err.message;
-                    document.getElementById('btn1').disabled = false;
-                }
-            );
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    // 成功
+                    function(position) {
+                        // 保存位置
+                        myLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        
+                        document.getElementById('locationResult').innerHTML = 
+                            '✅ 位置获取成功！<br>' +
+                            '纬度: ' + myLocation.lat.toFixed(6) + '<br>' +
+                            '经度: ' + myLocation.lng.toFixed(6) + '<br>' +
+                            '精度: ' + myLocation.accuracy + '米';
+                        
+                        // 显示第二步
+                        document.getElementById('step2').style.display = 'block';
+                        
+                        console.log('位置已保存:', myLocation);
+                    },
+                    // 失败
+                    function(error) {
+                        let message = '';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                message = '用户拒绝定位请求';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                message = '位置信息不可用';
+                                break;
+                            case error.TIMEOUT:
+                                message = '请求超时';
+                                break;
+                            default:
+                                message = '未知错误';
+                        }
+                        document.getElementById('locationResult').innerHTML = 
+                            '❌ 定位失败: ' + message;
+                    },
+                    // 配置
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                document.getElementById('locationResult').innerHTML = 
+                    '❌ 浏览器不支持定位';
+            }
         }
         
-        // 第二步：搜索目的地（动态加载地理编码插件）
-        function step2_searchDest() {
+        // 第二步：加载地图并显示位置
+        function showOnMap() {
+            if (!myLocation) {
+                alert('请先获取位置');
+                return;
+            }
+            
+            document.getElementById('mapResult').innerHTML = '正在加载地图...';
+            
+            // 动态加载高德地图API
+            loadAMapAPI().then(() => {
+                // 创建地图
+                map = new AMap.Map('map', {
+                    zoom: 16,
+                    center: [myLocation.lng, myLocation.lat],
+                    resizeEnable: true
+                });
+                
+                // 显示地图容器
+                document.getElementById('mapContainer').style.display = 'block';
+                
+                // 添加位置标记
+                const marker = new AMap.Marker({
+                    position: [myLocation.lng, myLocation.lat],
+                    map: map,
+                    title: '我的位置'
+                });
+                
+                document.getElementById('mapResult').innerHTML = 
+                    '✅ 位置已显示在地图上';
+                
+                // 显示第三步
+                document.getElementById('step3').style.display = 'block';
+                
+                console.log('地图已创建，位置已显示');
+            }).catch(error => {
+                document.getElementById('mapResult').innerHTML = 
+                    '❌ 地图加载失败: ' + error;
+            });
+        }
+        
+        // 动态加载高德地图API
+        function loadAMapAPI() {
+            return new Promise((resolve, reject) => {
+                // 检查是否已加载
+                if (window.AMap) {
+                    resolve();
+                    return;
+                }
+                
+                // 创建script标签
+                const script = document.createElement('script');
+                script.src = 'https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145';
+                
+                script.onload = () => {
+                    console.log('高德地图API加载成功');
+                    resolve();
+                };
+                
+                script.onerror = () => {
+                    reject('高德地图API加载失败');
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
+        // 第三步：开始导航
+        function startNavigation() {
+            if (!map || !myLocation) {
+                alert('请先完成前两步');
+                return;
+            }
+            
             const dest = document.getElementById('dest').value.trim();
             if (!dest) {
                 alert('请输入目的地');
                 return;
             }
             
-            document.getElementById('status').innerHTML = '正在搜索目的地...';
-            document.getElementById('btn2').disabled = true;
+            document.getElementById('navResult').innerHTML = '正在规划路线...';
             
-            // 动态加载地理编码插件
-            AMap.plugin('AMap.Geocoder', function() {
+            // 加载地理编码插件
+            AMap.plugin('AMap.Geocoder', () => {
                 geocoder = new AMap.Geocoder();
                 
-                geocoder.getLocation(dest, function(status, result) {
+                geocoder.getLocation(dest, (status, result) => {
                     if (status === 'complete' && result.geocodes.length > 0) {
-                        destPos = result.geocodes[0].location;
+                        const destPos = result.geocodes[0].location;
+                        const destName = result.geocodes[0].formattedAddress;
                         
                         // 添加目的地标记
-                        if (destMarker) map.remove(destMarker);
-                        destMarker = new AMap.Marker({
+                        const destMarker = new AMap.Marker({
                             position: destPos,
                             map: map,
-                            content: '<div style="background:red;width:20px;height:20px;border-radius:50%;"></div>'
+                            title: destName,
+                            content: '<div style="background:red;width:20px;height:20px;border-radius:50%;">🏁</div>'
                         });
                         
-                        document.getElementById('status').innerHTML = 
-                            '✅ 找到目的地<br>' +
-                            result.geocodes[0].formattedAddress;
+                        // 加载导航插件
+                        AMap.plugin('AMap.Driving', () => {
+                            driving = new AMap.Driving({
+                                map: map,
+                                policy: AMap.DrivingPolicy.LEAST_TIME
+                            });
+                            
+                            driving.search(
+                                [myLocation.lng, myLocation.lat],
+                                destPos,
+                                (status, result) => {
+                                    if (status === 'complete') {
+                                        map.setFitView();
+                                        document.getElementById('navResult').innerHTML = 
+                                            '✅ 导航路线规划完成！<br>' +
+                                            '目的地: ' + destName;
+                                    } else {
+                                        document.getElementById('navResult').innerHTML = 
+                                            '❌ 路线规划失败';
+                                    }
+                                }
+                            );
+                        });
                         
-                        document.getElementById('btn3').disabled = false;
                     } else {
-                        document.getElementById('status').innerHTML = '找不到目的地';
-                        document.getElementById('btn2').disabled = false;
+                        document.getElementById('navResult').innerHTML = 
+                            '❌ 找不到目的地';
                     }
                 });
             });
         }
         
-        // 第三步：开始导航（动态加载导航插件）
-        function step3_startNav() {
-            if (!myPos || !destPos) return;
-            
-            document.getElementById('status').innerHTML = '正在规划路线...';
-            document.getElementById('btn3').disabled = true;
-            
-            // 动态加载驾车导航插件
-            AMap.plugin('AMap.Driving', function() {
-                driving = new AMap.Driving({
-                    map: map,
-                    policy: AMap.DrivingPolicy.LEAST_TIME
-                });
-                
-                driving.search(myPos, destPos, function(status, result) {
-                    if (status === 'complete') {
-                        map.setFitView();
-                        document.getElementById('status').innerHTML = '✅ 导航路线规划完成！';
-                    } else {
-                        document.getElementById('status').innerHTML = '路线规划失败';
-                        document.getElementById('btn3').disabled = false;
-                    }
-                });
-            });
-        }
-        
-        // 初始化
-        window.onload = init;
+        // 调试命令
+        window.showLocation = function() {
+            if (myLocation) {
+                console.log('当前保存的位置:', myLocation);
+                alert('位置: ' + myLocation.lat + ', ' + myLocation.lng);
+            } else {
+                alert('没有位置信息');
+            }
+        };
     </script>
 </body>
 </html>
