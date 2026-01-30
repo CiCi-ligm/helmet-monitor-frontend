@@ -2,48 +2,68 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>纯定位测试</title>
+    <title>定位+地图</title>
+    <style>#map { width:100%; height:500px; }</style>
 </head>
 <body>
-    <h1>🏍️ 只测试定位（不加导航）</h1>
+    <h1>🏍️ 定位 + 地图显示</h1>
     
-    <button onclick="testLocationOnly()" style="padding:15px 30px; font-size:16px;">
-        🔍 只测试定位
+    <button onclick="getLocationAndShowMap()" style="padding:15px 30px;">
+        📍 定位并显示在地图
     </button>
     
-    <div id="result" style="margin-top:20px; padding:20px; background:#f0f0f0;"></div>
+    <div id="map"></div>
+    <div id="result" style="margin-top:20px; padding:20px;"></div>
     
-    <!-- 只加载基础地图，不加任何插件 -->
+    <!-- 基础地图 -->
     <script src="https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145"></script>
     
     <script>
-        function testLocationOnly() {
-            document.getElementById('result').innerHTML = '开始定位...';
-            
-            // 只用浏览器定位，不用高德定位插件
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(pos) {
-                        const lat = pos.coords.latitude;
-                        const lng = pos.coords.longitude;
-                        document.getElementById('result').innerHTML = 
-                            '✅ 定位成功！<br>' +
-                            '纬度: ' + lat + '<br>' +
-                            '经度: ' + lng + '<br>' +
-                            '精度: ' + pos.coords.accuracy + '米';
-                    },
-                    function(err) {
-                        document.getElementById('result').innerHTML = 
-                            '❌ 定位失败: ' + err.message;
-                    }
-                );
-            } else {
-                document.getElementById('result').innerHTML = '浏览器不支持定位';
-            }
+        let map = null;
+        let marker = null;
+        
+        // 初始化地图（无中心点）
+        function initMap() {
+            map = new AMap.Map('map', {
+                zoom: 15,
+                resizeEnable: true
+            });
+            console.log('地图初始化完成');
         }
         
-        // 自动测试
-        setTimeout(testLocationOnly, 1000);
+        function getLocationAndShowMap() {
+            document.getElementById('result').innerHTML = '定位中...';
+            
+            // 只用浏览器定位
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    
+                    // 设置地图中心
+                    map.setCenter([lng, lat]);
+                    
+                    // 添加标记
+                    if (marker) {
+                        map.remove(marker);
+                    }
+                    marker = new AMap.Marker({
+                        position: [lng, lat],
+                        map: map
+                    });
+                    
+                    document.getElementById('result').innerHTML = 
+                        '✅ 定位成功并显示在地图上';
+                },
+                function(err) {
+                    document.getElementById('result').innerHTML = 
+                        '❌ 定位失败: ' + err.message;
+                }
+            );
+        }
+        
+        // 初始化
+        window.onload = initMap;
     </script>
 </body>
 </html>
