@@ -1,199 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>智能头盔导航</title>
+    <title>智能头盔导航 - 百度地图版</title>
     <style>
-        body, html { margin:0; padding:0; width:100%; height:100%; }
-        #container { width:100%; height:100%; }
-        .panel {
-            position:absolute; top:20px; left:20px; 
-            background:white; padding:20px; border-radius:10px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.1); z-index:999;
-            width:300px;
-        }
-        input { width:100%; padding:10px; margin:10px 0; border:1px solid #ddd; border-radius:5px; }
-        button { width:100%; padding:12px; margin:5px 0; background:#1890ff; color:white; border:none; border-radius:5px; cursor:pointer; }
-        button:disabled { background:#ccc; }
-        #status { margin-top:10px; padding:10px; background:#f5f5f5; border-radius:5px; }
+        #map { width:100%; height:500px; border:2px solid #3385ff; }
+        .controls { margin:20px 0; }
+        button { padding:10px 20px; margin:5px; background:#3385ff; color:white; border:none; }
     </style>
 </head>
 <body>
-    <div id="container"></div>
-    <div class="panel">
-        <h3 style="margin-bottom:15px;">智能头盔导航</h3>
-        <input type="text" id="dest" placeholder="输入目的地">
-        <button onclick="getLocation()" id="locBtn">📍 获取位置</button>
-        <button onclick="startNav()" id="navBtn" disabled>🚀 开始导航</button>
-        <div id="status">点击"获取位置"开始</div>
+    <h1>🏍️ 智能头盔导航（百度地图）</h1>
+    
+    <div class="controls">
+        <button onclick="getLocation()">📍 获取位置</button>
+        <button onclick="showDemo()">🗺️ 演示导航</button>
     </div>
-
-    <!-- 测试1：先用一个简单的Key试试 -->
-    <script src="https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145"></script>
-
+    
+    <div id="map"></div>
+    <div id="status" style="margin-top:20px; padding:15px; background:#f0f8ff;"></div>
+    
+    <!-- 百度地图API -->
+    <script src="https://api.map.baidu.com/api?v=3.0&ak=您的百度AK"></script>
     <script>
-        // 先检查高德API是否加载成功
-        if (!window.AMap) {
+        // 如果没有百度AK，使用这个演示版本
+        function showDemo() {
+            document.getElementById('map').innerHTML = 
+                '<div style="padding:50px;text-align:center;">' +
+                '<h3>📡 网络连接演示</h3>' +
+                '<div style="background:#e6f7ff;padding:20px;border-radius:10px;margin:20px;">' +
+                '<p>📍 当前位置：北京天安门</p>' +
+                '<p>🏁 目的地：北京大学</p>' +
+                '<p>📏 距离：15.3公里</p>' +
+                '<p>⏱️ 时间：45分钟</p>' +
+                '</div>' +
+                '<p style="color:#666;">网络受限，使用模拟数据演示</p>' +
+                '</div>';
+            
             document.getElementById('status').innerHTML = 
-                '❌ 高德地图API加载失败<br>可能原因：<br>1. 网络问题<br>2. Key无效<br>3. 浏览器阻止';
-            throw new Error('高德地图API加载失败');
+                '✅ 演示模式：嵌入式比赛可以展示功能逻辑';
         }
         
-        console.log('✅ 高德地图API加载成功');
-        
-        // 创建地图
-        var map = new AMap.Map('container', {
-            zoom: 14,
-            center: [116.397428, 39.90923], // 北京
-            resizeEnable: true
-        });
-        
-        console.log('✅ 地图创建成功');
-        document.getElementById('status').innerHTML = '✅ 地图加载成功！';
-        
-        var myPos = null;
-        var myMarker = null;
-        
-        // 获取位置
         function getLocation() {
-            document.getElementById('locBtn').disabled = true;
-            document.getElementById('locBtn').innerHTML = '定位中...';
-            document.getElementById('status').innerHTML = '正在获取位置...';
-            
-            // 使用高德定位
-            AMap.plugin('AMap.Geolocation', function() {
-                var geolocation = new AMap.Geolocation({
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                });
-                
-                geolocation.getCurrentPosition(function(status, result) {
-                    document.getElementById('locBtn').disabled = false;
-                    document.getElementById('locBtn').innerHTML = '📍 获取位置';
-                    
-                    if (status === 'complete') {
-                        // 成功
-                        myPos = result.position;
-                        
-                        // 移除旧标记
-                        if (myMarker) {
-                            map.remove(myMarker);
-                        }
-                        
-                        // 添加标记
-                        myMarker = new AMap.Marker({
-                            position: myPos,
-                            map: map
-                        });
-                        
-                        // 移动地图
-                        map.setCenter(myPos);
-                        map.setZoom(16);
-                        
-                        // 启用导航按钮
-                        document.getElementById('navBtn').disabled = false;
-                        
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
                         document.getElementById('status').innerHTML = 
-                            '✅ 定位成功！<br>可以输入目的地导航';
-                        
-                    } else {
-                        // 失败
+                            '✅ 获取位置成功<br>' +
+                            '纬度: ' + pos.coords.latitude + '<br>' +
+                            '经度: ' + pos.coords.longitude;
+                    },
+                    function(err) {
                         document.getElementById('status').innerHTML = 
-                            '❌ 定位失败，使用默认位置';
-                        
-                        // 使用默认位置
-                        myPos = [116.397428, 39.90923];
-                        
-                        if (myMarker) {
-                            map.remove(myMarker);
-                        }
-                        
-                        myMarker = new AMap.Marker({
-                            position: myPos,
-                            map: map
-                        });
-                        
-                        map.setCenter(myPos);
-                        document.getElementById('navBtn').disabled = false;
+                            '❌ 获取位置失败<br>' +
+                            '错误: ' + err.message + '<br>' +
+                            '嵌入式项目中可以使用GPS模块获取真实位置';
                     }
-                });
-            });
-        }
-        
-        // 开始导航
-        function startNav() {
-            if (!myPos) {
-                document.getElementById('status').innerHTML = '请先获取位置';
-                return;
-            }
-            
-            var dest = document.getElementById('dest').value.trim();
-            if (!dest) {
-                document.getElementById('status').innerHTML = '请输入目的地';
-                return;
-            }
-            
-            document.getElementById('navBtn').disabled = true;
-            document.getElementById('navBtn').innerHTML = '规划中...';
-            document.getElementById('status').innerHTML = '正在规划路线...';
-            
-            // 地理编码
-            AMap.plugin('AMap.Geocoder', function() {
-                var geocoder = new AMap.Geocoder();
-                
-                geocoder.getLocation(dest, function(status, result) {
-                    document.getElementById('navBtn').disabled = false;
-                    document.getElementById('navBtn').innerHTML = '🚀 开始导航';
-                    
-                    if (status === 'complete' && result.geocodes.length > 0) {
-                        var destPos = result.geocodes[0].location;
-                        
-                        // 添加目的地标记
-                        var destMarker = new AMap.Marker({
-                            position: destPos,
-                            map: map
-                        });
-                        
-                        // 路线规划
-                        AMap.plugin('AMap.Driving', function() {
-                            var driving = new AMap.Driving({
-                                map: map,
-                                policy: AMap.DrivingPolicy.LEAST_TIME
-                            });
-                            
-                            driving.search(myPos, destPos, function(status, result) {
-                                if (status === 'complete') {
-                                    map.setFitView();
-                                    document.getElementById('status').innerHTML = '✅ 导航规划完成！';
-                                } else {
-                                    document.getElementById('status').innerHTML = '❌ 路线规划失败';
-                                }
-                            });
-                        });
-                        
-                    } else {
-                        document.getElementById('status').innerHTML = '❌ 找不到目的地';
-                    }
-                });
-            });
-        }
-        
-        // 页面加载后测试
-        console.log('页面加载完成');
-        console.log('高德Key:', '977b6123358698744cd4f2a96e219145');
-        
-        // 测试：直接显示地图
-        setTimeout(function() {
-            if (map.getSize && map.getSize().width > 0) {
-                console.log('✅ 地图渲染成功');
-                document.getElementById('status').innerHTML = '✅ 地图加载成功！点击"获取位置"';
+                );
             } else {
-                console.log('❌ 地图渲染失败');
                 document.getElementById('status').innerHTML = 
-                    '地图渲染失败，请检查控制台错误';
+                    '❌ 浏览器不支持定位<br>' +
+                    '嵌入式头盔可使用硬件GPS模块';
             }
-        }, 1000);
+        }
+        
+        // 初始化显示
+        document.getElementById('status').innerHTML = 
+            '当前网络环境无法访问地图API<br>' +
+            '嵌入式比赛中可以使用：<br>' +
+            '1. 硬件GPS模块获取位置<br>' +
+            '2. 离线地图数据<br>' +
+            '3. 模拟数据进行功能演示';
     </script>
 </body>
 </html>
