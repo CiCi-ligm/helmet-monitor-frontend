@@ -1,246 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>智能头盔系统 - 演示版</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:Arial; padding:20px; background:#f5f5f5; }
-        .container { max-width:800px; margin:0 auto; background:white; padding:30px; border-radius:15px; }
-        h1 { color:#1890ff; margin-bottom:20px; text-align:center; }
-        .demo-map { height:400px; background:#e8f4fd; border-radius:10px; margin:20px 0; position:relative; }
-        .marker { position:absolute; width:20px;height:20px;background:#1890ff;border-radius:50%;border:3px solid white; }
-        .dest { background:red; }
-        .controls { display:flex; gap:10px; margin:20px 0; }
-        button { padding:12px 24px; background:#1890ff; color:white; border:none; border-radius:8px; cursor:pointer; }
-        .status { padding:15px; background:#f0f8ff; border-radius:8px; margin:20px 0; }
-        .data-panel { display:grid; grid-template-columns:repeat(2,1fr); gap:15px; margin:20px 0; }
-        .data-item { padding:15px; background:#f9f9f9; border-radius:8px; }
-    </style>
+    <meta charset="utf-8">
+    <title>纯定位测试</title>
 </head>
 <body>
-    <div class="container">
-        <h1>🏍️ 智能头盔监控导航系统 - 演示模式</h1>
-        
-        <div class="status" id="status">
-            <h3>📊 系统状态</h3>
-            <p>网络环境受限，使用模拟数据进行功能演示</p>
-            <p style="color:#666;font-size:14px;">适合嵌入式比赛展示功能逻辑</p>
-        </div>
-        
-        <div class="demo-map" id="demoMap">
-            <!-- 模拟地图 -->
-            <div class="marker" style="top:50%;left:50%;transform:translate(-50%,-50%);" id="myMarker"></div>
-            <div class="marker dest" style="top:30%;left:70%;" id="destMarker"></div>
-            <div id="routeLine" style="position:absolute;top:50%;left:50%;width:100px;height:2px;background:#1890ff;transform-origin:0 0;transform:rotate(45deg);"></div>
-        </div>
-        
-        <div class="controls">
-            <input type="text" id="destInput" placeholder="输入目的地" style="flex:1;padding:12px;border:1px solid #ddd;">
-            <button onclick="simulateLocation()">📍 模拟定位</button>
-            <button onclick="simulateNavigation()">🚀 模拟导航</button>
-            <button onclick="simulateCrash()">💥 模拟碰撞</button>
-        </div>
-        
-        <div class="data-panel">
-            <div class="data-item">
-                <h4>📍 位置信息</h4>
-                <p>纬度: <span id="lat">39.90923</span></p>
-                <p>经度: <span id="lng">116.397428</span></p>
-                <p>精度: <span id="accuracy">10米</span></p>
-            </div>
-            <div class="data-item">
-                <h4>📱 设备状态</h4>
-                <p>电量: <span id="battery">92%</span> 🔋</p>
-                <p>温度: <span id="temp">28°C</span></p>
-                <p>速度: <span id="speed">35 km/h</span></p>
-            </div>
-            <div class="data-item">
-                <h4>🛡️ 安全状态</h4>
-                <p>头盔佩戴: <span id="helmet" style="color:green;">正常 ✓</span></p>
-                <p>碰撞检测: <span id="crash" style="color:green;">正常 ✓</span></p>
-                <p>SOS状态: <span id="sos" style="color:green;">正常 ✓</span></p>
-            </div>
-            <div class="data-item">
-                <h4>🧭 导航信息</h4>
-                <p>目的地: <span id="destination">--</span></p>
-                <p>距离: <span id="distance">--</span></p>
-                <p>时间: <span id="time">--</span></p>
-            </div>
-        </div>
-        
-        <div style="text-align:center; margin-top:30px; color:#666; font-size:14px;">
-            <p>© 2024 智能头盔项目 - 嵌入式比赛演示系统</p>
-            <p>说明：网络受限环境下使用模拟数据展示完整功能</p>
-        </div>
-    </div>
-
+    <h1>🏍️ 只测试定位（不加导航）</h1>
+    
+    <button onclick="testLocationOnly()" style="padding:15px 30px; font-size:16px;">
+        🔍 只测试定位
+    </button>
+    
+    <div id="result" style="margin-top:20px; padding:20px; background:#f0f0f0;"></div>
+    
+    <!-- 只加载基础地图，不加任何插件 -->
+    <script src="https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145"></script>
+    
     <script>
-        // 模拟数据
-        let currentLocation = { lat: 39.90923, lng: 116.397428 };
-        let destination = null;
-        let isNavigating = false;
-        
-        // 模拟定位
-        function simulateLocation() {
-            // 随机生成附近位置
-            currentLocation.lat = 39.90923 + (Math.random() - 0.5) * 0.01;
-            currentLocation.lng = 116.397428 + (Math.random() - 0.5) * 0.01;
+        function testLocationOnly() {
+            document.getElementById('result').innerHTML = '开始定位...';
             
-            // 更新显示
-            document.getElementById('lat').textContent = currentLocation.lat.toFixed(6);
-            document.getElementById('lng').textContent = currentLocation.lng.toFixed(6);
-            document.getElementById('accuracy').textContent = (Math.random() * 20 + 5).toFixed(1) + '米';
-            
-            // 移动标记
-            const mapDiv = document.getElementById('demoMap');
-            const marker = document.getElementById('myMarker');
-            const width = mapDiv.offsetWidth;
-            const height = mapDiv.offsetHeight;
-            
-            // 模拟在地图上的位置
-            const x = 50 + (currentLocation.lng - 116.397428) * 10000;
-            const y = 50 - (currentLocation.lat - 39.90923) * 10000;
-            
-            marker.style.left = Math.max(10, Math.min(90, x)) + '%';
-            marker.style.top = Math.max(10, Math.min(90, y)) + '%';
-            
-            // 更新状态
-            document.getElementById('status').innerHTML = 
-                '<h3>✅ 模拟定位成功</h3>' +
-                '<p>纬度: ' + currentLocation.lat.toFixed(6) + '</p>' +
-                '<p>经度: ' + currentLocation.lng.toFixed(6) + '</p>' +
-                '<p>模拟GPS模块获取位置数据</p>';
-            
-            // 更新设备数据
-            updateDeviceData();
-        }
-        
-        // 模拟导航
-        function simulateNavigation() {
-            const dest = document.getElementById('destInput').value.trim();
-            if (!dest) {
-                alert('请输入目的地');
-                return;
+            // 只用浏览器定位，不用高德定位插件
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
+                        document.getElementById('result').innerHTML = 
+                            '✅ 定位成功！<br>' +
+                            '纬度: ' + lat + '<br>' +
+                            '经度: ' + lng + '<br>' +
+                            '精度: ' + pos.coords.accuracy + '米';
+                    },
+                    function(err) {
+                        document.getElementById('result').innerHTML = 
+                            '❌ 定位失败: ' + err.message;
+                    }
+                );
+            } else {
+                document.getElementById('result').innerHTML = '浏览器不支持定位';
             }
-            
-            destination = dest;
-            isNavigating = true;
-            
-            // 显示目的地标记
-            const destMarker = document.getElementById('destMarker');
-            destMarker.style.display = 'block';
-            
-            // 显示路线
-            document.getElementById('routeLine').style.display = 'block';
-            
-            // 计算模拟距离和时间
-            const distance = (Math.random() * 20 + 5).toFixed(1);
-            const time = Math.ceil(distance * 3);
-            
-            // 更新显示
-            document.getElementById('destination').textContent = dest;
-            document.getElementById('distance').textContent = distance + ' 公里';
-            document.getElementById('time').textContent = time + ' 分钟';
-            
-            document.getElementById('status').innerHTML = 
-                '<h3>🗺️ 模拟导航开始</h3>' +
-                '<p>目的地: ' + dest + '</p>' +
-                '<p>距离: ' + distance + ' 公里</p>' +
-                '<p>预计时间: ' + time + ' 分钟</p>' +
-                '<p>模拟路线规划和实时导航</p>';
-            
-            // 开始模拟移动
-            startSimulation();
         }
         
-        // 模拟移动
-        function startSimulation() {
-            let step = 0;
-            const interval = setInterval(() => {
-                if (!isNavigating) {
-                    clearInterval(interval);
-                    return;
-                }
-                
-                // 模拟移动
-                const angle = step * 0.1;
-                const radius = 0.001;
-                
-                const marker = document.getElementById('myMarker');
-                const x = 50 + Math.cos(angle) * 20;
-                const y = 50 + Math.sin(angle) * 20;
-                
-                marker.style.left = x + '%';
-                marker.style.top = y + '%';
-                
-                // 更新速度
-                const speed = Math.floor(Math.random() * 20 + 30);
-                document.getElementById('speed').textContent = speed + ' km/h';
-                
-                step++;
-                
-                // 10步后停止
-                if (step > 30) {
-                    clearInterval(interval);
-                    document.getElementById('status').innerHTML = 
-                        '<h3>✅ 模拟导航完成</h3>' +
-                        '<p>已到达目的地</p>' +
-                        '<p>演示嵌入式头盔导航功能</p>';
-                }
-            }, 500);
-        }
-        
-        // 模拟碰撞
-        function simulateCrash() {
-            document.getElementById('crash').innerHTML = '<span style="color:red;">碰撞警告！</span> 🔴';
-            document.getElementById('status').innerHTML = 
-                '<h3 style="color:red;">🚨 模拟碰撞检测</h3>' +
-                '<p>检测到剧烈冲击！</p>' +
-                '<p>自动发送位置信息给紧急联系人</p>' +
-                '<p>启动紧急制动系统</p>';
-            
-            // 闪烁警示
-            const statusDiv = document.getElementById('status');
-            let flashCount = 0;
-            const flashInterval = setInterval(() => {
-                statusDiv.style.background = flashCount % 2 ? '#fee' : '#fff';
-                flashCount++;
-                if (flashCount > 10) {
-                    clearInterval(flashInterval);
-                    statusDiv.style.background = '#f0f8ff';
-                    document.getElementById('crash').innerHTML = '<span style="color:green;">正常 ✓</span>';
-                }
-            }, 300);
-        }
-        
-        // 更新设备数据
-        function updateDeviceData() {
-            // 模拟电池消耗
-            const battery = Math.floor(Math.random() * 10 + 85);
-            document.getElementById('battery').textContent = battery + '%';
-            
-            // 模拟温度
-            const temp = Math.floor(Math.random() * 10 + 25);
-            document.getElementById('temp').textContent = temp + '°C';
-            
-            // 随机速度
-            const speed = Math.floor(Math.random() * 30 + 20);
-            document.getElementById('speed').textContent = speed + ' km/h';
-        }
-        
-        // 初始化
-        document.getElementById('status').innerHTML = 
-            '<h3>🏍️ 智能头盔系统 - 演示模式</h3>' +
-            '<p>当前网络环境受限，使用模拟数据展示功能</p>' +
-            '<p style="color:#666;">适用于嵌入式比赛功能演示</p>' +
-            '<p>点击"模拟定位"开始演示</p>';
-        
-        // 初始设备数据
-        updateDeviceData();
-        
-        // 隐藏目的地标记和路线
-        document.getElementById('destMarker').style.display = 'none';
-        document.getElementById('routeLine').style.display = 'none';
+        // 自动测试
+        setTimeout(testLocationOnly, 1000);
     </script>
 </body>
 </html>
