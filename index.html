@@ -2,68 +2,153 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>定位+地图</title>
-    <style>#map { width:100%; height:500px; }</style>
+    <title>完整导航系统</title>
+    <style>
+        #map { width:100%; height:500px; border:2px solid #1890ff; }
+        .controls { margin:20px 0; }
+        button { padding:12px 24px; margin:5px; background:#1890ff; color:white; border:none; }
+        #status { padding:15px; margin:10px 0; }
+    </style>
 </head>
 <body>
-    <h1>🏍️ 定位 + 地图显示</h1>
+    <h1>🏍️ 智能头盔导航 - 分开加载版本</h1>
     
-    <button onclick="getLocationAndShowMap()" style="padding:15px 30px;">
-        📍 定位并显示在地图
-    </button>
+    <div class="controls">
+        <input type="text" id="dest" placeholder="目的地" style="padding:10px; width:250px;">
+        <button onclick="step1_getLocation()" id="btn1">1. 获取位置</button>
+        <button onclick="step2_searchDest()" id="btn2" disabled>2. 搜索目的地</button>
+        <button onclick="step3_startNav()" id="btn3" disabled>3. 开始导航</button>
+    </div>
     
     <div id="map"></div>
-    <div id="result" style="margin-top:20px; padding:20px;"></div>
+    <div id="status">第一步：点击"获取位置"</div>
     
-    <!-- 基础地图 -->
+    <!-- 只加载基础地图 -->
     <script src="https://webapi.amap.com/maps?v=1.4.15&key=977b6123358698744cd4f2a96e219145"></script>
     
     <script>
         let map = null;
-        let marker = null;
+        let myPos = null;
+        let destPos = null;
+        let myMarker = null;
+        let destMarker = null;
+        let geocoder = null;
+        let driving = null;
         
-        // 初始化地图（无中心点）
-        function initMap() {
+        // 初始化
+        function init() {
             map = new AMap.Map('map', {
-                zoom: 15,
+                zoom: 14,
+                center: [116.397428, 39.90923],
                 resizeEnable: true
             });
-            console.log('地图初始化完成');
+            console.log('✅ 基础地图加载完成');
         }
         
-        function getLocationAndShowMap() {
-            document.getElementById('result').innerHTML = '定位中...';
+        // 第一步：获取位置（只用浏览器定位）
+        function step1_getLocation() {
+            document.getElementById('status').innerHTML = '正在获取位置...';
+            document.getElementById('btn1').disabled = true;
             
-            // 只用浏览器定位
             navigator.geolocation.getCurrentPosition(
                 function(pos) {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
+                    myPos = [lng, lat];
                     
-                    // 设置地图中心
-                    map.setCenter([lng, lat]);
-                    
-                    // 添加标记
-                    if (marker) {
-                        map.remove(marker);
-                    }
-                    marker = new AMap.Marker({
-                        position: [lng, lat],
+                    // 显示在地图上
+                    if (myMarker) map.remove(myMarker);
+                    myMarker = new AMap.Marker({
+                        position: myPos,
                         map: map
                     });
                     
-                    document.getElementById('result').innerHTML = 
-                        '✅ 定位成功并显示在地图上';
+                    map.setCenter(myPos);
+                    map.setZoom(16);
+                    
+                    document.getElementById('status').innerHTML = 
+                        '✅ 位置获取成功<br>' +
+                        '纬度: ' + lat.toFixed(6) + '<br>' +
+                        '经度: ' + lng.toFixed(6);
+                    
+                    document.getElementById('btn2').disabled = false;
                 },
                 function(err) {
-                    document.getElementById('result').innerHTML = 
+                    document.getElementById('status').innerHTML = 
                         '❌ 定位失败: ' + err.message;
+                    document.getElementById('btn1').disabled = false;
                 }
             );
         }
         
+        // 第二步：搜索目的地（动态加载地理编码插件）
+        function step2_searchDest() {
+            const dest = document.getElementById('dest').value.trim();
+            if (!dest) {
+                alert('请输入目的地');
+                return;
+            }
+            
+            document.getElementById('status').innerHTML = '正在搜索目的地...';
+            document.getElementById('btn2').disabled = true;
+            
+            // 动态加载地理编码插件
+            AMap.plugin('AMap.Geocoder', function() {
+                geocoder = new AMap.Geocoder();
+                
+                geocoder.getLocation(dest, function(status, result) {
+                    if (status === 'complete' && result.geocodes.length > 0) {
+                        destPos = result.geocodes[0].location;
+                        
+                        // 添加目的地标记
+                        if (destMarker) map.remove(destMarker);
+                        destMarker = new AMap.Marker({
+                            position: destPos,
+                            map: map,
+                            content: '<div style="background:red;width:20px;height:20px;border-radius:50%;"></div>'
+                        });
+                        
+                        document.getElementById('status').innerHTML = 
+                            '✅ 找到目的地<br>' +
+                            result.geocodes[0].formattedAddress;
+                        
+                        document.getElementById('btn3').disabled = false;
+                    } else {
+                        document.getElementById('status').innerHTML = '找不到目的地';
+                        document.getElementById('btn2').disabled = false;
+                    }
+                });
+            });
+        }
+        
+        // 第三步：开始导航（动态加载导航插件）
+        function step3_startNav() {
+            if (!myPos || !destPos) return;
+            
+            document.getElementById('status').innerHTML = '正在规划路线...';
+            document.getElementById('btn3').disabled = true;
+            
+            // 动态加载驾车导航插件
+            AMap.plugin('AMap.Driving', function() {
+                driving = new AMap.Driving({
+                    map: map,
+                    policy: AMap.DrivingPolicy.LEAST_TIME
+                });
+                
+                driving.search(myPos, destPos, function(status, result) {
+                    if (status === 'complete') {
+                        map.setFitView();
+                        document.getElementById('status').innerHTML = '✅ 导航路线规划完成！';
+                    } else {
+                        document.getElementById('status').innerHTML = '路线规划失败';
+                        document.getElementById('btn3').disabled = false;
+                    }
+                });
+            });
+        }
+        
         // 初始化
-        window.onload = initMap;
+        window.onload = init;
     </script>
 </body>
 </html>
