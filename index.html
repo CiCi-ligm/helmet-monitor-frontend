@@ -108,399 +108,300 @@
             background: #dbeafe !important;
             border: 1px solid #3b82f6 !important;
         }
+        /* 新增：模拟硬件数据按钮样式 */
+        .mock-btn {
+            background: #2563eb !important;
+            color: white !important;
+            border-color: #2563eb !important;
+        }
+        .mock-btn:hover {
+            background: #1d4ed8 !important;
+        }
     </style>
-    <!-- 高德地图API - 使用您的Key -->
+    <!-- 高德地图API - 替换为你的Key（已绑定GitHub Pages域名） -->
     <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
     <script src="https://webapi.amap.com/ui/1.1/main.js"></script>
 </head>
 <body>
     <div class="map-box">
         <h3>🏍️ 智能头盔定位导航系统</h3>
-        
+
         <div class="nav-controls">
             <input type="text" id="destination" placeholder="输入目的地，如：天安门广场、北京大学">
         </div>
-        
+
         <div class="btn-group">
-            <button onclick="getCurrentLocation()" id="locBtn">📍 获取当前位置</button>
+            <button onclick="getCurrentLocation()" id="locBtn">📍 获取当前位置（浏览器）</button>
+            <button onclick="mockHardwareGPS()" class="mock-btn">📡 模拟硬件GPS定位</button>
             <button onclick="startNavigation()" id="navBtn" disabled>🚀 开始导航</button>
             <button onclick="stopNavigation()" id="stopBtn" disabled>⏹️ 停止导航</button>
             <button onclick="clearMap()">🗑️ 清空地图</button>
         </div>
-        
+
         <div id="mapContainer"></div>
-        
+
         <div class="location-info" id="locationInfo">
-            👋 欢迎使用智能头盔导航系统！点击"获取当前位置"开始
+            👋 欢迎使用智能头盔导航系统！点击"模拟硬件GPS定位"开始测试
         </div>
     </div>
 
     <script>
         // 全局变量
         let map = null;
-        let marker = null;
-        let naviMarker = null;
-        let currentLocation = null;
-        let destinationLocation = null;
-        let driving = null;
-        let geolocation = null;
-        let watchId = null;
-        let isNavigating = false;
-        
+        let marker = null; // 头盔定位标记
+        let naviMarker = null; // 目的地标记
+        let currentLocation = null; // 当前位置（经纬度）
+        let destinationLocation = null; // 目的地位置
+        let driving = null; // 导航实例
+        let watchId = null; // 浏览器定位监听ID
+        let isNavigating = false; // 是否正在导航
+
         // 页面加载后初始化
         window.onload = function() {
             initMap();
         };
-        
-        // 初始化地图
+
+        // 初始化地图（核心修复：补全配置+异常处理）
         function initMap() {
             try {
+                // 初始化地图，设置默认中心点（北京）、缩放级别
                 map = new AMap.Map('mapContainer', {
-                    zoom: 14,
-                    center: [116.397428, 39.90923], // 北京
-                    resizeEnable: true,
-                    viewMode: '2D'
+                    zoom: 15, // 缩放级别（1-18）
+                    center: [116.397470, 39.908823], // 默认中心点（北京天安门）
+                    resizeEnable: true, // 自适应容器大小
+                    mapStyle: 'amap://styles/normal' // 普通地图样式
                 });
-                
-                // 添加工具栏
-                map.addControl(new AMap.ToolBar({
-                    position: 'RT'
-                }));
-                
-                console.log('✅ 地图初始化成功');
-                updateLocationInfo('地图加载完成！可以开始使用', 'success');
-                
-            } catch (error) {
-                console.error('地图初始化失败:', error);
-                updateLocationInfo('❌ 地图加载失败，请检查网络连接', 'error');
+
+                // 加载地图插件（定位、地理编码、导航）
+                AMap.plugin(['AMap.Geolocation', 'AMap.Geocoder', 'AMap.Driving'], function() {
+                    updateLocationInfo("✅ 地图初始化成功！", "success");
+                });
+
+                // 监听地图加载失败事件
+                map.on('error', function(e) {
+                    updateLocationInfo("❌ 地图加载失败：" + e.message, "error");
+                });
+            } catch (e) {
+                updateLocationInfo("❌ 地图初始化异常：" + e.message, "error");
+                console.error("地图初始化错误：", e);
             }
         }
-        
-        // 获取当前位置
+
+        // 1. 浏览器原生定位（仅用于测试，实际项目弃用）
         function getCurrentLocation() {
             if (!map) {
-                updateLocationInfo('地图未就绪', 'error');
+                updateLocationInfo("❌ 地图未初始化", "error");
                 return;
             }
-            
-            const btn = document.getElementById('locBtn');
-            btn.disabled = true;
-            btn.textContent = '定位中...';
-            
-            updateLocationInfo('🔍 正在获取您的位置...', 'loading');
-            
-            // 清除旧标记
-            if (marker) {
-                map.remove(marker);
-                marker = null;
+
+            updateLocationInfo("🔍 正在请求浏览器定位...", "loading");
+            // 检查浏览器是否支持定位
+            if (!navigator.geolocation) {
+                updateLocationInfo("❌ 您的浏览器不支持定位功能", "error");
+                return;
             }
-            
-            // 使用高德定位插件
-            AMap.plugin(['AMap.Geolocation'], () => {
-                geolocation = new AMap.Geolocation({
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0,
-                    convert: true,
-                    showButton: false,
-                    panToLocation: true,
-                    zoomToAccuracy: true
-                });
-                
-                map.addControl(geolocation);
-                
-                geolocation.getCurrentPosition((status, result) => {
-                    console.log('定位结果:', status, result);
-                    
-                    btn.disabled = false;
-                    btn.textContent = '📍 获取当前位置';
-                    
-                    if (status === 'complete') {
-                        onLocationSuccess(result);
-                    } else {
-                        onLocationError(result);
+
+            // 调用浏览器定位API（带超时和高精度配置）
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    // 成功回调：获取经纬度
+                    const lng = position.coords.longitude;
+                    const lat = position.coords.latitude;
+                    currentLocation = [lng, lat];
+                    // 渲染定位标记（转换坐标系）
+                    renderMarker(currentLocation, "current");
+                    // 逆地理解析：经纬度转地址
+                    getAddressByLngLat(currentLocation);
+                    // 启用导航按钮
+                    document.getElementById("navBtn").disabled = false;
+                },
+                function(error) {
+                    // 失败回调：分类提示错误原因
+                    let errMsg = "";
+                    switch(error.code) {
+                        case 1: errMsg = "用户拒绝定位授权"; break;
+                        case 2: errMsg = "定位失败，无法获取位置信息"; break;
+                        case 3: errMsg = "定位请求超时"; break;
+                        default: errMsg = "未知错误：" + error.message;
                     }
-                });
-            });
+                    updateLocationInfo("❌ 浏览器定位失败：" + errMsg, "error");
+                },
+                {
+                    enableHighAccuracy: true, // 高精度定位
+                    timeout: 10000, // 超时时间10秒
+                    maximumAge: 0 // 不使用缓存
+                }
+            );
         }
-        
-        // 定位成功
-        function onLocationSuccess(result) {
-            currentLocation = result.position;
-            
-            // 添加当前位置标记
-            marker = new AMap.Marker({
-                position: currentLocation,
-                map: map,
-                title: '我的位置',
-                content: '<div style="background:#3b82f6;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>'
-            });
-            
-            // 移动到位置
-            map.setCenter(currentLocation);
-            map.setZoom(16);
-            
-            // 启用导航按钮
-            document.getElementById('navBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = false;
-            
-            // 显示地址信息
-            const address = result.addressComponent || {};
-            let locationText = '';
-            if (address.city) locationText += address.city;
-            if (address.district) locationText += address.district;
-            if (address.township) locationText += address.township;
-            
-            if (!locationText) locationText = '当前位置';
-            
-            updateLocationInfo(`✅ 定位成功！位置：${locationText}`, 'success');
-            
-            // 开始实时定位监听
-            startWatchingPosition();
-        }
-        
-        // 开始实时定位监听
-        function startWatchingPosition() {
-            if (navigator.geolocation) {
-                watchId = navigator.geolocation.watchPosition(
-                    function(position) {
-                        const lng = position.coords.longitude;
-                        const lat = position.coords.latitude;
-                        
-                        // 更新位置标记
-                        if (marker) {
-                            marker.setPosition([lng, lat]);
-                        }
-                        
-                        currentLocation = [lng, lat];
-                        
-                        // 如果正在导航，重新规划路线
-                        if (isNavigating && destinationLocation) {
-                            updateNavigationRoute();
-                        }
-                    },
-                    function(error) {
-                        console.error('实时定位失败:', error);
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        maximumAge: 10000,
-                        timeout: 15000
-                    }
-                );
+
+        // 2. 模拟硬件GPS定位（核心：适配嵌入式项目）
+        function mockHardwareGPS() {
+            if (!map) {
+                updateLocationInfo("❌ 地图未初始化", "error");
+                return;
             }
-        }
-        
-        // 定位失败
-        function onLocationError(error) {
-            console.error('定位失败:', error);
-            updateLocationInfo('⚠️ 定位失败，使用默认位置', 'error');
-            
-            // 使用默认位置
-            currentLocation = [116.397428, 39.90923];
-            
-            // 添加标记
-            marker = new AMap.Marker({
-                position: currentLocation,
-                map: map,
-                title: '默认位置',
-                content: '<div style="background:#f59e0b;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>'
+
+            // 模拟硬件GPS输出的WGS84坐标（示例：天安门WGS84坐标）
+            // 实际项目中：此处替换为从硬件/后端接口获取的GPS坐标
+            const wgs84LngLat = [116.397470, 39.908823]; 
+            updateLocationInfo("📡 正在接收硬件GPS数据...", "loading");
+
+            // 关键：WGS84转高德GCJ02坐标系（解决定位偏移）
+            AMap.convertFrom(wgs84LngLat, 'gps', function(status, result) {
+                if (status === 'complete' && result.info === 'ok') {
+                    const gcj02LngLat = result.locations[0];
+                    currentLocation = [gcj02LngLat.lng, gcj02LngLat.lat];
+                    // 渲染头盔定位标记
+                    renderMarker(currentLocation, "current");
+                    // 解析地址
+                    getAddressByLngLat(currentLocation);
+                    // 启用导航按钮
+                    document.getElementById("navBtn").disabled = false;
+                    updateLocationInfo("✅ 硬件GPS定位成功（WGS84→GCJ02转换完成）", "success");
+                } else {
+                    updateLocationInfo("❌ 坐标系转换失败：" + result.info, "error");
+                }
             });
-            
-            map.setCenter(currentLocation);
-            map.setZoom(14);
-            
-            document.getElementById('navBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = false;
         }
-        
-        // 开始导航
+
+        // 3. 开始导航
         function startNavigation() {
             if (!currentLocation) {
-                updateLocationInfo('请先获取当前位置', 'error');
+                updateLocationInfo("❌ 请先获取当前位置", "error");
                 return;
             }
-            
-            const dest = document.getElementById('destination').value.trim();
-            if (!dest) {
-                updateLocationInfo('请输入目的地', 'error');
+
+            const destination = document.getElementById("destination").value.trim();
+            if (!destination) {
+                updateLocationInfo("❌ 请输入目的地", "error");
                 return;
             }
-            
-            const navBtn = document.getElementById('navBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            
-            navBtn.disabled = true;
-            navBtn.textContent = '规划中...';
-            
-            updateLocationInfo('🗺️ 正在规划路线...', 'loading');
-            
-            // 清除旧的路线和目的地标记
-            if (driving) {
-                map.remove(driving);
-                driving = null;
-            }
-            if (naviMarker) {
-                map.remove(naviMarker);
-                naviMarker = null;
-            }
-            
-            // 使用地理编码插件
-            AMap.plugin(['AMap.Geocoder', 'AMap.Driving'], () => {
-                const geocoder = new AMap.Geocoder();
-                
-                geocoder.getLocation(dest, (status, result) => {
-                    if (status === 'complete' && result.geocodes.length > 0) {
-                        destinationLocation = result.geocodes[0].location;
-                        const destName = result.geocodes[0].formattedAddress;
-                        
-                        // 添加目的地标记
-                        naviMarker = new AMap.Marker({
-                            position: destinationLocation,
-                            map: map,
-                            title: destName,
-                            content: '<div style="background:#ef4444;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);">🏁</div>'
-                        });
-                        
-                        // 创建驾车导航
-                        driving = new AMap.Driving({
-                            map: map,
-                            panel: null,
-                            policy: AMap.DrivingPolicy.LEAST_TIME,
-                            showTraffic: true,
-                            hideMarkers: true
-                        });
-                        
-                        // 搜索路径
-                        driving.search(currentLocation, destinationLocation, (status, result) => {
-                            navBtn.disabled = false;
-                            navBtn.textContent = '🚀 开始导航';
-                            
-                            if (status === 'complete') {
-                                const route = result.routes[0];
-                                const time = Math.ceil(route.time / 60);
-                                const distance = (route.distance / 1000).toFixed(1);
-                                
-                                map.setFitView();
-                                isNavigating = true;
-                                
-                                updateLocationInfo(
-                                    `✅ 导航规划完成！<br>` +
-                                    `📍 目的地：${destName}<br>` +
-                                    `📏 距离：${distance}公里<br>` +
-                                    `⏱️ 预计时间：${time}分钟`,
-                                    'success'
-                                );
-                                
-                                // 导航按钮状态
-                                navBtn.style.display = 'none';
-                                stopBtn.style.display = 'inline-block';
-                                
-                            } else {
-                                updateLocationInfo('❌ 路线规划失败', 'error');
-                            }
-                        });
-                        
-                    } else {
-                        navBtn.disabled = false;
-                        navBtn.textContent = '🚀 开始导航';
-                        updateLocationInfo('❌ 找不到目的地，请检查地址', 'error');
-                    }
-                });
+
+            updateLocationInfo("🗺️ 正在规划导航路线...", "loading");
+            // 地理编码：地址转经纬度
+            const geocoder = new AMap.Geocoder();
+            geocoder.getLocation(destination, function(status, result) {
+                if (status === 'complete' && result.info === 'OK') {
+                    destinationLocation = result.geocodes[0].location;
+                    // 渲染目的地标记
+                    renderMarker([destinationLocation.lng, destinationLocation.lat], "destination");
+                    // 规划驾车路线
+                    driving = new AMap.Driving({
+                        map: map,
+                        panel: null, // 不显示路线面板
+                        policy: AMap.DrivingPolicy.LEAST_TIME // 最短时间策略
+                    });
+
+                    // 绘制导航路线
+                    driving.search(currentLocation, destinationLocation, function(status, result) {
+                        if (status === 'complete') {
+                            isNavigating = true;
+                            document.getElementById("navBtn").disabled = true;
+                            document.getElementById("stopBtn").disabled = false;
+                            updateLocationInfo(`✅ 导航路线规划成功！起点：${currentLocation}，终点：${destination}`, "success");
+                        } else {
+                            updateLocationInfo("❌ 路线规划失败：" + result.info, "error");
+                        }
+                    });
+                } else {
+                    updateLocationInfo("❌ 目的地解析失败：" + result.info, "error");
+                }
             });
         }
-        
-        // 更新导航路线（实时更新）
-        function updateNavigationRoute() {
-            if (driving && currentLocation && destinationLocation) {
-                driving.clear();
-                driving.search(currentLocation, destinationLocation);
-            }
-        }
-        
-        // 停止导航
+
+        // 4. 停止导航
         function stopNavigation() {
-            isNavigating = false;
-            
-            // 清除导航路线
             if (driving) {
-                map.remove(driving);
+                driving.clear(); // 清除导航路线
                 driving = null;
             }
-            
-            // 清除目的地标记
             if (naviMarker) {
-                map.remove(naviMarker);
+                naviMarker.remove(); // 移除目的地标记
                 naviMarker = null;
             }
-            
-            // 停止实时定位
-            if (watchId && navigator.geolocation) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-            }
-            
-            // 更新按钮状态
-            document.getElementById('navBtn').style.display = 'inline-block';
-            document.getElementById('stopBtn').style.display = 'none';
-            
-            updateLocationInfo('⏹️ 导航已停止', 'success');
+            isNavigating = false;
+            document.getElementById("navBtn").disabled = false;
+            document.getElementById("stopBtn").disabled = true;
+            updateLocationInfo("⏹️ 导航已停止", "success");
         }
-        
-        // 清空地图
+
+        // 5. 清空地图
         function clearMap() {
-            if (map) {
-                map.clearMap();
+            // 停止导航
+            if (isNavigating) stopNavigation();
+            // 移除定位标记
+            if (marker) {
+                marker.remove();
                 marker = null;
-                naviMarker = null;
-                driving = null;
-                currentLocation = null;
-                destinationLocation = null;
-                isNavigating = false;
-                
-                // 停止实时定位
-                if (watchId && navigator.geolocation) {
-                    navigator.geolocation.clearWatch(watchId);
-                    watchId = null;
+            }
+            // 重置变量
+            currentLocation = null;
+            destinationLocation = null;
+            // 禁用按钮
+            document.getElementById("navBtn").disabled = true;
+            document.getElementById("stopBtn").disabled = true;
+            // 重置提示
+            updateLocationInfo("👋 欢迎使用智能头盔导航系统！点击"模拟硬件GPS定位"开始测试", "");
+        }
+
+        // 辅助函数1：渲染地图标记
+        function renderMarker(lngLat, type) {
+            // 移除旧标记
+            if (type === "current" && marker) marker.remove();
+            if (type === "destination" && naviMarker) naviMarker.remove();
+
+            // 创建新标记
+            const icon = new AMap.Icon({
+                size: new AMap.Size(32, 32),
+                image: type === "current" 
+                    ? "https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png" // 头盔位置（蓝色）
+                    : "https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png" // 目的地（红色）
+            });
+
+            const newMarker = new AMap.Marker({
+                position: lngLat,
+                map: map,
+                icon: icon,
+                anchor: 'bottom-center'
+            });
+
+            // 保存标记实例
+            if (type === "current") {
+                marker = newMarker;
+                // 地图中心移到当前位置
+                map.setCenter(lngLat);
+            } else {
+                naviMarker = newMarker;
+            }
+        }
+
+        // 辅助函数2：经纬度转地址（逆地理解析）
+        function getAddressByLngLat(lngLat) {
+            const geocoder = new AMap.Geocoder({
+                radius: 1000,
+                extensions: "all"
+            });
+
+            geocoder.getAddress(lngLat, function(status, result) {
+                if (status === 'complete' && result.info === 'OK') {
+                    const address = result.regeocode.formattedAddress;
+                    updateLocationInfo(`📍 当前位置：${address}（经纬度：${lngLat[0].toFixed(6)}, ${lngLat[1].toFixed(6)}）`, "success");
+                } else {
+                    updateLocationInfo(`📍 经纬度：${lngLat[0].toFixed(6)}, ${lngLat[1].toFixed(6)}（无法解析地址）`, "success");
                 }
-                
-                // 重置按钮
-                document.getElementById('navBtn').disabled = true;
-                document.getElementById('stopBtn').disabled = true;
-                document.getElementById('navBtn').style.display = 'inline-block';
-                document.getElementById('stopBtn').style.display = 'inline-block';
-                document.getElementById('locBtn').disabled = false;
-                document.getElementById('locBtn').textContent = '📍 获取当前位置';
-                
-                document.getElementById('destination').value = '';
-                
-                updateLocationInfo('🗑️ 地图已清空，可以重新开始', 'success');
+            });
+        }
+
+        // 辅助函数3：更新提示信息
+        function updateLocationInfo(text, className) {
+            const infoBox = document.getElementById("locationInfo");
+            infoBox.textContent = text;
+            // 重置样式类
+            infoBox.className = "location-info";
+            if (className) {
+                infoBox.classList.add(className);
             }
         }
-        
-        // 更新位置信息显示
-        function updateLocationInfo(text, type) {
-            const infoEl = document.getElementById('locationInfo');
-            infoEl.innerHTML = text;
-            
-            // 移除所有样式类
-            infoEl.classList.remove('success', 'error', 'loading');
-            
-            // 添加新样式类
-            if (type) {
-                infoEl.classList.add(type);
-            }
-        }
-        
-        // 页面关闭前清理
-        window.onbeforeunload = function() {
-            if (watchId && navigator.geolocation) {
-                navigator.geolocation.clearWatch(watchId);
-            }
-        };
-        
-        console.log('智能头盔导航系统初始化完成');
-        console.log('高德Key: 977b6123358698744cd4f2a96e219145');
     </script>
 </body>
 </html>
