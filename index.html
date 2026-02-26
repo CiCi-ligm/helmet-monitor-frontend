@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能头盔定位导航系统</title>
+    <title>智能头盔定位系统（带登录注册）</title>
     <style>
         * {
             margin: 0;
@@ -18,6 +18,83 @@
             color: #1a1a1a;
             line-height: 1.5;
         }
+        /* 登录/注册样式 */
+        .auth-box {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 32px;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        .auth-box h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 0;
+            cursor: pointer;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+        .auth-tab.active {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+        }
+        .auth-form {
+            display: none;
+        }
+        .auth-form.active {
+            display: block;
+        }
+        .auth-form input {
+            width: 100%;
+            height: 44px;
+            padding: 0 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .auth-form button {
+            width: 100%;
+            height: 44px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .auth-form button:hover {
+            background: #1d4ed8;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            height: 40px;
+            padding: 0 20px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        /* 定位功能样式（保留原有） */
         .map-box {
             background: #ffffff;
             padding: 32px;
@@ -26,6 +103,7 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             max-width: 1200px;
             margin: 0 auto;
+            display: none; /* 登录后显示 */
         }
         .map-box h3 {
             font-size: 18px;
@@ -40,19 +118,6 @@
             overflow: hidden;
             border: 1px solid #e5e7eb;
             margin-bottom: 20px;
-        }
-        .nav-controls {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .nav-controls input {
-            height: 40px;
-            padding: 0 16px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 14px;
-            flex: 1;
         }
         .btn-group {
             display: flex;
@@ -80,9 +145,13 @@
         .btn-group button:active {
             transform: scale(0.98);
         }
-        .btn-group button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .mock-btn {
+            background: #2563eb !important;
+            color: white !important;
+            border-color: #2563eb !important;
+        }
+        .mock-btn:hover {
+            background: #1d4ed8 !important;
         }
         .location-info {
             margin-top: 10px;
@@ -108,76 +177,167 @@
             background: #dbeafe !important;
             border: 1px solid #3b82f6 !important;
         }
-        /* 新增：模拟硬件数据按钮样式 */
-        .mock-btn {
-            background: #2563eb !important;
-            color: white !important;
-            border-color: #2563eb !important;
-        }
-        .mock-btn:hover {
-            background: #1d4ed8 !important;
-        }
     </style>
-    <!-- 高德地图API - 替换为你的Key（已绑定GitHub Pages域名） -->
+    <!-- 高德地图API -->
     <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
     <script src="https://webapi.amap.com/ui/1.1/main.js"></script>
 </head>
 <body>
-    <div class="map-box">
-        <h3>🏍️ 智能头盔定位导航系统</h3>
-
-        <div class="nav-controls">
-            <input type="text" id="destination" placeholder="输入目的地，如：天安门广场、北京大学">
+    <!-- 登录/注册界面 -->
+    <div class="auth-box" id="authBox">
+        <h3>智能头盔定位系统</h3>
+        <div class="auth-tabs">
+            <div class="auth-tab active" onclick="switchTab('login')">登录</div>
+            <div class="auth-tab" onclick="switchTab('register')">注册</div>
         </div>
+        
+        <!-- 登录表单 -->
+        <div class="auth-form active" id="loginForm">
+            <input type="text" id="loginUsername" placeholder="请输入用户名">
+            <input type="password" id="loginPassword" placeholder="请输入密码">
+            <button onclick="login()">登录</button>
+        </div>
+        
+        <!-- 注册表单 -->
+        <div class="auth-form" id="registerForm">
+            <input type="text" id="regUsername" placeholder="请设置用户名">
+            <input type="password" id="regPassword" placeholder="请设置密码">
+            <input type="password" id="regConfirmPwd" placeholder="请确认密码">
+            <button onclick="register()">注册</button>
+        </div>
+    </div>
+
+    <!-- 退出按钮 -->
+    <button class="logout-btn" id="logoutBtn" style="display: none;" onclick="logout()">退出登录</button>
+
+    <!-- 定位功能界面（登录后显示） -->
+    <div class="map-box" id="mapBox">
+        <h3>🏍️ 智能头盔定位系统</h3>
 
         <div class="btn-group">
             <button onclick="getCurrentLocation()" id="locBtn">📍 获取当前位置（浏览器）</button>
             <button onclick="mockHardwareGPS()" class="mock-btn">📡 模拟硬件GPS定位</button>
-            <button onclick="startNavigation()" id="navBtn" disabled>🚀 开始导航</button>
-            <button onclick="stopNavigation()" id="stopBtn" disabled>⏹️ 停止导航</button>
             <button onclick="clearMap()">🗑️ 清空地图</button>
         </div>
 
         <div id="mapContainer"></div>
 
         <div class="location-info" id="locationInfo">
-            👋 欢迎使用智能头盔导航系统！点击"模拟硬件GPS定位"开始测试
+            👋 欢迎使用智能头盔定位系统！点击"模拟硬件GPS定位"开始测试
         </div>
     </div>
 
     <script>
-        // 全局变量
+        // 全局变量（定位相关）
         let map = null;
-        let marker = null; // 头盔定位标记
-        let naviMarker = null; // 目的地标记
-        let currentLocation = null; // 当前位置（经纬度）
-        let destinationLocation = null; // 目的地位置
-        let driving = null; // 导航实例
-        let watchId = null; // 浏览器定位监听ID
-        let isNavigating = false; // 是否正在导航
+        let marker = null;
+        let currentLocation = null;
 
-        // 页面加载后初始化
+        // 页面加载初始化
         window.onload = function() {
+            // 检查登录状态
+            checkLoginStatus();
+            // 初始化地图（登录后会重新初始化）
             initMap();
         };
 
-        // 初始化地图（核心修复：补全配置+异常处理）
+        // ====================== 登录/注册核心逻辑 ======================
+        // 切换登录/注册标签
+        function switchTab(type) {
+            // 切换标签样式
+            document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`.auth-tab[onclick="switchTab('${type}')"]`).classList.add('active');
+            // 切换表单显示
+            document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+            document.getElementById(`${type}Form`).classList.add('active');
+        }
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            const user = localStorage.getItem('helmetUser');
+            if (user) {
+                // 已登录：隐藏登录框，显示定位界面
+                document.getElementById('authBox').style.display = 'none';
+                document.getElementById('mapBox').style.display = 'block';
+                document.getElementById('logoutBtn').style.display = 'block';
+                // 重新初始化地图（确保登录后地图正常）
+                initMap();
+            } else {
+                // 未登录：显示登录框，隐藏定位界面
+                document.getElementById('authBox').style.display = 'block';
+                document.getElementById('mapBox').style.display = 'none';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+
+        // 注册功能
+        function register() {
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value.trim();
+            const confirmPwd = document.getElementById('regConfirmPwd').value.trim();
+
+            // 简单校验
+            if (!username || !password) {
+                alert('用户名和密码不能为空！');
+                return;
+            }
+            if (password !== confirmPwd) {
+                alert('两次输入的密码不一致！');
+                return;
+            }
+
+            // 存储用户信息（实际项目需对接后端，这里本地存储）
+            localStorage.setItem('helmetUser', username);
+            localStorage.setItem('helmetPwd', password);
+            alert('注册成功！请登录');
+            switchTab('login');
+        }
+
+        // 登录功能
+        function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            // 简单校验
+            if (!username || !password) {
+                alert('用户名和密码不能为空！');
+                return;
+            }
+
+            // 验证用户（实际项目需对接后端，这里本地验证）
+            const savedUser = localStorage.getItem('helmetUser');
+            const savedPwd = localStorage.getItem('helmetPwd');
+            if (savedUser === username && savedPwd === password) {
+                alert('登录成功！');
+                checkLoginStatus();
+            } else {
+                alert('用户名或密码错误！');
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('helmetUser');
+            localStorage.removeItem('helmetPwd');
+            alert('已退出登录！');
+            checkLoginStatus();
+        }
+
+        // ====================== 定位核心逻辑（保留原有，移除导航） ======================
+        // 初始化地图
         function initMap() {
             try {
-                // 初始化地图，设置默认中心点（北京）、缩放级别
                 map = new AMap.Map('mapContainer', {
-                    zoom: 15, // 缩放级别（1-18）
-                    center: [116.397470, 39.908823], // 默认中心点（北京天安门）
-                    resizeEnable: true, // 自适应容器大小
-                    mapStyle: 'amap://styles/normal' // 普通地图样式
+                    zoom: 15,
+                    center: [116.397470, 39.908823],
+                    resizeEnable: true,
+                    mapStyle: 'amap://styles/normal'
                 });
 
-                // 加载地图插件（定位、地理编码、导航）
-                AMap.plugin(['AMap.Geolocation', 'AMap.Geocoder', 'AMap.Driving'], function() {
+                AMap.plugin(['AMap.Geolocation', 'AMap.Geocoder'], function() {
                     updateLocationInfo("✅ 地图初始化成功！", "success");
                 });
 
-                // 监听地图加载失败事件
                 map.on('error', function(e) {
                     updateLocationInfo("❌ 地图加载失败：" + e.message, "error");
                 });
@@ -187,7 +347,7 @@
             }
         }
 
-        // 1. 浏览器原生定位（仅用于测试，实际项目弃用）
+        // 浏览器原生定位
         function getCurrentLocation() {
             if (!map) {
                 updateLocationInfo("❌ 地图未初始化", "error");
@@ -195,28 +355,20 @@
             }
 
             updateLocationInfo("🔍 正在请求浏览器定位...", "loading");
-            // 检查浏览器是否支持定位
             if (!navigator.geolocation) {
                 updateLocationInfo("❌ 您的浏览器不支持定位功能", "error");
                 return;
             }
 
-            // 调用浏览器定位API（带超时和高精度配置）
             navigator.geolocation.getCurrentPosition(
                 function(position) {
-                    // 成功回调：获取经纬度
                     const lng = position.coords.longitude;
                     const lat = position.coords.latitude;
                     currentLocation = [lng, lat];
-                    // 渲染定位标记（转换坐标系）
                     renderMarker(currentLocation, "current");
-                    // 逆地理解析：经纬度转地址
                     getAddressByLngLat(currentLocation);
-                    // 启用导航按钮
-                    document.getElementById("navBtn").disabled = false;
                 },
                 function(error) {
-                    // 失败回调：分类提示错误原因
                     let errMsg = "";
                     switch(error.code) {
                         case 1: errMsg = "用户拒绝定位授权"; break;
@@ -227,36 +379,29 @@
                     updateLocationInfo("❌ 浏览器定位失败：" + errMsg, "error");
                 },
                 {
-                    enableHighAccuracy: true, // 高精度定位
-                    timeout: 10000, // 超时时间10秒
-                    maximumAge: 0 // 不使用缓存
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
                 }
             );
         }
 
-        // 2. 模拟硬件GPS定位（核心：适配嵌入式项目）
+        // 模拟硬件GPS定位
         function mockHardwareGPS() {
             if (!map) {
                 updateLocationInfo("❌ 地图未初始化", "error");
                 return;
             }
 
-            // 模拟硬件GPS输出的WGS84坐标（示例：天安门WGS84坐标）
-            // 实际项目中：此处替换为从硬件/后端接口获取的GPS坐标
             const wgs84LngLat = [116.397470, 39.908823]; 
             updateLocationInfo("📡 正在接收硬件GPS数据...", "loading");
 
-            // 关键：WGS84转高德GCJ02坐标系（解决定位偏移）
             AMap.convertFrom(wgs84LngLat, 'gps', function(status, result) {
                 if (status === 'complete' && result.info === 'ok') {
                     const gcj02LngLat = result.locations[0];
                     currentLocation = [gcj02LngLat.lng, gcj02LngLat.lat];
-                    // 渲染头盔定位标记
                     renderMarker(currentLocation, "current");
-                    // 解析地址
                     getAddressByLngLat(currentLocation);
-                    // 启用导航按钮
-                    document.getElementById("navBtn").disabled = false;
                     updateLocationInfo("✅ 硬件GPS定位成功（WGS84→GCJ02转换完成）", "success");
                 } else {
                     updateLocationInfo("❌ 坐标系转换失败：" + result.info, "error");
@@ -264,98 +409,23 @@
             });
         }
 
-        // 3. 开始导航
-        function startNavigation() {
-            if (!currentLocation) {
-                updateLocationInfo("❌ 请先获取当前位置", "error");
-                return;
-            }
-
-            const destination = document.getElementById("destination").value.trim();
-            if (!destination) {
-                updateLocationInfo("❌ 请输入目的地", "error");
-                return;
-            }
-
-            updateLocationInfo("🗺️ 正在规划导航路线...", "loading");
-            // 地理编码：地址转经纬度
-            const geocoder = new AMap.Geocoder();
-            geocoder.getLocation(destination, function(status, result) {
-                if (status === 'complete' && result.info === 'OK') {
-                    destinationLocation = result.geocodes[0].location;
-                    // 渲染目的地标记
-                    renderMarker([destinationLocation.lng, destinationLocation.lat], "destination");
-                    // 规划驾车路线
-                    driving = new AMap.Driving({
-                        map: map,
-                        panel: null, // 不显示路线面板
-                        policy: AMap.DrivingPolicy.LEAST_TIME // 最短时间策略
-                    });
-
-                    // 绘制导航路线
-                    driving.search(currentLocation, destinationLocation, function(status, result) {
-                        if (status === 'complete') {
-                            isNavigating = true;
-                            document.getElementById("navBtn").disabled = true;
-                            document.getElementById("stopBtn").disabled = false;
-                            updateLocationInfo(`✅ 导航路线规划成功！起点：${currentLocation}，终点：${destination}`, "success");
-                        } else {
-                            updateLocationInfo("❌ 路线规划失败：" + result.info, "error");
-                        }
-                    });
-                } else {
-                    updateLocationInfo("❌ 目的地解析失败：" + result.info, "error");
-                }
-            });
-        }
-
-        // 4. 停止导航
-        function stopNavigation() {
-            if (driving) {
-                driving.clear(); // 清除导航路线
-                driving = null;
-            }
-            if (naviMarker) {
-                naviMarker.remove(); // 移除目的地标记
-                naviMarker = null;
-            }
-            isNavigating = false;
-            document.getElementById("navBtn").disabled = false;
-            document.getElementById("stopBtn").disabled = true;
-            updateLocationInfo("⏹️ 导航已停止", "success");
-        }
-
-        // 5. 清空地图
+        // 清空地图
         function clearMap() {
-            // 停止导航
-            if (isNavigating) stopNavigation();
-            // 移除定位标记
             if (marker) {
                 marker.remove();
                 marker = null;
             }
-            // 重置变量
             currentLocation = null;
-            destinationLocation = null;
-            // 禁用按钮
-            document.getElementById("navBtn").disabled = true;
-            document.getElementById("stopBtn").disabled = true;
-            // 重置提示
-            updateLocationInfo("👋 欢迎使用智能头盔导航系统！点击"模拟硬件GPS定位"开始测试", "");
+            updateLocationInfo("👋 欢迎使用智能头盔定位系统！点击'模拟硬件GPS定位'开始测试", "");
         }
 
-        // 辅助函数1：渲染地图标记
+        // 渲染地图标记
         function renderMarker(lngLat, type) {
-            // 移除旧标记
             if (type === "current" && marker) marker.remove();
-            if (type === "destination" && naviMarker) naviMarker.remove();
 
-            // 创建新标记
             const icon = new AMap.Icon({
                 size: new AMap.Size(32, 32),
-                image: type === "current" 
-                    ? "https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png" // 头盔位置（蓝色）
-                    : "https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png" // 目的地（红色）
+                image: "https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png"
             });
 
             const newMarker = new AMap.Marker({
@@ -365,17 +435,11 @@
                 anchor: 'bottom-center'
             });
 
-            // 保存标记实例
-            if (type === "current") {
-                marker = newMarker;
-                // 地图中心移到当前位置
-                map.setCenter(lngLat);
-            } else {
-                naviMarker = newMarker;
-            }
+            marker = newMarker;
+            map.setCenter(lngLat);
         }
 
-        // 辅助函数2：经纬度转地址（逆地理解析）
+        // 经纬度转地址
         function getAddressByLngLat(lngLat) {
             const geocoder = new AMap.Geocoder({
                 radius: 1000,
@@ -392,11 +456,10 @@
             });
         }
 
-        // 辅助函数3：更新提示信息
+        // 更新提示信息
         function updateLocationInfo(text, className) {
             const infoBox = document.getElementById("locationInfo");
             infoBox.textContent = text;
-            // 重置样式类
             infoBox.className = "location-info";
             if (className) {
                 infoBox.classList.add(className);
