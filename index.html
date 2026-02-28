@@ -5,24 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能头盔定位系统 | 安全版</title>
     <style>
-        /* 基础样式重置 */
+        /* 保留所有视觉/交互样式，仅新增定位权限提示样式 */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: "Microsoft Yahei", "PingFang SC", sans-serif;
-            -webkit-tap-highlight-color: transparent; /* 去除移动端点击高亮 */
+            -webkit-tap-highlight-color: transparent;
         }
-        
-        /* 全局样式 */
         body {
             background: linear-gradient(135deg, #e8f4f8 0%, #f0f8fb 100%);
             min-height: 100vh;
             color: #334155;
             overflow-x: hidden;
         }
-        
-        /* 通用动画 */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -36,8 +32,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
-        /* 加载动画 */
         .loading {
             display: inline-block;
             width: 20px;
@@ -49,8 +43,6 @@
             margin-right: 8px;
             vertical-align: middle;
         }
-
-        /* 登录注册盒子样式 */
         .auth-container {
             display: flex;
             justify-content: center;
@@ -69,7 +61,6 @@
             position: relative;
             overflow: hidden;
         }
-        /* 装饰元素 */
         .auth-box::before {
             content: "";
             position: absolute;
@@ -97,8 +88,6 @@
             display: inline-block;
             animation: pulse 2s infinite;
         }
-        
-        /* 标签切换 */
         .auth-tabs {
             display: flex;
             margin-bottom: 25px;
@@ -113,17 +102,15 @@
             cursor: pointer;
             color: #64748b;
             border-radius: 6px;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
             font-weight: 500;
-            touch-action: manipulation; /* 禁用移动端触摸延迟 */
+            touch-action: manipulation;
         }
         .auth-tab.active {
             color: #fff;
             background: linear-gradient(90deg, #0078d7, #0091d5);
             box-shadow: 0 2px 8px rgba(0, 120, 215, 0.2);
         }
-        
-        /* 表单样式 */
         .auth-form {
             display: none;
             animation: fadeIn 0.3s ease-out;
@@ -154,8 +141,6 @@
         .auth-form input::placeholder {
             color: #94a3b8;
         }
-        
-        /* 复选框样式 */
         .auth-checkbox {
             display: flex;
             align-items: center;
@@ -180,8 +165,6 @@
             color: #005a9e;
             text-decoration: underline;
         }
-        
-        /* 按钮样式 - 核心优化：提升点击灵敏度 */
         .btn {
             width: 100%;
             padding: 14px;
@@ -190,12 +173,12 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: 500;
-            transition: all 0.15s ease; /* 缩短过渡时长，更跟手 */
+            transition: all 0.15s ease;
             display: flex;
             justify-content: center;
             align-items: center;
-            touch-action: manipulation; /* 禁用移动端触摸延迟 */
-            user-select: none; /* 禁止文本选中 */
+            touch-action: manipulation;
+            user-select: none;
         }
         .btn-primary {
             background: linear-gradient(90deg, #0078d7, #0091d5);
@@ -204,14 +187,12 @@
         .btn-primary:hover {
             background: linear-gradient(90deg, #0066b3, #007fc8);
             box-shadow: 0 4px 12px rgba(0, 120, 215, 0.25);
-            transform: translateY(-1px); /* 减小上浮距离，更灵敏 */
+            transform: translateY(-1px);
         }
         .btn-primary:active {
             transform: translateY(0);
-            box-shadow: 0 2px 6px rgba(0, 120, 215, 0.2); /* 点击反馈更及时 */
+            box-shadow: 0 2px 6px rgba(0, 120, 215, 0.2);
         }
-        
-        /* 提示文本 */
         .privacy-tip {
             font-size: 12px;
             color: #94a3b8;
@@ -219,8 +200,6 @@
             text-align: center;
             line-height: 1.5;
         }
-        
-        /* 主界面样式 */
         .main {
             display: none;
             width: 100%;
@@ -267,8 +246,6 @@
         .logout:active {
             box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
         }
-        
-        /* 功能按钮区 - 核心优化：提升点击灵敏度 */
         .btns {
             display: flex;
             gap: 12px;
@@ -284,18 +261,18 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.15s ease; /* 缩短过渡时长 */
+            transition: all 0.15s ease;
             display: flex;
             align-items: center;
             gap: 8px;
             touch-action: manipulation;
             user-select: none;
-            min-height: 44px; /* 符合移动端最小点击区域标准 */
+            min-height: 44px;
         }
         .btns button:hover {
             background: #0078d7;
             color: #fff;
-            transform: translateY(-1px); /* 减小上浮距离 */
+            transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 120, 215, 0.2);
         }
         .btns button:active {
@@ -305,11 +282,9 @@
         .btns button:disabled {
             opacity: 0.7;
             cursor: not-allowed;
-            transform: none !important; /* 禁用时取消所有变形 */
+            transform: none !important;
             box-shadow: none !important;
         }
-        
-        /* 地图容器 */
         .map-container {
             width: 100%;
             height: calc(100vh - 180px);
@@ -323,8 +298,6 @@
             width: 100%;
             height: 100%;
         }
-        
-        /* 信息提示区 */
         .info-card {
             margin-top: 16px;
             padding: 16px;
@@ -336,8 +309,20 @@
             font-size: 14px;
             line-height: 1.6;
         }
-        
-        /* 隐私协议弹窗 */
+        /* 新增：定位权限提示样式 */
+        .permission-tip {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #78350f;
+            display: none;
+        }
+        .permission-tip.show {
+            display: block;
+        }
         .modal {
             display: none;
             position: fixed;
@@ -382,8 +367,6 @@
             padding: 10px 24px;
             display: inline-flex;
         }
-        
-        /* 响应式适配 */
         @media (max-width: 768px) {
             .auth-box {
                 padding: 30px 20px;
@@ -392,7 +375,7 @@
                 padding: 16px;
             }
             .map-container {
-                height: calc(100vh - 200px);
+                height: calc(100vh - 220px);
             }
             .btns {
                 justify-content: center;
@@ -403,24 +386,22 @@
             }
         }
     </style>
-    <!-- 引入图标库 -->
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 优先加载高德地图API，解决加载顺序问题 -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=您的高德地图Key&plugin=AMap.Geolocation,AMap.CitySearch,AMap.ToolBar,AMap.Scale,AMap.MapType"></script>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
 </head>
 <body>
-    <!-- 登录/注册容器 -->
     <div class="auth-container" id="authBox">
         <div class="auth-box">
             <div class="auth-logo">
                 <i class="fas fa-helmet-safety"></i>
             </div>
             <h2>智能头盔定位系统</h2>
-            
             <div class="auth-tabs">
                 <div class="auth-tab active" onclick="switchTab('login')">登录</div>
                 <div class="auth-tab" onclick="switchTab('register')">注册</div>
             </div>
-
-            <!-- 登录表单 -->
             <div class="auth-form active" id="loginForm">
                 <div class="form-group">
                     <input id="loginUser" placeholder="请输入用户名" type="text">
@@ -432,12 +413,10 @@
                     <input type="checkbox" id="loginAgree">
                     <label for="loginAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
                 </div>
-                <button class="btn btn-primary" onclick="login(this)"> <!-- 传递按钮本身，避免event.target错误 -->
+                <button class="btn btn-primary" onclick="login(this)">
                     <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统
                 </button>
             </div>
-
-            <!-- 注册表单 -->
             <div class="auth-form" id="registerForm">
                 <div class="form-group">
                     <input id="regUser" placeholder="请设置用户名" type="text">
@@ -452,11 +431,10 @@
                     <input type="checkbox" id="regAgree">
                     <label for="regAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
                 </div>
-                <button class="btn btn-primary" onclick="register(this)"> <!-- 传递按钮本身 -->
+                <button class="btn btn-primary" onclick="register(this)">
                     <i class="fas fa-user-plus" style="margin-right: 8px;"></i>创建账号
                 </button>
             </div>
-            
             <div class="privacy-tip">
                 <i class="fas fa-shield-halved" style="color: #0078d7;"></i> 
                 定位信息仅本地加密存储，不会上传或共享
@@ -464,7 +442,6 @@
         </div>
     </div>
 
-    <!-- 主界面 -->
     <div class="main" id="mainBox">
         <div class="header">
             <h1>
@@ -475,9 +452,13 @@
                 <i class="fas fa-sign-out-alt" style="margin-right: 6px;"></i>退出登录
             </button>
         </div>
-        
+        <!-- 新增：定位权限提示 -->
+        <div class="permission-tip" id="permissionTip">
+            <i class="fas fa-exclamation-triangle"></i> 
+            定位需要开启浏览器位置权限！请点击浏览器地址栏左侧的"锁形/位置"图标，允许本网站获取位置信息。
+        </div>
         <div class="btns">
-            <button onclick="getPos(this)"> <!-- 传递按钮本身 -->
+            <button onclick="getPos(this)">
                 <i class="fas fa-location-arrow"></i>定位我自己
             </button>
             <button onclick="clearPos()">
@@ -487,18 +468,15 @@
                 <i class="fas fa-history"></i>查看上次定位
             </button>
         </div>
-        
         <div class="map-container">
             <div id="map"></div>
         </div>
-        
         <div class="info-card" id="info">
             <i class="fas fa-info-circle" style="color: #0078d7;"></i> 
             欢迎使用智能头盔定位系统，请点击「定位我自己」开始使用
         </div>
     </div>
 
-    <!-- 隐私协议弹窗 -->
     <div class="modal" id="privacyModal">
         <div class="modal-content">
             <h3>隐私协议</h3>
@@ -507,17 +485,14 @@
                 <p>1. 我们仅在您主动点击"定位"按钮时采集位置信息，采集的信息包括：经纬度、地址信息、定位时间；</p>
                 <p>2. 位置信息仅在您的设备本地存储，不会上传至任何服务器，也不会进行云端同步；</p>
                 <p>3. 定位权限由浏览器统一管理，您可随时在浏览器设置中关闭位置权限。</p>
-                
                 <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">二、数据存储说明</p>
                 <p>1. 本地存储的位置信息采用AES加密算法进行加密，仅您本人可查看；</p>
                 <p>2. 您可通过"清除位置信息"按钮随时删除本地存储的位置数据；</p>
                 <p>3. 退出登录时会自动清除所有本地存储的位置信息，保障数据安全。</p>
-                
                 <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">三、数据使用说明</p>
                 <p>1. 位置信息仅用于为您展示定位结果和地图标注，不作其他任何用途；</p>
                 <p>2. 我们不会向任何第三方共享、转让、出售您的位置信息；</p>
                 <p>3. 未经您的明确授权，不会将位置信息用于任何商业目的。</p>
-                
                 <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">四、用户权利</p>
                 <p>1. 您有权随时查看、删除本地存储的位置信息；</p>
                 <p>2. 您有权随时注销账号，注销后所有本地数据将被永久删除；</p>
@@ -529,12 +504,9 @@
         </div>
     </div>
 
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
-    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
     <script>
         let map, marker;
         const CRYPTO_KEY = "helmet_pos_secure_key_2026";
-        // 新增：防止重复点击的锁
         let isLoginProcessing = false;
         let isPosProcessing = false;
 
@@ -546,9 +518,8 @@
             document.getElementById("privacyModal").style.display = "none";
         }
 
-        // 登录/注册 - 核心优化：传递按钮本身，缩短禁用时长
+        // 登录/注册
         function register(btn) {
-            // 防止重复点击
             if (isLoginProcessing) return;
             isLoginProcessing = true;
             
@@ -557,10 +528,9 @@
             const pwd2 = document.getElementById('regPwd2').value.trim();
             const agree = document.getElementById('regAgree').checked;
             
-            // 先校验，不先禁用按钮
             if (!user) {
                 tipModal('用户名不能为空！', 'error');
-                isLoginProcessing = false; // 释放锁
+                isLoginProcessing = false;
                 return;
             }
             if (pwd.length < 6) {
@@ -579,29 +549,25 @@
                 return;
             }
             
-            // 校验通过后再修改按钮状态
             const originalText = btn.innerHTML;
             btn.innerHTML = '<span class="loading"></span> 注册中...';
             btn.disabled = true;
             
-            // 缩短处理时长（从800ms改为300ms）
             setTimeout(() => {
                 localStorage.setItem('user', user);
                 localStorage.setItem('pwd', pwd);
                 tipModal('注册成功！请登录', 'success');
                 
-                // 快速恢复按钮状态
                 setTimeout(() => {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                     isLoginProcessing = false;
                     switchTab('login');
-                }, 800); // 提示后快速恢复
+                }, 800);
             }, 300);
         }
 
         function login(btn) {
-            // 防止重复点击
             if (isLoginProcessing) return;
             isLoginProcessing = true;
             
@@ -609,7 +575,6 @@
             btn.innerHTML = '<span class="loading"></span> 登录中...';
             btn.disabled = true;
             
-            // 缩短处理时长（从800ms改为200ms）
             setTimeout(() => {
                 const user = document.getElementById('loginUser').value.trim();
                 const pwd = document.getElementById('loginPwd').value.trim();
@@ -617,7 +582,6 @@
                 const savedUser = localStorage.getItem('user');
                 const savedPwd = localStorage.getItem('pwd');
                 
-                // 如果是首次使用，没有注册用户，先提示注册
                 if (!savedUser) {
                     tipModal('该用户不存在，请先注册！', 'error');
                     btn.innerHTML = originalText;
@@ -653,8 +617,6 @@
                 document.getElementById("authBox").style.display = "none";
                 document.getElementById("mainBox").style.display = "block";
                 initMap();
-                
-                // 登录成功后无需恢复按钮（页面已切换）
                 isLoginProcessing = false;
             }, 200);
         }
@@ -673,9 +635,8 @@
             }
         }
 
-        // 定位功能 - 核心优化：防止重复点击，缩短禁用感知
+        // 核心修复：定位功能（重写定位逻辑，解决权限/API问题）
         function getPos(btn) {
-            // 防止重复点击
             if (isPosProcessing) return;
             isPosProcessing = true;
             
@@ -683,94 +644,128 @@
             btn.innerHTML = '<span class="loading"></span> 定位中...';
             btn.disabled = true;
             
-            tip('<i class="fas fa-spinner fa-spin"></i> 正在定位...请确保已开启位置权限');
-            
-            // 检查地图是否初始化
-            if (!map) {
-                initMap();
-            }
-            
-            AMap.plugin(['AMap.Geolocation', 'AMap.CitySearch'], function() {
-                let geo = new AMap.Geolocation({
-                    enableHighAccuracy: true,
-                    timeout: 8000, // 缩短超时时间（从10s改8s）
-                    useNative: true,
-                    zoomToAccuracy: true
-                });
-                
-                // 定位成功
-                geo.on('complete', function(result) {
-                    // 立即恢复按钮状态，提升灵敏感知
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    isPosProcessing = false;
-                    
-                    // 脱敏展示
-                    const address = result.formattedAddress || "未知地址";
-                    const simpleAddress = address.split('号')[0] + (address.includes('号') ? '号' : '');
-                    
-                    // 加密存储
-                    const posData = {
-                        lng: result.position.lng,
-                        lat: result.position.lat,
-                        address: result.formattedAddress,
-                        time: new Date().getTime()
-                    };
-                    const encryptedPos = encryptData(posData);
-                    localStorage.setItem("encrypted_pos", encryptedPos);
+            // 显示权限提示
+            document.getElementById('permissionTip').classList.add('show');
+            tip('<i class="fas fa-spinner fa-spin"></i> 正在请求位置权限...请在浏览器弹窗中允许定位');
 
-                    // 更新地图
-                    if (marker) marker.remove();
-                    marker = new AMap.Marker({ 
-                        position: result.position, 
-                        map: map,
-                        title: '我的位置',
-                        icon: new AMap.Icon({
-                            size: new AMap.Size(32, 32),
-                            image: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png',
-                            imageSize: new AMap.Size(32, 32)
-                        })
-                    });
-                    map.setCenter(result.position);
-                    map.setZoom(18);
-                    tip(`<i class="fas fa-check-circle" style="color: #10b981;"></i> 定位成功：${simpleAddress}（位置信息已加密存储）`);
-                });
-                
-                // 定位失败
-                geo.on('error', function(err) {
-                    // 立即恢复按钮状态
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    isPosProcessing = false;
-                    
-                    tip(`<i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i> 高精度定位失败，自动切换城市定位...`);
-                    let city = new AMap.CitySearch();
-                    city.getLocalCity(function(status, result) {
-                        if (status === 'complete' && result.info === 'OK') {
-                            map.setCenter(result.center);
-                            map.setZoom(12);
-                            if (marker) marker.remove();
-                            marker = new AMap.Marker({ 
-                                position: result.center, 
-                                map: map,
-                                title: '城市中心'
+            // 1. 先检查浏览器定位权限
+            if (navigator.geolocation) {
+                // 先通过原生JS获取定位（绕过高德API限制）
+                navigator.geolocation.getCurrentPosition(
+                    // 原生定位成功，再用高德地图展示
+                    (nativePos) => {
+                        const lng = nativePos.coords.longitude;
+                        const lat = nativePos.coords.latitude;
+                        
+                        if (!map) initMap();
+                        
+                        // 用高德地图解析地址并展示
+                        AMap.plugin('AMap.Geocoder', () => {
+                            const geocoder = new AMap.Geocoder({
+                                radius: 1000,
+                                extensions: 'all'
                             });
-                            tip(`<i class="fas fa-info-circle" style="color: #0078d7;"></i> 城市定位成功：${result.city}（仅展示城市级别位置）`);
-                        } else {
-                            map.setCenter([116.397428, 39.90923]);
-                            map.setZoom(10);
-                            if (marker) marker.remove();
-                            marker = new AMap.Marker({ 
-                                position: [116.397428, 39.90923], 
-                                map: map 
+                            
+                            geocoder.getAddress([lng, lat], (status, result) => {
+                                const address = result.regeocode.formattedAddress || "未知地址";
+                                const simpleAddress = address.split('号')[0] + (address.includes('号') ? '号' : '');
+                                
+                                // 加密存储
+                                const posData = {
+                                    lng: lng,
+                                    lat: lat,
+                                    address: address,
+                                    time: new Date().getTime()
+                                };
+                                const encryptedPos = encryptData(posData);
+                                localStorage.setItem("encrypted_pos", encryptedPos);
+
+                                // 更新地图
+                                if (marker) marker.remove();
+                                marker = new AMap.Marker({ 
+                                    position: [lng, lat], 
+                                    map: map,
+                                    title: '我的位置',
+                                    icon: new AMap.Icon({
+                                        size: new AMap.Size(32, 32),
+                                        image: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png',
+                                        imageSize: new AMap.Size(32, 32)
+                                    })
+                                });
+                                map.setCenter([lng, lat]);
+                                map.setZoom(18);
+                                tip(`<i class="fas fa-check-circle" style="color: #10b981;"></i> 定位成功：${simpleAddress}（位置信息已加密存储）`);
+                                
+                                // 恢复按钮
+                                btn.innerHTML = originalText;
+                                btn.disabled = false;
+                                isPosProcessing = false;
                             });
-                            tip(`<i class="fas fa-times-circle" style="color: #ef4444;"></i> 定位失败：使用默认位置（北京），请检查位置权限`);
+                        });
+                    },
+                    // 原生定位失败（权限拒绝/超时）
+                    (err) => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        isPosProcessing = false;
+                        
+                        let errMsg = '';
+                        switch(err.code) {
+                            case 1: errMsg = '您拒绝了位置权限请求，请手动开启后重试！'; break;
+                            case 2: errMsg = '无法获取位置信息，请检查网络或GPS！'; break;
+                            case 3: errMsg = '定位请求超时，请重试！'; break;
+                            default: errMsg = '定位失败：未知错误！';
                         }
-                    });
+                        
+                        tip(`<i class="fas fa-times-circle" style="color: #ef4444;"></i> ${errMsg}`);
+                        // 降级：使用IP定位
+                        fallbackIPLocation();
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                // 浏览器不支持定位
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                isPosProcessing = false;
+                tip(`<i class="fas fa-times-circle" style="color: #ef4444;"></i> 您的浏览器不支持定位功能，请更换现代浏览器（Chrome/Edge/Firefox）`);
+                fallbackIPLocation();
+            }
+        }
+
+        // 降级方案：IP定位（无权限时使用）
+        function fallbackIPLocation() {
+            if (!map) initMap();
+            
+            AMap.plugin('AMap.CitySearch', () => {
+                const citySearch = new AMap.CitySearch();
+                citySearch.getLocalCity((status, result) => {
+                    if (status === 'complete' && result.info === 'OK') {
+                        map.setCenter(result.center);
+                        map.setZoom(12);
+                        if (marker) marker.remove();
+                        marker = new AMap.Marker({ 
+                            position: result.center, 
+                            map: map,
+                            title: '城市中心'
+                        });
+                        tip(`<i class="fas fa-info-circle" style="color: #0078d7;"></i> 已切换为IP定位：${result.city}（仅展示城市级别位置）`);
+                    } else {
+                        // 终极降级：默认位置
+                        map.setCenter([116.397428, 39.90923]);
+                        map.setZoom(10);
+                        if (marker) marker.remove();
+                        marker = new AMap.Marker({ 
+                            position: [116.397428, 39.90923], 
+                            map: map 
+                        });
+                        tip(`<i class="fas fa-info-circle" style="color: #0078d7;"></i> 定位失败，使用默认位置（北京）`);
+                    }
                 });
-                
-                // 执行定位
-                geo.getCurrentPosition();
             });
         }
 
@@ -816,7 +811,7 @@
             }
         }
 
-        // 切换标签 - 优化：立即响应，无延迟
+        // 切换标签
         function switchTab(type) {
             document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelector(`.auth-tab[onclick="switchTab('${type}')"]`).classList.add('active');
@@ -824,19 +819,19 @@
             document.getElementById(`${type}Form`).classList.add('active');
         }
         
-        // 初始化地图
+        // 初始化地图（提前加载，解决依赖问题）
         function initMap() {
             if (map) return;
             
-            // 初始化地图实例
+            // 强制初始化地图，避免容器未加载问题
             map = new AMap.Map("map", {
                 zoom: 16, 
                 center: [116.397428, 39.90923],
                 resizeEnable: true,
-                mapStyle: 'amap://styles/light' // 浅色地图风格，更美观
+                mapStyle: 'amap://styles/light'
             });
             
-            // 添加地图控件
+            // 提前加载所有控件
             map.addControl(new AMap.Scale({ position: 'bottom-right' }));
             map.addControl(new AMap.ToolBar({ position: 'bottom-right' }));
             map.addControl(new AMap.MapType({ position: 'bottom-right' }));
@@ -849,7 +844,6 @@
 
         // 弹窗提示
         function tipModal(message, type = 'info') {
-            // 创建临时提示弹窗
             const tipDiv = document.createElement('div');
             tipDiv.style.position = 'fixed';
             tipDiv.style.top = '20px';
@@ -863,7 +857,6 @@
             tipDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
             tipDiv.style.animation = 'fadeIn 0.3s ease-out';
             
-            // 根据类型设置样式
             if (type === 'success') {
                 tipDiv.style.background = '#10b981';
                 tipDiv.innerHTML = `<i class="fas fa-check-circle" style="margin-right: 8px;"></i>${message}`;
@@ -880,7 +873,6 @@
             
             document.body.appendChild(tipDiv);
             
-            // 3秒后移除
             setTimeout(() => {
                 tipDiv.style.opacity = '0';
                 tipDiv.style.transition = 'opacity 0.3s ease';
@@ -890,15 +882,15 @@
             }, 3000);
         }
         
-        // 页面加载
+        // 页面加载时提前初始化地图
         window.onload = function() {
             // 检查登录状态
             if (localStorage.getItem("logined")) {
                 document.getElementById("authBox").style.display = "none";
                 document.getElementById("mainBox").style.display = "block";
+                // 提前初始化地图，避免定位时再加载
                 initMap();
                 
-                // 如果有保存的位置，显示出来
                 const savedPos = localStorage.getItem("encrypted_pos");
                 if (savedPos) {
                     const posData = decryptData(savedPos);
