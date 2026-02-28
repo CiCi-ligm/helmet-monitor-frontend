@@ -3,205 +3,509 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能头盔定位系统（安全版）</title>
+    <title>智能头盔定位系统 | 安全版</title>
     <style>
         /* 基础样式重置 */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "Microsoft Yahei", sans-serif;
-        }
-        body {
-            padding: 20px;
-            background-color: #f5f5f5;
+            font-family: "Microsoft Yahei", "PingFang SC", sans-serif;
         }
         
+        /* 全局样式 */
+        body {
+            background: linear-gradient(135deg, #e8f4f8 0%, #f0f8fb 100%);
+            min-height: 100vh;
+            color: #334155;
+            overflow-x: hidden;
+        }
+        
+        /* 通用动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #0078d7;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
         /* 登录注册盒子样式 */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
         .auth-box {
-            max-width: 400px;
-            margin: 50px auto;
+            width: 100%;
+            max-width: 420px;
             background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(149, 157, 165, 0.15);
+            animation: fadeIn 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        /* 装饰元素 */
+        .auth-box::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, #0078d7, #00b4d8);
         }
         .auth-box h2 {
             text-align: center;
-            margin-bottom: 20px;
-            color: #333;
+            margin-bottom: 30px;
+            color: #1e293b;
+            font-size: 24px;
+            font-weight: 600;
         }
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .auth-logo i {
+            font-size: 48px;
+            color: #0078d7;
+            margin-bottom: 10px;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        
+        /* 标签切换 */
         .auth-tabs {
             display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 4px;
         }
         .auth-tab {
             flex: 1;
             text-align: center;
-            padding: 10px;
+            padding: 12px;
             cursor: pointer;
-            color: #666;
+            color: #64748b;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
         }
         .auth-tab.active {
-            color: #0078d7;
-            border-bottom: 2px solid #0078d7;
+            color: #fff;
+            background: linear-gradient(90deg, #0078d7, #0091d5);
+            box-shadow: 0 2px 8px rgba(0, 120, 215, 0.2);
         }
+        
+        /* 表单样式 */
         .auth-form {
             display: none;
+            animation: fadeIn 0.3s ease-out;
         }
         .auth-form.active {
             display: block;
         }
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
         .auth-form input {
             width: 100%;
-            padding: 12px 15px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
+            padding: 14px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+            color: #1e293b;
         }
-        .auth-form button {
-            width: 100%;
-            padding: 12px;
-            background: #0078d7;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
+        .auth-form input:focus {
+            outline: none;
+            border-color: #0078d7;
+            box-shadow: 0 0 0 3px rgba(0, 120, 215, 0.1);
+            background: #fff;
         }
-        .auth-form button:hover {
-            background: #0066b3;
+        .auth-form input::placeholder {
+            color: #94a3b8;
         }
         
-        /* 隐私协议相关样式 */
-        .privacy-tip {
-            font-size: 12px;
-            color: #666;
-            margin-top: 10px;
-            text-align: center;
-        }
-        .privacy-tip a {
-            color: #0078d7;
-            text-decoration: none;
-        }
-        .auth-form { position: relative; }
+        /* 复选框样式 */
         .auth-checkbox {
             display: flex;
             align-items: center;
-            margin: 10px 0;
-            font-size: 12px;
+            margin: 10px 0 20px;
+            font-size: 13px;
+            color: #64748b;
         }
         .auth-checkbox input {
-            width: 16px;
-            height: 16px;
-            margin: 0 5px 0 0;
+            width: 18px;
+            height: 18px;
+            margin: 0 8px 0 0;
             padding: 0;
+            accent-color: #0078d7;
+        }
+        .auth-checkbox a {
+            color: #0078d7;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .auth-checkbox a:hover {
+            color: #005a9e;
+            text-decoration: underline;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #0078d7, #0091d5);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(90deg, #0066b3, #007fc8);
+            box-shadow: 0 4px 12px rgba(0, 120, 215, 0.25);
+            transform: translateY(-2px);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        /* 提示文本 */
+        .privacy-tip {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 15px;
+            text-align: center;
+            line-height: 1.5;
         }
         
         /* 主界面样式 */
         .main {
             display: none;
             width: 100%;
-            height: calc(100vh - 40px);
+            min-height: 100vh;
+            padding: 24px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .header h1 {
+            color: #1e293b;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+        }
+        .header h1 i {
+            color: #0078d7;
+            margin-right: 10px;
+            font-size: 24px;
         }
         .logout {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 8px 15px;
-            background: #ff4d4f;
-            color: #fff;
+            padding: 10px 20px;
+            background: #fef2f2;
+            color: #dc2626;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
         }
+        .logout:hover {
+            background: #fee2e2;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
+        }
+        
+        /* 功能按钮区 */
         .btns {
-            margin-bottom: 15px;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         .btns button {
-            padding: 10px 20px;
-            margin-right: 10px;
+            padding: 12px 24px;
+            background: #fff;
+            color: #0078d7;
+            border: 1px solid #0078d7;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btns button:hover {
             background: #0078d7;
             color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 120, 215, 0.2);
+        }
+        .btns button:active {
+            transform: translateY(0);
+        }
+        
+        /* 地图容器 */
+        .map-container {
+            width: 100%;
+            height: calc(100vh - 180px);
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(149, 157, 165, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
         }
         #map {
             width: 100%;
-            height: calc(100% - 80px);
-            border-radius: 8px;
-            border: 1px solid #ddd;
+            height: 100%;
         }
-        #info {
-            margin-top: 10px;
-            padding: 10px;
+        
+        /* 信息提示区 */
+        .info-card {
+            margin-top: 16px;
+            padding: 16px;
             background: #fff;
-            border-radius: 6px;
-            color: #333;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(149, 157, 165, 0.1);
+            border-left: 4px solid #0078d7;
+            color: #475569;
             font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        /* 隐私协议弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            width: 100%;
+            max-width: 550px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            animation: fadeIn 0.3s ease-out;
+        }
+        .modal-content h3 {
+            color: #1e293b;
+            margin-bottom: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .modal-content .content {
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #475569;
+            margin-bottom: 20px;
+        }
+        .modal-content .btn {
+            width: auto;
+            padding: 10px 24px;
+            display: inline-flex;
+        }
+        
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .auth-box {
+                padding: 30px 20px;
+            }
+            .main {
+                padding: 16px;
+            }
+            .map-container {
+                height: calc(100vh - 200px);
+            }
+            .btns {
+                justify-content: center;
+            }
+            .btns button {
+                flex: 1;
+                min-width: 120px;
+            }
         }
     </style>
+    <!-- 引入图标库 -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- 登录/注册盒子 -->
-    <div class="auth-box" id="authBox">
-        <h2>智能头盔定位系统</h2>
-        <div class="auth-tabs">
-            <div class="auth-tab active" onclick="switchTab('login')">登录</div>
-            <div class="auth-tab" onclick="switchTab('register')">注册</div>
-        </div>
-
-        <!-- 登录表单 -->
-        <div class="auth-form active" id="loginForm">
-            <input id="loginUser" placeholder="用户名">
-            <input id="loginPwd" placeholder="密码" type="password">
-            <div class="auth-checkbox">
-                <input type="checkbox" id="loginAgree">
-                <label for="loginAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
+    <!-- 登录/注册容器 -->
+    <div class="auth-container" id="authBox">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <i class="fas fa-helmet-safety"></i>
             </div>
-            <button onclick="login()">登录</button>
-        </div>
-
-        <!-- 注册表单 -->
-        <div class="auth-form" id="registerForm">
-            <input id="regUser" placeholder="用户名">
-            <input id="regPwd" placeholder="密码" type="password">
-            <input id="regPwd2" placeholder="确认密码" type="password">
-            <div class="auth-checkbox">
-                <input type="checkbox" id="regAgree">
-                <label for="regAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
+            <h2>智能头盔定位系统</h2>
+            
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchTab('login')">登录</div>
+                <div class="auth-tab" onclick="switchTab('register')">注册</div>
             </div>
-            <button onclick="register()">注册</button>
+
+            <!-- 登录表单 -->
+            <div class="auth-form active" id="loginForm">
+                <div class="form-group">
+                    <input id="loginUser" placeholder="请输入用户名" type="text">
+                </div>
+                <div class="form-group">
+                    <input id="loginPwd" placeholder="请输入密码" type="password">
+                </div>
+                <div class="auth-checkbox">
+                    <input type="checkbox" id="loginAgree">
+                    <label for="loginAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
+                </div>
+                <button class="btn btn-primary" onclick="login()">
+                    <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统
+                </button>
+            </div>
+
+            <!-- 注册表单 -->
+            <div class="auth-form" id="registerForm">
+                <div class="form-group">
+                    <input id="regUser" placeholder="请设置用户名" type="text">
+                </div>
+                <div class="form-group">
+                    <input id="regPwd" placeholder="请设置密码（6位以上）" type="password">
+                </div>
+                <div class="form-group">
+                    <input id="regPwd2" placeholder="请确认密码" type="password">
+                </div>
+                <div class="auth-checkbox">
+                    <input type="checkbox" id="regAgree">
+                    <label for="regAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
+                </div>
+                <button class="btn btn-primary" onclick="register()">
+                    <i class="fas fa-user-plus" style="margin-right: 8px;"></i>创建账号
+                </button>
+            </div>
+            
+            <div class="privacy-tip">
+                <i class="fas fa-shield-halved" style="color: #0078d7;"></i> 
+                定位信息仅本地加密存储，不会上传或共享
+            </div>
         </div>
-        <div class="privacy-tip">定位信息仅本地使用，不会上传或共享</div>
     </div>
 
     <!-- 主界面 -->
     <div class="main" id="mainBox">
-        <button class="logout" onclick="logout()">退出登录</button>
-        <div class="btns">
-            <button onclick="getPos()">定位我自己</button>
-            <button onclick="clearPos()">清除位置信息</button>
+        <div class="header">
+            <h1>
+                <i class="fas fa-helmet-safety"></i>
+                智能头盔定位系统
+            </h1>
+            <button class="logout" onclick="logout()">
+                <i class="fas fa-sign-out-alt" style="margin-right: 6px;"></i>退出登录
+            </button>
         </div>
-        <div id="map"></div>
-        <div id="info"></div>
+        
+        <div class="btns">
+            <button onclick="getPos()">
+                <i class="fas fa-location-arrow"></i>定位我自己
+            </button>
+            <button onclick="clearPos()">
+                <i class="fas fa-trash-alt"></i>清除位置信息
+            </button>
+            <button onclick="showLastPos()">
+                <i class="fas fa-history"></i>查看上次定位
+            </button>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+        
+        <div class="info-card" id="info">
+            <i class="fas fa-info-circle" style="color: #0078d7;"></i> 
+            欢迎使用智能头盔定位系统，请点击「定位我自己」开始使用
+        </div>
     </div>
 
     <!-- 隐私协议弹窗 -->
-    <div id="privacyModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;">
-        <div style="width: 80%; max-width: 500px; margin: 100px auto; background: #fff; padding: 20px; border-radius: 8px;">
-            <h3 style="margin-bottom: 10px;">隐私协议</h3>
-            <div style="max-height: 300px; overflow-y: auto; font-size: 14px; line-height: 1.6;">
-                1. 我们仅在您主动点击"定位"按钮时采集位置信息，且仅存储在本地，不会上传至服务器；<br>
-                2. 位置信息仅用于为您展示定位结果，不会向任何第三方共享；<br>
-                3. 您可随时点击"清除位置信息"删除本地存储的位置数据；<br>
-                4. 退出登录时会自动清除所有本地存储的位置信息。
+    <div class="modal" id="privacyModal">
+        <div class="modal-content">
+            <h3>隐私协议</h3>
+            <div class="content">
+                <p style="margin-bottom: 12px; font-weight: 500; color: #1e293b;">一、数据采集说明</p>
+                <p>1. 我们仅在您主动点击"定位"按钮时采集位置信息，采集的信息包括：经纬度、地址信息、定位时间；</p>
+                <p>2. 位置信息仅在您的设备本地存储，不会上传至任何服务器，也不会进行云端同步；</p>
+                <p>3. 定位权限由浏览器统一管理，您可随时在浏览器设置中关闭位置权限。</p>
+                
+                <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">二、数据存储说明</p>
+                <p>1. 本地存储的位置信息采用AES加密算法进行加密，仅您本人可查看；</p>
+                <p>2. 您可通过"清除位置信息"按钮随时删除本地存储的位置数据；</p>
+                <p>3. 退出登录时会自动清除所有本地存储的位置信息，保障数据安全。</p>
+                
+                <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">三、数据使用说明</p>
+                <p>1. 位置信息仅用于为您展示定位结果和地图标注，不作其他任何用途；</p>
+                <p>2. 我们不会向任何第三方共享、转让、出售您的位置信息；</p>
+                <p>3. 未经您的明确授权，不会将位置信息用于任何商业目的。</p>
+                
+                <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">四、用户权利</p>
+                <p>1. 您有权随时查看、删除本地存储的位置信息；</p>
+                <p>2. 您有权随时注销账号，注销后所有本地数据将被永久删除；</p>
+                <p>3. 您有权拒绝位置信息采集，拒绝后仅无法使用定位功能，不影响系统其他功能使用。</p>
             </div>
-            <button onclick="closePrivacy()" style="margin-top: 20px; padding: 8px 20px; background: #0078d7; color: #fff; border: none; border-radius: 6px;">确认</button>
+            <button class="btn btn-primary" onclick="closePrivacy()">
+                <i class="fas fa-check" style="margin-right: 8px;"></i>我已阅读并同意
+            </button>
         </div>
     </div>
 
@@ -213,7 +517,7 @@
 
         // 隐私协议相关
         function showPrivacy() {
-            document.getElementById("privacyModal").style.display = "block";
+            document.getElementById("privacyModal").style.display = "flex";
         }
         function closePrivacy() {
             document.getElementById("privacyModal").style.display = "none";
@@ -226,56 +530,76 @@
             const pwd2 = document.getElementById('regPwd2').value.trim();
             const agree = document.getElementById('regAgree').checked;
             
-            if (!user || !pwd) {
-                alert('用户名和密码不能为空！');
+            if (!user) {
+                tipModal('用户名不能为空！', 'error');
+                return;
+            }
+            if (pwd.length < 6) {
+                tipModal('密码长度不能少于6位！', 'error');
                 return;
             }
             if (pwd !== pwd2) {
-                alert('两次密码不一致！');
+                tipModal('两次密码输入不一致！', 'error');
                 return;
             }
             if (!agree) {
-                alert('请阅读并同意隐私协议！');
+                tipModal('请阅读并同意隐私协议！', 'error');
                 return;
             }
             
             localStorage.setItem('user', user);
             localStorage.setItem('pwd', pwd);
-            alert('注册成功！请登录');
-            switchTab('login');
+            tipModal('注册成功！请登录', 'success');
+            setTimeout(() => {
+                switchTab('login');
+            }, 1500);
         }
 
         function login() {
-            const user = document.getElementById('loginUser').value.trim();
-            const pwd = document.getElementById('loginPwd').value.trim();
-            const agree = document.getElementById('loginAgree').checked;
-            const savedUser = localStorage.getItem('user');
-            const savedPwd = localStorage.getItem('pwd');
+            const loginBtn = event.target;
+            loginBtn.innerHTML = '<span class="loading"></span> 登录中...';
+            loginBtn.disabled = true;
             
-            // 如果是首次使用，没有注册用户，先提示注册
-            if (!savedUser) {
-                alert('该用户不存在，请先注册！');
-                switchTab('register');
-                return;
-            }
-            
-            if (!user || !pwd) {
-                alert('用户名和密码不能为空！');
-                return;
-            }
-            if (user !== savedUser || pwd !== savedPwd) {
-                alert('用户名或密码错误！');
-                return;
-            }
-            if (!agree) {
-                alert('请阅读并同意隐私协议！');
-                return;
-            }
-            
-            localStorage.setItem("logined", "1");
-            document.getElementById("authBox").style.display = "none";
-            document.getElementById("mainBox").style.display = "block";
-            initMap();
+            setTimeout(() => {
+                const user = document.getElementById('loginUser').value.trim();
+                const pwd = document.getElementById('loginPwd').value.trim();
+                const agree = document.getElementById('loginAgree').checked;
+                const savedUser = localStorage.getItem('user');
+                const savedPwd = localStorage.getItem('pwd');
+                
+                // 如果是首次使用，没有注册用户，先提示注册
+                if (!savedUser) {
+                    tipModal('该用户不存在，请先注册！', 'error');
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
+                    loginBtn.disabled = false;
+                    switchTab('register');
+                    return;
+                }
+                
+                if (!user || !pwd) {
+                    tipModal('用户名和密码不能为空！', 'error');
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
+                    loginBtn.disabled = false;
+                    return;
+                }
+                if (user !== savedUser || pwd !== savedPwd) {
+                    tipModal('用户名或密码错误！', 'error');
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
+                    loginBtn.disabled = false;
+                    return;
+                }
+                if (!agree) {
+                    tipModal('请阅读并同意隐私协议！', 'error');
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
+                    loginBtn.disabled = false;
+                    return;
+                }
+                
+                localStorage.setItem("logined", "1");
+                document.getElementById("authBox").style.display = "none";
+                document.getElementById("mainBox").style.display = "block";
+                initMap();
+            }, 800);
         }
 
         // 加密解密函数
@@ -292,9 +616,14 @@
             }
         }
 
-        // 定位功能（修复核心问题）
+        // 定位功能
         function getPos() {
-            tip("正在定位...请确保已开启位置权限");
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> 定位中...';
+            btn.disabled = true;
+            
+            tip('<i class="fas fa-spinner fa-spin"></i> 正在定位...请确保已开启位置权限');
             
             // 检查地图是否初始化
             if (!map) {
@@ -304,13 +633,16 @@
             AMap.plugin(['AMap.Geolocation', 'AMap.CitySearch'], function() {
                 let geo = new AMap.Geolocation({
                     enableHighAccuracy: true,
-                    timeout: 10000,  // 延长超时时间
-                    useNative: true, // 使用原生定位，提高成功率
-                    zoomToAccuracy: true // 定位成功后自动缩放地图
+                    timeout: 10000,
+                    useNative: true,
+                    zoomToAccuracy: true
                 });
                 
-                // 绑定定位结果事件
+                // 定位成功
                 geo.on('complete', function(result) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    
                     // 脱敏展示
                     const address = result.formattedAddress || "未知地址";
                     const simpleAddress = address.split('号')[0] + (address.includes('号') ? '号' : '');
@@ -330,16 +662,24 @@
                     marker = new AMap.Marker({ 
                         position: result.position, 
                         map: map,
-                        title: '我的位置'
+                        title: '我的位置',
+                        icon: new AMap.Icon({
+                            size: new AMap.Size(32, 32),
+                            image: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png',
+                            imageSize: new AMap.Size(32, 32)
+                        })
                     });
                     map.setCenter(result.position);
-                    map.setZoom(18); // 放大地图
-                    tip(`定位成功：${simpleAddress}（位置信息已加密存储）`);
+                    map.setZoom(18);
+                    tip(`<i class="fas fa-check-circle" style="color: #10b981;"></i> 定位成功：${simpleAddress}（位置信息已加密存储）`);
                 });
                 
-                // 绑定定位失败事件
+                // 定位失败
                 geo.on('error', function(err) {
-                    tip("高精度定位失败，自动切换城市定位...");
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    
+                    tip(`<i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i> 高精度定位失败，自动切换城市定位...`);
                     let city = new AMap.CitySearch();
                     city.getLocalCity(function(status, result) {
                         if (status === 'complete' && result.info === 'OK') {
@@ -351,7 +691,7 @@
                                 map: map,
                                 title: '城市中心'
                             });
-                            tip(`城市定位成功：${result.city}（仅展示城市级别位置）`);
+                            tip(`<i class="fas fa-info-circle" style="color: #0078d7;"></i> 城市定位成功：${result.city}（仅展示城市级别位置）`);
                         } else {
                             map.setCenter([116.397428, 39.90923]);
                             map.setZoom(10);
@@ -360,7 +700,7 @@
                                 position: [116.397428, 39.90923], 
                                 map: map 
                             });
-                            tip("定位失败：使用默认位置（北京），请检查位置权限");
+                            tip(`<i class="fas fa-times-circle" style="color: #ef4444;"></i> 定位失败：使用默认位置（北京），请检查位置权限`);
                         }
                     });
                 });
@@ -370,18 +710,46 @@
             });
         }
 
+        // 查看上次定位
+        function showLastPos() {
+            const savedPos = localStorage.getItem("encrypted_pos");
+            if (!savedPos) {
+                tip(`<i class="fas fa-info-circle" style="color: #0078d7;"></i> 暂无历史定位记录，请先进行定位`);
+                return;
+            }
+            
+            const posData = decryptData(savedPos);
+            if (posData && map) {
+                const timeStr = new Date(posData.time).toLocaleString();
+                const simpleAddress = posData.address.split('号')[0] + (posData.address.includes('号') ? '号' : '');
+                
+                map.setCenter([posData.lng, posData.lat]);
+                if (marker) marker.remove();
+                marker = new AMap.Marker({ 
+                    position: [posData.lng, posData.lat], 
+                    map: map,
+                    title: '上次定位位置'
+                });
+                map.setZoom(18);
+                tip(`<i class="fas fa-history" style="color: #0078d7;"></i> 上次定位：${simpleAddress}（定位时间：${timeStr}）`);
+            }
+        }
+
         // 清除位置信息
         function clearPos() {
             localStorage.removeItem("encrypted_pos");
             if (marker) marker.remove();
-            tip("位置信息已清除！");
+            marker = null;
+            tip(`<i class="fas fa-check-circle" style="color: #10b981;"></i> 位置信息已清除！`);
         }
 
         // 退出登录
         function logout() {
-            localStorage.removeItem("logined");
-            localStorage.removeItem("encrypted_pos");
-            location.reload();
+            if (confirm('确定要退出登录吗？退出后将清除本地位置信息')) {
+                localStorage.removeItem("logined");
+                localStorage.removeItem("encrypted_pos");
+                location.reload();
+            }
         }
 
         // 切换标签
@@ -392,25 +760,70 @@
             document.getElementById(`${type}Form`).classList.add('active');
         }
         
-        // 初始化地图（修复核心问题）
+        // 初始化地图
         function initMap() {
-            // 确保地图容器已显示
-            document.getElementById('map').style.display = 'block';
+            if (map) return;
             
             // 初始化地图实例
             map = new AMap.Map("map", {
                 zoom: 16, 
                 center: [116.397428, 39.90923],
-                resizeEnable: true // 允许地图自适应容器大小
+                resizeEnable: true,
+                mapStyle: 'amap://styles/light' // 浅色地图风格，更美观
             });
             
             // 添加地图控件
-            map.addControl(new AMap.Scale());
-            map.addControl(new AMap.ToolBar());
+            map.addControl(new AMap.Scale({ position: 'bottom-right' }));
+            map.addControl(new AMap.ToolBar({ position: 'bottom-right' }));
+            map.addControl(new AMap.MapType({ position: 'bottom-right' }));
         }
 
+        // 提示函数
         function tip(text) {
-            document.getElementById("info").innerText = text;
+            document.getElementById("info").innerHTML = text;
+        }
+
+        // 弹窗提示
+        function tipModal(message, type = 'info') {
+            // 创建临时提示弹窗
+            const tipDiv = document.createElement('div');
+            tipDiv.style.position = 'fixed';
+            tipDiv.style.top = '20px';
+            tipDiv.style.left = '50%';
+            tipDiv.style.transform = 'translateX(-50%)';
+            tipDiv.style.padding = '12px 24px';
+            tipDiv.style.borderRadius = '8px';
+            tipDiv.style.zIndex = '9999';
+            tipDiv.style.color = '#fff';
+            tipDiv.style.fontSize = '14px';
+            tipDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            tipDiv.style.animation = 'fadeIn 0.3s ease-out';
+            
+            // 根据类型设置样式
+            if (type === 'success') {
+                tipDiv.style.background = '#10b981';
+                tipDiv.innerHTML = `<i class="fas fa-check-circle" style="margin-right: 8px;"></i>${message}`;
+            } else if (type === 'error') {
+                tipDiv.style.background = '#ef4444';
+                tipDiv.innerHTML = `<i class="fas fa-times-circle" style="margin-right: 8px;"></i>${message}`;
+            } else if (type === 'warning') {
+                tipDiv.style.background = '#f59e0b';
+                tipDiv.innerHTML = `<i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i>${message}`;
+            } else {
+                tipDiv.style.background = '#0078d7';
+                tipDiv.innerHTML = `<i class="fas fa-info-circle" style="margin-right: 8px;"></i>${message}`;
+            }
+            
+            document.body.appendChild(tipDiv);
+            
+            // 3秒后移除
+            setTimeout(() => {
+                tipDiv.style.opacity = '0';
+                tipDiv.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    document.body.removeChild(tipDiv);
+                }, 300);
+            }, 3000);
         }
         
         // 页面加载
@@ -426,12 +839,15 @@
                 if (savedPos) {
                     const posData = decryptData(savedPos);
                     if (posData && map) {
+                        const timeStr = new Date(posData.time).toLocaleString();
+                        const simpleAddress = posData.address.split('号')[0] + (posData.address.includes('号') ? '号' : '');
+                        
                         map.setCenter([posData.lng, posData.lat]);
                         marker = new AMap.Marker({ 
                             position: [posData.lng, posData.lat], 
                             map: map 
                         });
-                        tip(`已恢复上次定位：${posData.address.split('号')[0]}号`);
+                        tip(`<i class="fas fa-history" style="color: #0078d7;"></i> 已恢复上次定位：${simpleAddress}（定位时间：${timeStr}）`);
                     }
                 }
             }
