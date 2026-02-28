@@ -11,6 +11,7 @@
             padding: 0;
             box-sizing: border-box;
             font-family: "Microsoft Yahei", "PingFang SC", sans-serif;
+            -webkit-tap-highlight-color: transparent; /* 去除移动端点击高亮 */
         }
         
         /* 全局样式 */
@@ -114,6 +115,7 @@
             border-radius: 6px;
             transition: all 0.3s ease;
             font-weight: 500;
+            touch-action: manipulation; /* 禁用移动端触摸延迟 */
         }
         .auth-tab.active {
             color: #fff;
@@ -179,7 +181,7 @@
             text-decoration: underline;
         }
         
-        /* 按钮样式 */
+        /* 按钮样式 - 核心优化：提升点击灵敏度 */
         .btn {
             width: 100%;
             padding: 14px;
@@ -188,10 +190,12 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: 500;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease; /* 缩短过渡时长，更跟手 */
             display: flex;
             justify-content: center;
             align-items: center;
+            touch-action: manipulation; /* 禁用移动端触摸延迟 */
+            user-select: none; /* 禁止文本选中 */
         }
         .btn-primary {
             background: linear-gradient(90deg, #0078d7, #0091d5);
@@ -200,10 +204,11 @@
         .btn-primary:hover {
             background: linear-gradient(90deg, #0066b3, #007fc8);
             box-shadow: 0 4px 12px rgba(0, 120, 215, 0.25);
-            transform: translateY(-2px);
+            transform: translateY(-1px); /* 减小上浮距离，更灵敏 */
         }
         .btn-primary:active {
             transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(0, 120, 215, 0.2); /* 点击反馈更及时 */
         }
         
         /* 提示文本 */
@@ -251,14 +256,19 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
+            touch-action: manipulation;
+            user-select: none;
         }
         .logout:hover {
             background: #fee2e2;
             box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
         }
+        .logout:active {
+            box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
+        }
         
-        /* 功能按钮区 */
+        /* 功能按钮区 - 核心优化：提升点击灵敏度 */
         .btns {
             display: flex;
             gap: 12px;
@@ -274,19 +284,29 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease; /* 缩短过渡时长 */
             display: flex;
             align-items: center;
             gap: 8px;
+            touch-action: manipulation;
+            user-select: none;
+            min-height: 44px; /* 符合移动端最小点击区域标准 */
         }
         .btns button:hover {
             background: #0078d7;
             color: #fff;
-            transform: translateY(-2px);
+            transform: translateY(-1px); /* 减小上浮距离 */
             box-shadow: 0 4px 12px rgba(0, 120, 215, 0.2);
         }
         .btns button:active {
             transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(0, 120, 215, 0.2);
+        }
+        .btns button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none !important; /* 禁用时取消所有变形 */
+            box-shadow: none !important;
         }
         
         /* 地图容器 */
@@ -412,7 +432,7 @@
                     <input type="checkbox" id="loginAgree">
                     <label for="loginAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
                 </div>
-                <button class="btn btn-primary" onclick="login()">
+                <button class="btn btn-primary" onclick="login(this)"> <!-- 传递按钮本身，避免event.target错误 -->
                     <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统
                 </button>
             </div>
@@ -432,7 +452,7 @@
                     <input type="checkbox" id="regAgree">
                     <label for="regAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
                 </div>
-                <button class="btn btn-primary" onclick="register()">
+                <button class="btn btn-primary" onclick="register(this)"> <!-- 传递按钮本身 -->
                     <i class="fas fa-user-plus" style="margin-right: 8px;"></i>创建账号
                 </button>
             </div>
@@ -457,7 +477,7 @@
         </div>
         
         <div class="btns">
-            <button onclick="getPos()">
+            <button onclick="getPos(this)"> <!-- 传递按钮本身 -->
                 <i class="fas fa-location-arrow"></i>定位我自己
             </button>
             <button onclick="clearPos()">
@@ -514,6 +534,9 @@
     <script>
         let map, marker;
         const CRYPTO_KEY = "helmet_pos_secure_key_2026";
+        // 新增：防止重复点击的锁
+        let isLoginProcessing = false;
+        let isPosProcessing = false;
 
         // 隐私协议相关
         function showPrivacy() {
@@ -523,43 +546,70 @@
             document.getElementById("privacyModal").style.display = "none";
         }
 
-        // 登录/注册
-        function register() {
+        // 登录/注册 - 核心优化：传递按钮本身，缩短禁用时长
+        function register(btn) {
+            // 防止重复点击
+            if (isLoginProcessing) return;
+            isLoginProcessing = true;
+            
             const user = document.getElementById('regUser').value.trim();
             const pwd = document.getElementById('regPwd').value.trim();
             const pwd2 = document.getElementById('regPwd2').value.trim();
             const agree = document.getElementById('regAgree').checked;
             
+            // 先校验，不先禁用按钮
             if (!user) {
                 tipModal('用户名不能为空！', 'error');
+                isLoginProcessing = false; // 释放锁
                 return;
             }
             if (pwd.length < 6) {
                 tipModal('密码长度不能少于6位！', 'error');
+                isLoginProcessing = false;
                 return;
             }
             if (pwd !== pwd2) {
                 tipModal('两次密码输入不一致！', 'error');
+                isLoginProcessing = false;
                 return;
             }
             if (!agree) {
                 tipModal('请阅读并同意隐私协议！', 'error');
+                isLoginProcessing = false;
                 return;
             }
             
-            localStorage.setItem('user', user);
-            localStorage.setItem('pwd', pwd);
-            tipModal('注册成功！请登录', 'success');
+            // 校验通过后再修改按钮状态
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> 注册中...';
+            btn.disabled = true;
+            
+            // 缩短处理时长（从800ms改为300ms）
             setTimeout(() => {
-                switchTab('login');
-            }, 1500);
+                localStorage.setItem('user', user);
+                localStorage.setItem('pwd', pwd);
+                tipModal('注册成功！请登录', 'success');
+                
+                // 快速恢复按钮状态
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    isLoginProcessing = false;
+                    switchTab('login');
+                }, 800); // 提示后快速恢复
+            }, 300);
         }
 
-        function login() {
-            const loginBtn = event.target;
-            loginBtn.innerHTML = '<span class="loading"></span> 登录中...';
-            loginBtn.disabled = true;
+        function login(btn) {
+            // 防止重复点击
+            if (isLoginProcessing) return;
+            isLoginProcessing = true;
             
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> 登录中...';
+            btn.disabled = true;
+            
+            // 缩短处理时长（从800ms改为200ms）
             setTimeout(() => {
                 const user = document.getElementById('loginUser').value.trim();
                 const pwd = document.getElementById('loginPwd').value.trim();
@@ -570,28 +620,32 @@
                 // 如果是首次使用，没有注册用户，先提示注册
                 if (!savedUser) {
                     tipModal('该用户不存在，请先注册！', 'error');
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
-                    loginBtn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    isLoginProcessing = false;
                     switchTab('register');
                     return;
                 }
                 
                 if (!user || !pwd) {
                     tipModal('用户名和密码不能为空！', 'error');
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
-                    loginBtn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    isLoginProcessing = false;
                     return;
                 }
                 if (user !== savedUser || pwd !== savedPwd) {
                     tipModal('用户名或密码错误！', 'error');
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
-                    loginBtn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    isLoginProcessing = false;
                     return;
                 }
                 if (!agree) {
                     tipModal('请阅读并同意隐私协议！', 'error');
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统';
-                    loginBtn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    isLoginProcessing = false;
                     return;
                 }
                 
@@ -599,7 +653,10 @@
                 document.getElementById("authBox").style.display = "none";
                 document.getElementById("mainBox").style.display = "block";
                 initMap();
-            }, 800);
+                
+                // 登录成功后无需恢复按钮（页面已切换）
+                isLoginProcessing = false;
+            }, 200);
         }
 
         // 加密解密函数
@@ -616,9 +673,12 @@
             }
         }
 
-        // 定位功能
-        function getPos() {
-            const btn = event.target;
+        // 定位功能 - 核心优化：防止重复点击，缩短禁用感知
+        function getPos(btn) {
+            // 防止重复点击
+            if (isPosProcessing) return;
+            isPosProcessing = true;
+            
             const originalText = btn.innerHTML;
             btn.innerHTML = '<span class="loading"></span> 定位中...';
             btn.disabled = true;
@@ -633,15 +693,17 @@
             AMap.plugin(['AMap.Geolocation', 'AMap.CitySearch'], function() {
                 let geo = new AMap.Geolocation({
                     enableHighAccuracy: true,
-                    timeout: 10000,
+                    timeout: 8000, // 缩短超时时间（从10s改8s）
                     useNative: true,
                     zoomToAccuracy: true
                 });
                 
                 // 定位成功
                 geo.on('complete', function(result) {
+                    // 立即恢复按钮状态，提升灵敏感知
                     btn.innerHTML = originalText;
                     btn.disabled = false;
+                    isPosProcessing = false;
                     
                     // 脱敏展示
                     const address = result.formattedAddress || "未知地址";
@@ -676,8 +738,10 @@
                 
                 // 定位失败
                 geo.on('error', function(err) {
+                    // 立即恢复按钮状态
                     btn.innerHTML = originalText;
                     btn.disabled = false;
+                    isPosProcessing = false;
                     
                     tip(`<i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i> 高精度定位失败，自动切换城市定位...`);
                     let city = new AMap.CitySearch();
@@ -710,6 +774,14 @@
             });
         }
 
+        // 清除位置信息
+        function clearPos() {
+            localStorage.removeItem("encrypted_pos");
+            if (marker) marker.remove();
+            marker = null;
+            tip(`<i class="fas fa-check-circle" style="color: #10b981;"></i> 位置信息已清除！`);
+        }
+
         // 查看上次定位
         function showLastPos() {
             const savedPos = localStorage.getItem("encrypted_pos");
@@ -735,14 +807,6 @@
             }
         }
 
-        // 清除位置信息
-        function clearPos() {
-            localStorage.removeItem("encrypted_pos");
-            if (marker) marker.remove();
-            marker = null;
-            tip(`<i class="fas fa-check-circle" style="color: #10b981;"></i> 位置信息已清除！`);
-        }
-
         // 退出登录
         function logout() {
             if (confirm('确定要退出登录吗？退出后将清除本地位置信息')) {
@@ -752,7 +816,7 @@
             }
         }
 
-        // 切换标签
+        // 切换标签 - 优化：立即响应，无延迟
         function switchTab(type) {
             document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelector(`.auth-tab[onclick="switchTab('${type}')"]`).classList.add('active');
