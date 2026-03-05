@@ -55,8 +55,14 @@
             font-size: 16px;
             color: #333;
         }
-        .search-box i {
-            color: #666;
+        .profile-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.95);
+            border: none;
+            font-size: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
         .map-controls {
             position: absolute;
@@ -126,17 +132,16 @@
             <i>🔍</i>
             <input id="destination" placeholder="输入目的地...">
         </div>
+        <button class="profile-btn" onclick="openProfile()">👤</button>
     </div>
 
     <div class="map-controls">
-        <button class="control-btn" onclick="toggleTraffic()" title="实时路况">🚦</button>
-        <button class="control-btn" onclick="toggleSatellite()" title="卫星图">🛰️</button>
-        <button class="control-btn" onclick="getCurrentLocation()" title="定位到我">📍</button>
+        <button class="control-btn" onclick="toggleTraffic()">🚦</button>
+        <button class="control-btn" onclick="toggleSatellite()">🛰️</button>
+        <button class="control-btn" onclick="getCurrentLocation()">📍</button>
     </div>
 
-    <div class="info-bar" id="info">
-        欢迎使用智能头盔导航
-    </div>
+    <div class="info-bar" id="info">欢迎使用智能头盔导航</div>
 
     <div class="nav-buttons">
         <button class="nav-btn" onclick="getCurrentLocation()">📍 定位</button>
@@ -151,34 +156,33 @@
         let isSatellite = false;
         let isTraffic = false;
 
+        // 进入页面先判断是否登录
+        window.onload = function () {
+            const logged = localStorage.getItem('isLoggedIn');
+            if (!logged) {
+                window.location.href = 'login.html';
+                return;
+            }
+            initMap();
+        };
+
         function initMap() {
-            map = new AMap.Map("map", {
-                zoom: 16,
-                resizeEnable: true
-            });
-            trafficLayer = new AMap.TileLayer.Traffic({ autoRefresh: true, interval: 180 });
+            map = new AMap.Map("map", { zoom:16, resizeEnable:true });
+            trafficLayer = new AMap.TileLayer.Traffic({ autoRefresh:true, interval:180 });
         }
 
         function getCurrentLocation() {
             const info = document.getElementById('info');
             info.innerText = '⏳ 正在定位...';
-
-            let geolocation = new AMap.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 10000
-            });
-
-            geolocation.getCurrentPosition((status, result) => {
+            let geo = new AMap.Geolocation({ enableHighAccuracy:true, timeout:10000 });
+            geo.getCurrentPosition((status, result) => {
                 if (status === 'complete' && result.info === 'SUCCESS') {
                     currentPos = result.position;
                     if (marker) marker.remove();
-                    marker = new AMap.Marker({
-                        position: currentPos,
-                        title: '我的位置'
-                    });
+                    marker = new AMap.Marker({ position: currentPos });
                     marker.setMap(map);
                     map.setCenter(currentPos);
-                    info.innerText = `✅ 已定位：${result.formattedAddress}`;
+                    info.innerText = '✅ 已定位：'+ result.formattedAddress;
                 } else {
                     info.innerText = '❌ 定位失败';
                 }
@@ -190,30 +194,19 @@
                 document.getElementById('info').innerText = '⚠️ 请先定位';
                 return;
             }
-            let keyword = document.getElementById('destination').value.trim();
-            if (!keyword) {
+            const key = document.getElementById('destination').value.trim();
+            if (!key) {
                 document.getElementById('info').innerText = '⚠️ 请输入目的地';
                 return;
             }
-            document.getElementById('info').innerText = '⏳ 正在规划路线...';
-
-            AMap.plugin('AMap.Driving', function() {
-                let driving = new AMap.Driving({
-                    map: map,
-                    autoFitView: true
-                });
-                driving.search([
-                    { keyword: keyword },
-                    { location: currentPos }
-                ], function(status, result) {
-                    if (status === 'complete') {
-                        const steps = result.routes[0].steps;
-                        let stepsText = "✅ 路线已规划：\n";
-                        steps.forEach((step, index) => {
-                            stepsText += `${index + 1}. ${step.instruction}\n`;
-                        });
-                        document.getElementById('info').innerText = stepsText;
-                        speakNavigation(steps[0].instruction);
+            document.getElementById('info').innerText = '⏳ 规划路线中...';
+            AMap.plugin('AMap.Driving', () => {
+                const d = new AMap.Driving({ map:map, autoFitView:true });
+                d.search([{ keyword:key }, { location:currentPos }], (s, res) => {
+                    if (s === 'complete') {
+                        document.getElementById('info').innerText = '✅ 路线已规划';
+                        const t = new SpeechSynthesisUtterance('路线已规划，准备出发');
+                        window.speechSynthesis.speak(t);
                     } else {
                         document.getElementById('info').innerText = '❌ 路线规划失败';
                     }
@@ -229,35 +222,23 @@
 
         function toggleTraffic() {
             isTraffic = !isTraffic;
-            if (isTraffic) {
-                map.add(trafficLayer);
-                document.getElementById('info').innerText = '✅ 已开启实时路况';
-            } else {
-                map.remove(trafficLayer);
-                document.getElementById('info').innerText = '❌ 已关闭实时路况';
-            }
+            isTraffic ? map.add(trafficLayer) : map.remove(trafficLayer);
+            document.getElementById('info').innerText = isTraffic ? '✅ 实时路况已开启' : '❌ 实时路况已关闭';
         }
 
         function toggleSatellite() {
             isSatellite = !isSatellite;
-            if (isSatellite) {
-                map.setLayers([new AMap.TileLayer.Satellite()]);
-                document.getElementById('info').innerText = '✅ 已切换至卫星图';
-            } else {
-                map.setLayers([new AMap.TileLayer()]);
-                document.getElementById('info').innerText = '❌ 已切换至标准图';
-            }
+            isSatellite ? map.setLayers([new AMap.TileLayer.Satellite()]) : map.setLayers([new AMap.TileLayer()]);
+            document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
         }
 
-        function speakNavigation(text) {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'zh-CN';
-                window.speechSynthesis.speak(utterance);
+        // 个人中心 / 退出登录
+        function openProfile() {
+            if (confirm('是否退出登录？')) {
+                localStorage.removeItem('isLoggedIn');
+                window.location.href = 'login.html';
             }
         }
-
-        window.onload = initMap;
     </script>
 </body>
 </html>
