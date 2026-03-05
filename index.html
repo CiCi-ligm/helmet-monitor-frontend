@@ -3,818 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能头盔定位系统 | 安全版</title>
+    <title>智能头盔定位导航系统</title>
     <style>
-        /* 保留所有视觉/交互样式，仅新增定位权限提示样式 */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "Microsoft Yahei", "PingFang SC", sans-serif;
-            -webkit-tap-highlight-color: transparent;
+            font-family: "SF Pro Display", "Microsoft Yahei", sans-serif;
         }
         body {
-            background: linear-gradient(135deg, #e8f4f8 0%, #f0f8fb 100%);
+            background: #ffffff;
             min-height: 100vh;
-            color: #334155;
-            overflow-x: hidden;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #0078d7;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-        .auth-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .auth-box {
-            width: 100%;
-            max-width: 420px;
-            background: #fff;
             padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(149, 157, 165, 0.15);
-            animation: fadeIn 0.5s ease-out;
-            position: relative;
-            overflow: hidden;
-        }
-        .auth-box::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 6px;
-            background: linear-gradient(90deg, #0078d7, #00b4d8);
-        }
-        .auth-box h2 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #1e293b;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .auth-logo {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .auth-logo i {
-            font-size: 48px;
-            color: #0078d7;
-            margin-bottom: 10px;
-            display: inline-block;
-            animation: pulse 2s infinite;
-        }
-        .auth-tabs {
-            display: flex;
-            margin-bottom: 25px;
-            border-radius: 8px;
-            background: #f8fafc;
-            padding: 4px;
-        }
-        .auth-tab {
-            flex: 1;
-            text-align: center;
-            padding: 12px;
-            cursor: pointer;
-            color: #64748b;
-            border-radius: 6px;
-            transition: all 0.15s ease;
-            font-weight: 500;
-            touch-action: manipulation;
-        }
-        .auth-tab.active {
-            color: #fff;
-            background: linear-gradient(90deg, #0078d7, #0091d5);
-            box-shadow: 0 2px 8px rgba(0, 120, 215, 0.2);
-        }
-        .auth-form {
-            display: none;
-            animation: fadeIn 0.3s ease-out;
-        }
-        .auth-form.active {
-            display: block;
-        }
-        .form-group {
-            margin-bottom: 20px;
-            position: relative;
-        }
-        .auth-form input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 15px;
-            transition: all 0.3s ease;
-            background: #f8fafc;
-            color: #1e293b;
-        }
-        .auth-form input:focus {
-            outline: none;
-            border-color: #0078d7;
-            box-shadow: 0 0 0 3px rgba(0, 120, 215, 0.1);
-            background: #fff;
-        }
-        .auth-form input::placeholder {
-            color: #94a3b8;
-        }
-        .auth-checkbox {
-            display: flex;
-            align-items: center;
-            margin: 10px 0 20px;
-            font-size: 13px;
-            color: #64748b;
-        }
-        .auth-checkbox input {
-            width: 18px;
-            height: 18px;
-            margin: 0 8px 0 0;
-            padding: 0;
-            accent-color: #0078d7;
-        }
-        .auth-checkbox a {
-            color: #0078d7;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-        .auth-checkbox a:hover {
-            color: #005a9e;
-            text-decoration: underline;
-        }
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            transition: all 0.15s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            touch-action: manipulation;
-            user-select: none;
-        }
-        .btn-primary {
-            background: linear-gradient(90deg, #0078d7, #0091d5);
-            color: #fff;
-        }
-        .btn-primary:hover {
-            background: linear-gradient(90deg, #0066b3, #007fc8);
-            box-shadow: 0 4px 12px rgba(0, 120, 215, 0.25);
-            transform: translateY(-1px);
-        }
-        .btn-primary:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 6px rgba(0, 120, 215, 0.2);
-        }
-        .privacy-tip {
-            font-size: 12px;
-            color: #94a3b8;
-            margin-top: 15px;
-            text-align: center;
+            color: #1a1a1a;
             line-height: 1.5;
         }
-        .main {
-            display: none;
-            width: 100%;
-            min-height: 100vh;
-            padding: 24px;
-            animation: fadeIn 0.5s ease-out;
+        .map-box {
+            background: #ffffff;
+            padding: 32px;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            max-width: 1200px;
+            margin: 0 auto;
         }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .map-box h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4b5563;
             margin-bottom: 20px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid #e2e8f0;
         }
-        .header h1 {
-            color: #1e293b;
-            font-size: 22px;
-            display: flex;
-            align-items: center;
+        #mapContainer {
+            width: 100%;
+            height: 550px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 20px;
         }
-        .header h1 i {
-            color: #0078d7;
-            margin-right: 10px;
-            font-size: 24px;
-        }
-        .logout {
-            padding: 10px 20px;
-            background: #fef2f2;
-            color: #dc2626;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.15s ease;
-            touch-action: manipulation;
-            user-select: none;
-        }
-        .logout:hover {
-            background: #fee2e2;
-            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
-        }
-        .logout:active {
-            box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
-        }
-        .btns {
+        .nav-controls {
             display: flex;
             gap: 12px;
             margin-bottom: 20px;
-            flex-wrap: wrap;
         }
-        .btns button {
-            padding: 12px 24px;
-            background: #fff;
-            color: #0078d7;
-            border: 1px solid #0078d7;
+        .nav-controls input {
+            height: 40px;
+            padding: 0 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            flex: 1;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .btn-group button {
+            height: 40px;
+            padding: 0 20px;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.15s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            touch-action: manipulation;
-            user-select: none;
-            min-height: 44px;
+            color: #4b5563;
+            background: #ffffff;
+            transition: all 0.2s;
         }
-        .btns button:hover {
-            background: #0078d7;
-            color: #fff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 120, 215, 0.2);
+        .btn-group button:hover {
+            background: #f9fafb;
+            border-color: #2563eb;
+            color: #2563eb;
         }
-        .btns button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 6px rgba(0, 120, 215, 0.2);
+        .btn-group button:active {
+            transform: scale(0.98);
         }
-        .btns button:disabled {
-            opacity: 0.7;
+        .btn-group button:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
         }
-        .map-container {
-            width: 100%;
-            height: calc(100vh - 180px);
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(149, 157, 165, 0.1);
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-        }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-        .info-card {
-            margin-top: 16px;
-            padding: 16px;
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 12px rgba(149, 157, 165, 0.1);
-            border-left: 4px solid #0078d7;
-            color: #475569;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        /* 新增：定位权限提示样式 */
-        .permission-tip {
-            background: #fffbeb;
-            border-left: 4px solid #f59e0b;
+        .location-info {
+            margin-top: 10px;
             padding: 12px;
-            margin-bottom: 15px;
+            background: #f9fafb;
             border-radius: 8px;
             font-size: 14px;
-            color: #78350f;
-            display: none;
+            color: #1a1a1a;
+            min-height: 60px;
         }
-        .permission-tip.show {
-            display: block;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 9999;
-            backdrop-filter: blur(4px);
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal-content {
-            width: 100%;
-            max-width: 550px;
-            background: #fff;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-            animation: fadeIn 0.3s ease-out;
-        }
-        .modal-content h3 {
-            color: #1e293b;
-            margin-bottom: 16px;
-            font-size: 18px;
-            font-weight: 600;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .modal-content .content {
-            max-height: 400px;
-            overflow-y: auto;
-            font-size: 14px;
-            line-height: 1.8;
-            color: #475569;
-            margin-bottom: 20px;
-        }
-        .modal-content .btn {
-            width: auto;
-            padding: 10px 24px;
-            display: inline-flex;
-        }
-        /* 提示弹窗 */
-        .tip-modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #fff;
-            padding: 20px 30px;
-            border-radius: 12px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-            z-index: 99999;
-            text-align: center;
-            min-width: 200px;
-            animation: fadeIn 0.3s;
-        }
-        .tip-modal.success {
-            border-top: 4px solid #10b981;
-        }
-        .tip-modal.error {
-            border-top: 4px solid #ef4444;
-        }
-        .tip-modal .icon {
-            font-size: 30px;
-            margin-bottom: 10px;
-        }
-        .tip-modal.success .icon {
+        .success {
             color: #10b981;
+            background: #d1fae5 !important;
+            border: 1px solid #10b981 !important;
         }
-        .tip-modal.error .icon {
+        .error {
             color: #ef4444;
+            background: #fee2e2 !important;
+            border: 1px solid #ef4444 !important;
         }
-        .tip-modal .text {
-            font-size: 15px;
-            color: #333;
-            margin-bottom: 15px;
-        }
-        @media (max-width: 768px) {
-            .auth-box {
-                padding: 30px 20px;
-            }
-            .main {
-                padding: 16px;
-            }
-            .map-container {
-                height: calc(100vh - 220px);
-            }
-            .btns {
-                justify-content: center;
-            }
-            .btns button {
-                flex: 1;
-                min-width: 120px;
-            }
+        .loading {
+            color: #3b82f6;
+            background: #dbeafe !important;
+            border: 1px solid #3b82f6 !important;
         }
     </style>
-    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+    <!-- 高德地图API - 使用您的Key -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
+    <script src="https://webapi.amap.com/ui/1.1/main.js"></script>
 </head>
 <body>
+    <div class="map-box">
+        <h3>🏍️ 智能头盔定位导航系统</h3>
 
-    <div class="auth-container" id="authBox">
-        <div class="auth-box">
-            <div class="auth-logo">
-                <i class="fas fa-helmet-safety"></i>
-            </div>
-            <h2>智能头盔定位系统</h2>
-            <div class="auth-tabs">
-                <div class="auth-tab active" onclick="switchTab('login')">登录</div>
-                <div class="auth-tab" onclick="switchTab('register')">注册</div>
-            </div>
-            <div class="auth-form active" id="loginForm">
-                <div class="form-group">
-                    <input id="loginUser" placeholder="请输入用户名" type="text">
-                </div>
-                <div class="form-group">
-                    <input id="loginPwd" placeholder="请输入密码" type="password">
-                </div>
-                <div class="auth-checkbox">
-                    <input type="checkbox" id="loginAgree">
-                    <label for="loginAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
-                </div>
-                <button class="btn btn-primary" onclick="login(this)">
-                    <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>登录系统
-                </button>
-            </div>
-            <div class="auth-form" id="registerForm">
-                <div class="form-group">
-                    <input id="regUser" placeholder="请设置用户名" type="text">
-                </div>
-                <div class="form-group">
-                    <input id="regPwd" placeholder="请设置密码（6位以上）" type="password">
-                </div>
-                <div class="form-group">
-                    <input id="regPwd2" placeholder="请确认密码" type="password">
-                </div>
-                <div class="auth-checkbox">
-                    <input type="checkbox" id="regAgree">
-                    <label for="regAgree">我已阅读并同意<a href="javascript:showPrivacy()">《隐私协议》</a></label>
-                </div>
-                <button class="btn btn-primary" onclick="register(this)">
-                    <i class="fas fa-user-plus" style="margin-right: 8px;"></i>创建账号
-                </button>
-            </div>
-            <div class="privacy-tip">
-                <i class="fas fa-shield-halved" style="color: #0078d7;"></i> 
-                定位信息仅本地加密存储，不会上传或共享
-            </div>
+        <div class="nav-controls">
+            <input type="text" id="destination" placeholder="输入目的地，如：天安门广场、北京大学">
+        </div>
+
+        <div class="btn-group">
+            <button onclick="getCurrentLocation()" id="locBtn">📍 获取当前位置</button>
+            <button onclick="startNavigation()" id="navBtn" disabled>🚀 开始导航</button>
+            <button onclick="stopNavigation()" id="stopBtn" disabled>⏹️ 停止导航</button>
+            <button onclick="clearMap()">🗑️ 清空地图</button>
+        </div>
+
+        <div id="mapContainer"></div>
+
+        <div class="location-info" id="locationInfo">
+            👋 欢迎使用智能头盔导航系统！点击"获取当前位置"开始
         </div>
     </div>
 
-    <div class="main" id="mainBox">
-        <div class="header">
-            <h1>
-                <i class="fas fa-helmet-safety"></i>
-                智能头盔定位系统
-            </h1>
-            <button class="logout" onclick="logout()">
-                <i class="fas fa-sign-out-alt" style="margin-right: 6px;"></i>退出登录
-            </button>
-        </div>
-        <div class="permission-tip" id="permissionTip">
-            <i class="fas fa-exclamation-triangle"></i> 
-            定位需要开启浏览器位置权限！请点击浏览器地址栏左侧的"锁形/位置"图标，允许本网站获取位置信息。
-        </div>
-        <div class="btns">
-            <button onclick="getPos(this)">
-                <i class="fas fa-location-arrow"></i>定位我自己
-            </button>
-            <button onclick="clearPos()">
-                <i class="fas fa-trash-alt"></i>清除位置信息
-            </button>
-            <button onclick="showLastPos()">
-                <i class="fas fa-history"></i>查看上次定位
-            </button>
-        </div>
-        <div class="map-container">
-            <div id="map"></div>
-        </div>
-        <div class="info-card" id="info">
-            <i class="fas fa-info-circle" style="color: #0078d7;"></i> 
-            欢迎使用智能头盔定位系统，请点击「定位我自己」开始使用
-        </div>
-    </div>
+    <script>
+        // 全局变量
+        let map = null;
+        let marker = null;
+        let naviMarker = null;
+        let currentLocation = null;
+        let destinationLocation = null;
+        let driving = null;
+        let geolocation = null;
+        let watchId = null;
+        let isNavigating = false;
 
-    <div class="modal" id="privacyModal">
-        <div class="modal-content">
-            <h3>隐私协议</h3>
-            <div class="content">
-                <p style="margin-bottom: 12px; font-weight: 500; color: #1e293b;">一、数据采集说明</p>
-                <p>1. 我们仅在您主动点击"定位"按钮时采集位置信息，采集的信息包括：经纬度、地址信息、定位时间；</p>
-                <p>2. 位置信息仅在您的设备本地存储，不会上传至任何服务器，也不会进行云端同步；</p>
-                <p>3. 定位权限由浏览器统一管理，您可随时在浏览器设置中关闭位置权限。</p>
-                <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">二、数据存储说明</p>
-                <p>1. 本地存储的位置信息采用AES加密算法进行加密，仅您本人可查看；</p>
-                <p>2. 您可通过"清除位置信息"按钮随时删除本地存储的位置数据；</p>
-                <p>3. 退出登录时会自动清除所有本地存储的位置信息，保障数据安全。</p>
-                <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">三、数据使用说明</p>
-                <p>1. 位置信息仅用于为您展示定位结果和地图标注，不作其他任何用途；</p>
-                <p>2. 我们不会向任何第三方共享、转让、出售您的位置信息；</p>
-                <p>3. 未经您的明确授权，不会将位置信息用于任何商业目的。</p>
-                <p style="margin: 12px 0; font-weight: 500; color: #1e293b;">四、用户权利</p>
-                <p>1. 您有权随时查看、删除本地存储的位置信息；</p>
-                <p>2. 您有权随时注销账号，注销后所有本地数据将被永久删除；</p>
-                <p>3. 您有权拒绝位置信息采集，拒绝后仅无法使用定位功能，不影响系统其他功能使用。</p>
-            </div>
-            <button class="btn btn-primary" onclick="closePrivacy()">
-                <i class="fas fa-check" style="margin-right: 8px;"></i>我已阅读并同意
-            </button>
-        </div>
-    </div>
+        // 页面加载后初始化
+        window.onload = function() {
+            initMap();
+        };
 
-<!-- 高德地图放到最后加载，避免阻塞 -->
-<script src="https://webapi.amap.com/maps?v=2.0&key=4784df4c4c34a5352165df199b1a344d&plugin=AMap.Geolocation,AMap.CitySearch,AMap.ToolBar,AMap.Scale,AMap.MapType"></script>
-
-<script>
-    let map, marker;
-    const CRYPTO_KEY = "helmet_pos_secure_key_2026";
-    let isLoginProcessing = false;
-    let isPosProcessing = false;
-    let mapInited = false;
-
-    // 统一提示框
-    function tipModal(text, type = 'success') {
-        const div = document.createElement('div');
-        div.className = 'tip-modal ' + type;
-        div.innerHTML = `
-            <div class="icon"><i class="fas fa-${type === 'success' ? 'check-circle' : 'times-circle'}"></i></div>
-            <div class="text">${text}</div>
-        `;
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 2000);
-    }
-
-    // 隐私协议
-    function showPrivacy() {
-        document.getElementById("privacyModal").style.display = "flex";
-    }
-    function closePrivacy() {
-        document.getElementById("privacyModal").style.display = "none";
-    }
-
-    // 切换登录注册
-    function switchTab(tab) {
-        document.querySelectorAll('.auth-tab').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.auth-form').forEach(el => el.classList.remove('active'));
-        event.target.classList.add('active');
-        document.getElementById(tab + 'Form').classList.add('active');
-    }
-
-    // 注册
-    function register(btn) {
-        if (isLoginProcessing) return;
-        isLoginProcessing = true;
-
-        const user = document.getElementById('regUser').value.trim();
-        const pwd = document.getElementById('regPwd').value.trim();
-        const pwd2 = document.getElementById('regPwd2').value.trim();
-        const agree = document.getElementById('regAgree').checked;
-
-        if (!user) {
-            tipModal('用户名不能为空！', 'error');
-            isLoginProcessing = false;
-            return;
-        }
-        if (pwd.length < 6) {
-            tipModal('密码长度不能少于6位！', 'error');
-            isLoginProcessing = false;
-            return;
-        }
-        if (pwd !== pwd2) {
-            tipModal('两次密码不一致！', 'error');
-            isLoginProcessing = false;
-            return;
-        }
-        if (!agree) {
-            tipModal('请同意隐私协议！', 'error');
-            isLoginProcessing = false;
-            return;
-        }
-
-        const old = btn.innerHTML;
-        btn.innerHTML = '<span class="loading"></span> 注册中...';
-        btn.disabled = true;
-
-        setTimeout(() => {
-            localStorage.setItem('user', user);
-            localStorage.setItem('pwd', pwd);
-            tipModal('注册成功！', 'success');
-            setTimeout(() => {
-                btn.innerHTML = old;
-                btn.disabled = false;
-                isLoginProcessing = false;
-                switchTab('login');
-            }, 800);
-        }, 300);
-    }
-
-    // 登录
-    function login(btn) {
-        if (isLoginProcessing) return;
-        isLoginProcessing = true;
-        const old = btn.innerHTML;
-        btn.innerHTML = '<span class="loading"></span> 登录中...';
-        btn.disabled = true;
-
-        setTimeout(() => {
-            const user = document.getElementById('loginUser').value.trim();
-            const pwd = document.getElementById('loginPwd').value.trim();
-            const agree = document.getElementById('loginAgree').checked;
-            const saveUser = localStorage.getItem('user');
-            const savePwd = localStorage.getItem('pwd');
-
-            if (!saveUser) {
-                tipModal('用户不存在，请先注册！', 'error');
-                btn.innerHTML = old;
-                btn.disabled = false;
-                isLoginProcessing = false;
-                switchTab('register');
-                return;
-            }
-            if (!user || !pwd) {
-                tipModal('账号密码不能为空！', 'error');
-                btn.innerHTML = old;
-                btn.disabled = false;
-                isLoginProcessing = false;
-                return;
-            }
-            if (user !== saveUser || pwd !== savePwd) {
-                tipModal('账号或密码错误！', 'error');
-                btn.innerHTML = old;
-                btn.disabled = false;
-                isLoginProcessing = false;
-                return;
-            }
-            if (!agree) {
-                tipModal('请同意隐私协议！', 'error');
-                btn.innerHTML = old;
-                btn.disabled = false;
-                isLoginProcessing = false;
-                return;
-            }
-
-            tipModal('登录成功！', 'success');
-            setTimeout(() => {
-                document.getElementById('authBox').style.display = 'none';
-                document.getElementById('mainBox').style.display = 'block';
-                btn.innerHTML = old;
-                btn.disabled = false;
-                isLoginProcessing = false;
-                // 登录成功后初始化地图
-                initMap();
-            }, 800);
-        }, 300);
-    }
-
-    // 退出登录
-    function logout() {
-        localStorage.removeItem('lastPos');
-        tipModal('已退出登录', 'success');
-        setTimeout(() => location.reload(), 1000);
-    }
-
-    // 初始化地图
-    function initMap() {
-        if (mapInited) return;
-        mapInited = true;
-        try {
-            map = new AMap.Map('map', {
-                zoom: 16,
-                resizeEnable: true
-            });
-            map.addControl(new AMap.ToolBar({}));
-            map.addControl(new AMap.Scale({}));
-        } catch (e) {
-            tipModal('地图加载失败：' + e.message, 'error');
-        }
-    }
-
-    // 定位
-    function getPos(btn) {
-        if (!map) {
-            tipModal('地图未初始化，请重试！', 'error');
-            return;
-        }
-        if (isPosProcessing) return;
-        isPosProcessing = true;
-
-        document.getElementById('permissionTip').classList.remove('show');
-        const old = btn.innerHTML;
-        btn.innerHTML = '<span class="loading"></span> 定位中...';
-        btn.disabled = true;
-
-        const geolocation = new AMap.Geolocation({
-            enableHighAccuracy: true,
-            timeout: 10000,
-            convert: true
-        });
-
-        geolocation.getCurrentPosition((status, result) => {
-            isPosProcessing = false;
-            btn.innerHTML = old;
-            btn.disabled = false;
-
-            if (status === 'complete' && result.info === 'SUCCESS') {
-                const { lng, lat } = result.position;
-                const addr = result.formattedAddress || '未知地址';
-                const time = new Date().toLocaleString();
-
-                // 打点
-                if (marker) marker.remove();
-                marker = new AMap.Marker({
-                    position: [lng, lat],
-                    title: '当前位置'
-                });
-                marker.setMap(map);
-                map.setCenter([lng, lat]);
-
-                // 显示信息
-                document.getElementById('info').innerHTML = `
-                    <i class="fas fa-check-circle" style="color:#059669;"></i> 
-                    定位成功<br>
-                    位置：${addr}<br>
-                    经纬度：${lng.toFixed(6)}, ${lat.toFixed(6)}<br>
-                    时间：${time}
-                `;
-
-                // 加密存储
-                const data = { lng, lat, addr, time };
-                const cipher = CryptoJS.AES.encrypt(
-                    JSON.stringify(data),
-                    CRYPTO_KEY
-                ).toString();
-                localStorage.setItem('lastPos', cipher);
-
-                tipModal('定位成功！', 'success');
-            } else {
-                document.getElementById('permissionTip').classList.add('show');
-                tipModal('定位失败：请开启位置权限', 'error');
-            }
-        });
-    }
-
-    // 清除位置
-    function clearPos() {
-        if (marker) {
-            marker.remove();
-            marker = null;
-        }
-        localStorage.removeItem('lastPos');
-        document.getElementById('info').innerHTML = `
-            <i class="fas fa-info-circle" style="color:#0078d7;"></i> 
-            已清除位置信息，请重新定位
-        `;
-        tipModal('已清除位置信息', 'success');
-    }
-
-    // 查看上次定位
-    function showLastPos() {
-        const cipher = localStorage.getItem('lastPos');
-        if (!cipher) {
-            tipModal('暂无历史定位', 'error');
-            return;
-        }
-        try {
-            const bytes = CryptoJS.AES.decrypt(cipher, CRYPTO_KEY);
-            const data = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-            if (map) {
-                if (marker) marker.remove();
-                marker = new AMap.Marker({
-                    position: [data.lng, data.lat],
-                    title: '上次位置'
-                });
-                marker.setMap(map);
-                map.setCenter([data.lng, data.lat]);
-            }
-            document.getElementById('info').innerHTML = `
-                <i class="fas fa-history" style="color:#0078d7;"></i> 
-                上次定位信息<br>
-                位置：${data.addr}<br>
-                经纬度：${data.lng.toFixed(6)}, ${data.lat.toFixed(6)}<br>
-                时间：${data.time}
-            `;
-            tipModal('已显示上次定位', 'success');
-        } catch (e) {
-            tipModal('历史数据已损坏', 'error');
-            localStorage.removeItem('lastPos');
-        }
-    }
-</script>
-</body>
-</html>
+        // 初始化地图
+        function initMap() {
+            try {
+                map = new AMap.Map('mapContainer', {
+       
