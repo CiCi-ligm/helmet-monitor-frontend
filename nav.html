@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能头盔定位导航</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
+        body{padding:20px;background:#f6f7f9}
+        .box{max-width:100%;margin:0 auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+        .title{font-size:20px;margin-bottom:16px;font-weight:600}
+        #map{width:100%;height:500px;border-radius:12px;margin-bottom:16px}
+        .input-bar{display:flex;gap:10px;margin-bottom:12px}
+        input{flex:1;height:44px;padding:0 14px;border:1px solid #ddd;border-radius:8px;font-size:15px}
+        .btn-group{display:flex;gap:10px;margin-bottom:16px}
+        button{height:44px;padding:0 16px;border:none;border-radius:8px;background:#2563eb;color:white;font-size:15px}
+        button.gray{background:#6b7280}
+        #info{padding:14px;background:#f3f4f6;border-radius:8px;font-size:14px}
+    </style>
+    <!-- 你的 KEY！我已经帮你放进去了 -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving"></script>
+</head>
+<body>
+<div class="box">
+    <div class="title">🏍️ 智能头盔实时导航</div>
+    <div class="input-bar">
+        <input id="to" placeholder="输入目的地：学校、家、医院...">
+    </div>
+    <div class="btn-group">
+        <button onclick="getPos()">📍 定位我的位置</button>
+        <button onclick="goNav()">🚗 开始导航</button>
+        <button class="gray" onclick="clearMap()">🗑️ 清空</button>
+    </div>
+    <div id="map"></div>
+    <div id="info">欢迎使用智能头盔导航系统</div>
+</div>
+
+<script>
+let map, marker, currentLng, currentLat;
+
+// 初始化地图
+window.onload = function(){
+    map = new AMap.Map("map", { zoom:16, resizeEnable:true });
+};
+
+// 定位（你已经成功过的功能）
+function getPos(){
+    const info = document.getElementById("info");
+    info.innerHTML = "⏳ 正在获取你的位置...";
+
+    let geolocation = new AMap.Geolocation({
+        enableHighAccuracy:true, timeout:10000
+    });
+
+    geolocation.getCurrentPosition((status,result)=>{
+        if(status=="complete" && result.info=="SUCCESS"){
+            currentLng = result.position.lng;
+            currentLat = result.position.lat;
+            if(marker) marker.remove();
+            marker = new AMap.Marker({
+                position:new AMap.LngLat(currentLng,currentLat),
+                title:"你的位置"
+            });
+            marker.setMap(map);
+            map.setCenter([currentLng,currentLat]);
+            info.innerHTML = `✅ 已定位<br>📍 ${result.formattedAddress}`;
+        }else{
+            info.innerHTML = "❌ 定位失败：请打开定位权限";
+        }
+    });
+}
+
+// 开始导航（核心！你要的导航）
+function goNav(){
+    if(!currentLng || !currentLat){
+        document.getElementById("info").innerHTML="⚠️ 请先点击【定位我的位置】";
+        return;
+    }
+    let to = document.getElementById("to").value.trim();
+    if(!to){
+        document.getElementById("info").innerHTML="⚠️ 请输入目的地";
+        return;
+    }
+    document.getElementById("info").innerHTML=`⏳ 正在规划路线到：${to}`;
+
+    AMap.plugin("AMap.Driving",function(){
+        let driving = new AMap.Driving({
+            map:map,
+            autoFitView:true
+        });
+        driving.search([
+            { keyword:to },
+            { lnglat:[currentLng,currentLat] }
+        ],function(status,result){
+            if(status=="complete"){
+                document.getElementById("info").innerHTML=`✅ 导航路线已生成<br>🎯 目的地：${to}`;
+            }else{
+                document.getElementById("info").innerHTML="❌ 找不到路线，请换个关键词试试";
+            }
+        });
+    });
+}
+
+// 清空地图
+function clearMap(){
+    map.clearMap();
+    document.getElementById("info").innerHTML="🗑️ 已清空地图";
+}
+</script>
+</body>
+</html>
