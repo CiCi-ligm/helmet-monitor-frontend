@@ -27,9 +27,9 @@
         <input id="to" placeholder="输入目的地：学校、家、医院...">
     </div>
     <div class="btn-group">
-        <button onclick="getPos()">📍 定位我的位置</button>
-        <button onclick="goNav()">🚶 开始步行导航</button>
-        <button class="gray" onclick="clearMap()">🗑️ 清空</button>
+        <button onclick="getPos()">定位我的位置</button>
+        <button onclick="goNav()">开始导航</button>
+        <button class="gray" onclick="clearMap()">清空</button>
     </div>
     <div id="map"></div>
     <div id="info">欢迎使用智能头盔导航系统</div>
@@ -70,7 +70,7 @@ function getPos(){
     });
 }
 
-// 开始步行导航（已改好，明确指定城市）
+// 开始导航（步行版，匹配你现在的按钮文字）
 function goNav() {
     if (!currentLng || !currentLat) {
         document.getElementById("info").innerHTML = "⚠️ 请先点击【定位我的位置】";
