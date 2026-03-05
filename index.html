@@ -232,10 +232,15 @@
             document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
         }
 
-        // 个人中心 / 退出登录
+        // 修复后的个人中心/登录逻辑
         function openProfile() {
-            if (confirm('是否退出登录？')) {
-                localStorage.removeItem('isLoggedIn');
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn) {
+                if (confirm('是否退出登录？')) {
+                    localStorage.removeItem('isLoggedIn');
+                    window.location.href = 'login.html';
+                }
+            } else {
                 window.location.href = 'login.html';
             }
         }
