@@ -9,151 +9,180 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "SF Pro Display", "Microsoft Yahei", sans-serif;
+            font-family: "SF Pro Display","Microsoft Yahei",sans-serif;
         }
         body {
-            background: #ffffff;
-            min-height: 100vh;
-            padding: 40px;
-            color: #1a1a1a;
-            line-height: 1.5;
+            background:#fff;
+            min-height:100vh;
+            padding:20px;
+            color:#1a1a1a;
         }
         .map-box {
-            background: #ffffff;
-            padding: 32px;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            max-width: 1200px;
-            margin: 0 auto;
+            background:#fff;
+            padding:20px;
+            border-radius:16px;
+            border:1px solid #e5e7eb;
+            box-shadow:0 4px 20px rgba(0,0,0,0.05);
+            max-width:1200px;
+            margin:0 auto;
         }
         .map-box h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #4b5563;
-            margin-bottom: 20px;
+            font-size:18px;
+            font-weight:600;
+            color:#4b5563;
+            margin-bottom:20px;
         }
         #mapContainer {
-            width: 100%;
-            height: 550px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e5e7eb;
-            margin-bottom: 20px;
+            width:100%;
+            height:500px;
+            border-radius:12px;
+            overflow:hidden;
+            border:1px solid #e5e7eb;
+            margin-bottom:20px;
         }
         .nav-controls {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
+            display:flex;
+            gap:12px;
+            margin-bottom:20px;
         }
         .nav-controls input {
-            height: 40px;
-            padding: 0 16px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 14px;
-            flex: 1;
+            height:44px;
+            padding:0 16px;
+            border:1px solid #e5e7eb;
+            border-radius:8px;
+            font-size:14px;
+            flex:1;
         }
         .btn-group {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-bottom:20px;
         }
         .btn-group button {
-            height: 40px;
-            padding: 0 20px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: #4b5563;
-            background: #ffffff;
-            transition: all 0.2s;
+            padding:12px 14px;
+            border:1px solid #e5e7eb;
+            border-radius:8px;
+            font-size:14px;
+            background:#fff;
+            cursor:pointer;
         }
         .btn-group button:hover {
-            background: #f9fafb;
-            border-color: #2563eb;
-            color: #2563eb;
-        }
-        .btn-group button:active {
-            transform: scale(0.98);
-        }
-        .btn-group button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+            border-color:#2563eb;
+            color:#2563eb;
         }
         .location-info {
-            margin-top: 10px;
-            padding: 12px;
-            background: #f9fafb;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #1a1a1a;
-            min-height: 60px;
+            padding:14px;
+            border-radius:8px;
+            font-size:14px;
+            min-height:60px;
+            background:#f9fafb;
         }
-        .success {
-            color: #10b981;
-            background: #d1fae5 !important;
-            border: 1px solid #10b981 !important;
-        }
-        .error {
-            color: #ef4444;
-            background: #fee2e2 !important;
-            border: 1px solid #ef4444 !important;
-        }
-        .loading {
-            color: #3b82f6;
-            background: #dbeafe !important;
-            border: 1px solid #3b82f6 !important;
-        }
+        .loading { background:#dbeafe; color:#3b82f6; }
+        .success { background:#d1fae5; color:#10b981; }
+        .error { background:#fee2e2; color:#ef4444; }
     </style>
-    <!-- 高德地图API - 使用您的Key -->
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
-    <script src="https://webapi.amap.com/ui/1.1/main.js"></script>
+    <!-- 这里用的是 你自己的 Key！！！ -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving"></script>
 </head>
 <body>
-    <div class="map-box">
-        <h3>🏍️ 智能头盔定位导航系统</h3>
 
-        <div class="nav-controls">
-            <input type="text" id="destination" placeholder="输入目的地，如：天安门广场、北京大学">
-        </div>
-
-        <div class="btn-group">
-            <button onclick="getCurrentLocation()" id="locBtn">📍 获取当前位置</button>
-            <button onclick="startNavigation()" id="navBtn" disabled>🚀 开始导航</button>
-            <button onclick="stopNavigation()" id="stopBtn" disabled>⏹️ 停止导航</button>
-            <button onclick="clearMap()">🗑️ 清空地图</button>
-        </div>
-
-        <div id="mapContainer"></div>
-
-        <div class="location-info" id="locationInfo">
-            👋 欢迎使用智能头盔导航系统！点击"获取当前位置"开始
-        </div>
+<div class="map-box">
+    <h3>🏍️ 智能头盔定位导航系统</h3>
+    <div class="nav-controls">
+        <input id="destination" placeholder="输入目的地">
     </div>
+    <div class="btn-group">
+        <button onclick="getCurrentLocation()">📍 获取当前位置</button>
+        <button onclick="startNavigation()">🚀 开始导航</button>
+        <button onclick="clearMap()">🗑️ 清空地图</button>
+    </div>
+    <div id="mapContainer"></div>
+    <div class="location-info" id="info">欢迎使用，点击获取位置</div>
+</div>
 
-    <script>
-        // 全局变量
-        let map = null;
-        let marker = null;
-        let naviMarker = null;
-        let currentLocation = null;
-        let destinationLocation = null;
-        let driving = null;
-        let geolocation = null;
-        let watchId = null;
-        let isNavigating = false;
+<script>
+let map, marker;
+let currentPos = null;
 
-        // 页面加载后初始化
-        window.onload = function() {
-            initMap();
-        };
+// 初始化地图
+function initMap() {
+    map = new AMap.Map('mapContainer', {
+        zoom: 16,
+        resizeEnable: true
+    });
+}
 
-        // 初始化地图
-        function initMap() {
-            try {
-                map = new AMap.Map('mapContainer', {
-       
+// 获取当前位置（手机真正能用）
+function getCurrentLocation() {
+    const info = document.getElementById('info');
+    info.className = 'location-info loading';
+    info.innerText = '⏳ 正在定位中，请允许权限...';
+
+    let geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000
+    });
+
+    geolocation.getCurrentPosition((status, result) => {
+        if (status === 'complete' && result.info === 'SUCCESS') {
+            currentPos = result.position;
+            if (marker) marker.remove();
+            marker = new AMap.Marker({
+                position: currentPos,
+                title: '当前位置'
+            });
+            marker.setMap(map);
+            map.setCenter(currentPos);
+
+            info.className = 'location-info success';
+            info.innerText = `✅ 定位成功！
+经纬度：${currentPos.lng.toFixed(6)}, ${currentPos.lat.toFixed(6)}
+地址：${result.formattedAddress}`;
+        } else {
+            info.className = 'location-info error';
+            info.innerText = '❌ 定位失败：请打开手机定位 + 浏览器权限';
+        }
+    });
+}
+
+// 导航
+function startNavigation() {
+    if (!currentPos) {
+        document.getElementById('info').innerText = '⚠️ 请先获取当前位置';
+        return;
+    }
+    let keyword = document.getElementById('destination').value.trim();
+    if (!keyword) {
+        document.getElementById('info').innerText = '⚠️ 请输入目的地';
+        return;
+    }
+    AMap.plugin('AMap.Driving', function() {
+        let driving = new AMap.Driving({
+            map: map
+        });
+        driving.search([
+            { keyword: keyword, city: '' },
+            { location: currentPos }
+        ], function(status, result) {
+            if (status === 'complete') {
+                document.getElementById('info').innerText = '✅ 已规划导航路线';
+            } else {
+                document.getElementById('info').innerText = '❌ 路线规划失败';
+            }
+        });
+    });
+}
+
+// 清空
+function clearMap() {
+    if (marker) marker.remove();
+    if (map) map.clearMap();
+    document.getElementById('info').innerText = '🗑️ 已清空地图';
+}
+
+// 启动
+window.onload = initMap;
+</script>
+</body>
+</html>
