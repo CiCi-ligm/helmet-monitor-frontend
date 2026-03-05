@@ -10,49 +10,123 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         body, html {
-            width:100%; height:100%;
-            background: linear-gradient(180deg, #0a0e27 0%, #121a36 100%);
+            width:100%;
+            min-height:100vh;
             color:#e6edf3;
+            overflow-x: hidden;
         }
+
+        /* 视差背景层 */
+        .parallax {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 150%;
+            z-index: -1;
+            background: linear-gradient(180deg, #0a0e27, #121a36, #1e2b5a);
+        }
+        .light {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(74, 140, 255, 0.12);
+            filter: blur(40px);
+        }
+        .light1 { width:300px; height:300px; top:10%; left:-100px; }
+        .light2 { width:400px; height:400px; top:40%; right:-150px; }
+        .light3 { width:250px; height:250px; top:70%; left:50%; }
+
+        /* 内容正常滚动 */
         .container {
-            max-width:400px; margin:0 auto; padding:40px 20px;
-            height:100%; display:flex; flex-direction:column; justify-content:center;
+            position: relative;
+            z-index: 1;
+            max-width:400px;
+            margin:0 auto;
+            padding: 120px 20px 60px;
         }
         .logo {
-            text-align:center; margin-bottom:40px;
+            text-align:center;
+            margin-bottom:60px;
+            transform: translateY(30px);
+            opacity: 0;
+            animation: up 1s 0.2s forwards;
+        }
+        @keyframes up {
+            to { transform: translateY(0); opacity: 1; }
         }
         .logo h1 {
-            font-size:28px; font-weight:700; color:#f0f4ff; margin-bottom:8px;
+            font-size:28px;
+            font-weight:700;
+            color:#f0f4ff;
+            margin-bottom:8px;
         }
         .logo p {
-            color:#94a3b8; font-size:14px;
+            color:#94a3b8;
+            font-size:14px;
         }
         .form-group {
             margin-bottom:20px;
         }
         .form-group label {
-            display:block; font-size:14px; color:#c6d0ff; margin-bottom:8px;
+            display:block;
+            font-size:14px;
+            color:#c6d0ff;
+            margin-bottom:8px;
         }
         .form-group input {
-            width:100%; height:50px; background:#151d41;
-            border:1px solid #2a3a6f; border-radius:14px;
-            padding:0 16px; font-size:15px; color:#e6edf3; outline:none;
+            width:100%;
+            height:50px;
+            background:rgba(21,31,77,0.6);
+            backdrop-filter: blur(10px);
+            border:1px solid #2a3a6f;
+            border-radius:14px;
+            padding:0 16px;
+            font-size:15px;
+            color:#e6edf3;
+            outline:none;
+            transition: 0.2s;
+        }
+        .form-group input:focus {
+            border-color:#4a8cff;
+            background:rgba(30,45,100,0.6);
         }
         .btn {
-            width:100%; height:50px; border:none; border-radius:14px;
-            font-size:16px; font-weight:600; color:#fff;
+            width:100%;
+            height:50px;
+            border:none;
+            border-radius:14px;
+            font-size:16px;
+            font-weight:600;
+            color:#fff;
             background:linear-gradient(90deg,#3a66fd,#2e4cff);
-            margin-bottom:16px; cursor:pointer;
+            margin-bottom:16px;
+            cursor:pointer;
+            transition: 0.2s;
         }
+        .btn:active { transform: scale(0.98); }
         .btn-outline {
-            background:transparent; border:1px solid #2a3a6f; color:#c6d0ff;
+            background:transparent;
+            border:1px solid #2a3a6f;
+            color:#c6d0ff;
         }
         .tip {
-            text-align:center; color:#94a3b8; font-size:14px; margin-top:12px;
+            text-align:center;
+            color:#94a3b8;
+            font-size:14px;
+            margin-top:12px;
         }
     </style>
 </head>
+
 <body>
+    <!-- 视差背景 -->
+    <div class="parallax">
+        <div class="light light1"></div>
+        <div class="light light2"></div>
+        <div class="light light3"></div>
+    </div>
+
+    <!-- 内容 -->
     <div class="container">
         <div class="logo">
             <h1>🏍️ 智能头盔</h1>
@@ -86,13 +160,21 @@
                 <input id="rpwd2" type="password" placeholder="再次输入密码">
             </div>
             <button class="btn" onclick="reg()">注册</button>
-            <button class="btn btn-outline" onclick="showLogin()">已有账号？返回登录</button>
+            <button class="btn btn-outline" onclick="showLogin()">返回登录</button>
         </div>
 
         <div class="tip" id="msg"></div>
     </div>
 
     <script>
+        // 视差滚动效果
+        let parallax = document.querySelector('.parallax');
+        window.addEventListener('scroll', () => {
+            let scroll = window.scrollY;
+            parallax.style.transform = `translateY(${scroll * 0.4}px)`;
+        });
+
+        // 登录注册逻辑
         function showReg() {
             document.getElementById('loginForm').style.display = 'none';
             document.getElementById('regForm').style.display = 'block';
@@ -101,33 +183,22 @@
             document.getElementById('regForm').style.display = 'none';
             document.getElementById('loginForm').style.display = 'block';
         }
-
         function login() {
             const u = document.getElementById('user').value.trim();
             const p = document.getElementById('pwd').value.trim();
             const m = document.getElementById('msg');
-            if (!u || !p) {
-                m.innerText = '⚠️ 请输入账号密码';
-                return;
-            }
+            if (!u || !p) { m.innerText = '⚠️ 请输入账号密码'; return; }
             m.innerText = '✅ 登录成功，正在进入...';
             localStorage.setItem('isLoggedIn', 'true');
             setTimeout(()=>{ window.location.href = 'index.html'; }, 1000);
         }
-
         function reg() {
             const u = document.getElementById('ruser').value.trim();
             const p = document.getElementById('rpwd').value.trim();
             const p2 = document.getElementById('rpwd2').value.trim();
             const m = document.getElementById('msg');
-            if (!u || !p || !p2) {
-                m.innerText = '⚠️ 请填写完整信息';
-                return;
-            }
-            if (p !== p2) {
-                m.innerText = '⚠️ 两次密码不一致';
-                return;
-            }
+            if (!u || !p || !p2) { m.innerText = '⚠️ 请填写完整信息'; return; }
+            if (p !== p2) { m.innerText = '⚠️ 两次密码不一致'; return; }
             m.innerText = '✅ 注册成功，请登录';
             setTimeout(showLogin, 1000);
         }
