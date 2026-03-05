@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能头盔 - 登录</title>
+    <style>
+        * {
+            margin:0; padding:0; box-sizing:border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        body, html {
+            width:100%; height:100%;
+            background: linear-gradient(180deg, #0a0e27 0%, #121a36 100%);
+            color:#e6edf3;
+        }
+        .container {
+            max-width:400px; margin:0 auto; padding:40px 20px;
+            height:100%; display:flex; flex-direction:column; justify-content:center;
+        }
+        .logo {
+            text-align:center; margin-bottom:40px;
+        }
+        .logo h1 {
+            font-size:28px; font-weight:700; color:#f0f4ff; margin-bottom:8px;
+        }
+        .logo p {
+            color:#94a3b8; font-size:14px;
+        }
+        .form-group {
+            margin-bottom:20px;
+        }
+        .form-group label {
+            display:block; font-size:14px; color:#c6d0ff; margin-bottom:8px;
+        }
+        .form-group input {
+            width:100%; height:50px; background:#151d41;
+            border:1px solid #2a3a6f; border-radius:14px;
+            padding:0 16px; font-size:15px; color:#e6edf3; outline:none;
+        }
+        .btn {
+            width:100%; height:50px; border:none; border-radius:14px;
+            font-size:16px; font-weight:600; color:#fff;
+            background:linear-gradient(90deg,#3a66fd,#2e4cff);
+            margin-bottom:16px; cursor:pointer;
+        }
+        .btn-outline {
+            background:transparent; border:1px solid #2a3a6f; color:#c6d0ff;
+        }
+        .tip {
+            text-align:center; color:#94a3b8; font-size:14px; margin-top:12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🏍️ 智能头盔</h1>
+            <p>登录后即可使用导航与监控功能</p>
+        </div>
+
+        <div id="loginForm">
+            <div class="form-group">
+                <label>用户名</label>
+                <input id="user" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input id="pwd" type="password" placeholder="请输入密码">
+            </div>
+            <button class="btn" onclick="login()">登录</button>
+            <button class="btn btn-outline" onclick="showReg()">没有账号？立即注册</button>
+        </div>
+
+        <div id="regForm" style="display:none;">
+            <div class="form-group">
+                <label>用户名</label>
+                <input id="ruser" placeholder="设置用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input id="rpwd" type="password" placeholder="设置密码">
+            </div>
+            <div class="form-group">
+                <label>确认密码</label>
+                <input id="rpwd2" type="password" placeholder="再次输入密码">
+            </div>
+            <button class="btn" onclick="reg()">注册</button>
+            <button class="btn btn-outline" onclick="showLogin()">已有账号？返回登录</button>
+        </div>
+
+        <div class="tip" id="msg"></div>
+    </div>
+
+    <script>
+        function showReg() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('regForm').style.display = 'block';
+        }
+        function showLogin() {
+            document.getElementById('regForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        }
+
+        function login() {
+            const u = document.getElementById('user').value.trim();
+            const p = document.getElementById('pwd').value.trim();
+            const m = document.getElementById('msg');
+            if (!u || !p) {
+                m.innerText = '⚠️ 请输入账号密码';
+                return;
+            }
+            m.innerText = '✅ 登录成功，正在进入...';
+            localStorage.setItem('isLoggedIn', 'true');
+            setTimeout(()=>{ window.location.href = 'index.html'; }, 1000);
+        }
+
+        function reg() {
+            const u = document.getElementById('ruser').value.trim();
+            const p = document.getElementById('rpwd').value.trim();
+            const p2 = document.getElementById('rpwd2').value.trim();
+            const m = document.getElementById('msg');
+            if (!u || !p || !p2) {
+                m.innerText = '⚠️ 请填写完整信息';
+                return;
+            }
+            if (p !== p2) {
+                m.innerText = '⚠️ 两次密码不一致';
+                return;
+            }
+            m.innerText = '✅ 注册成功，请登录';
+            setTimeout(showLogin, 1000);
+        }
+    </script>
+</body>
+</html>
