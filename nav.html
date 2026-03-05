@@ -17,8 +17,8 @@
         button.gray{background:#6b7280}
         #info{padding:14px;background:#f3f4f6;border-radius:8px;font-size:14px}
     </style>
-    <!-- 你的 KEY！我已经帮你放进去了 -->
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving"></script>
+    <!-- 已添加 AMap.Walking 插件 -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking"></script>
 </head>
 <body>
 <div class="box">
@@ -28,7 +28,7 @@
     </div>
     <div class="btn-group">
         <button onclick="getPos()">📍 定位我的位置</button>
-        <button onclick="goNav()">🚗 开始导航</button>
+        <button onclick="goNav()">🚶 开始步行导航</button>
         <button class="gray" onclick="clearMap()">🗑️ 清空</button>
     </div>
     <div id="map"></div>
@@ -43,7 +43,7 @@ window.onload = function(){
     map = new AMap.Map("map", { zoom:16, resizeEnable:true });
 };
 
-// 定位（你已经成功过的功能）
+// 定位
 function getPos(){
     const info = document.getElementById("info");
     info.innerHTML = "⏳ 正在获取你的位置...";
@@ -70,32 +70,32 @@ function getPos(){
     });
 }
 
-// 开始导航（核心！你要的导航）
-function goNav(){
-    if(!currentLng || !currentLat){
-        document.getElementById("info").innerHTML="⚠️ 请先点击【定位我的位置】";
+// 开始步行导航（已改好，明确指定城市）
+function goNav() {
+    if (!currentLng || !currentLat) {
+        document.getElementById("info").innerHTML = "⚠️ 请先点击【定位我的位置】";
         return;
     }
     let to = document.getElementById("to").value.trim();
-    if(!to){
-        document.getElementById("info").innerHTML="⚠️ 请输入目的地";
+    if (!to) {
+        document.getElementById("info").innerHTML = "⚠️ 请输入目的地";
         return;
     }
-    document.getElementById("info").innerHTML=`⏳ 正在规划路线到：${to}`;
+    document.getElementById("info").innerHTML = `⏳ 正在规划步行路线到：${to}`;
 
-    AMap.plugin("AMap.Driving",function(){
-        let driving = new AMap.Driving({
-            map:map,
-            autoFitView:true
+    AMap.plugin("AMap.Walking", function() {
+        let walking = new AMap.Walking({
+            map: map,
+            autoFitView: true
         });
-        driving.search([
-            { keyword:to，city：重庆市},
-            { lnglat:[currentLng,currentLat] }
-        ],function(status,result){
-            if(status=="complete"){
-                document.getElementById("info").innerHTML=`✅ 导航路线已生成<br>🎯 目的地：${to}`;
-            }else{
-                document.getElementById("info").innerHTML="❌ 找不到路线，请换个关键词试试";
+        walking.search([
+            { keyword: to, city: "重庆市" }, // 明确指定城市，提高匹配成功率
+            { lnglat: [currentLng, currentLat] }
+        ], function(status, result) {
+            if (status === "complete") {
+                document.getElementById("info").innerHTML = `✅ 步行路线已生成<br>🎯 目的地：${to}`;
+            } else {
+                document.getElementById("info").innerHTML = "❌ 找不到路线，请换个关键词试试";
             }
         });
     });
@@ -104,7 +104,7 @@ function goNav(){
 // 清空地图
 function clearMap(){
     map.clearMap();
-    document.getElementById("info").innerHTML="🗑️ 已清空地图";
+    document.getElementById("info").innerHTML = "🗑️ 已清空地图";
 }
 </script>
 </body>
