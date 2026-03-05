@@ -156,7 +156,6 @@
         let isSatellite = false;
         let isTraffic = false;
 
-        // 进入页面先判断是否登录
         window.onload = function () {
             const logged = localStorage.getItem('isLoggedIn');
             if (!logged) {
@@ -167,14 +166,23 @@
         };
 
         function initMap() {
-            map = new AMap.Map("map", { zoom:16, resizeEnable:true });
-            trafficLayer = new AMap.TileLayer.Traffic({ autoRefresh:true, interval:180 });
+            map = new AMap.Map("map", { 
+                zoom:16, 
+                resizeEnable:true 
+            });
+            trafficLayer = new AMap.TileLayer.Traffic({ 
+                autoRefresh:true, 
+                interval:180 
+            });
         }
 
         function getCurrentLocation() {
             const info = document.getElementById('info');
             info.innerText = '⏳ 正在定位...';
-            let geo = new AMap.Geolocation({ enableHighAccuracy:true, timeout:10000 });
+            let geo = new AMap.Geolocation({ 
+                enableHighAccuracy:true, 
+                timeout:10000 
+            });
             geo.getCurrentPosition((status, result) => {
                 if (status === 'complete' && result.info === 'SUCCESS') {
                     currentPos = result.position;
@@ -184,7 +192,7 @@
                     map.setCenter(currentPos);
                     info.innerText = '✅ 已定位：'+ result.formattedAddress;
                 } else {
-                    info.innerText = '❌ 定位失败';
+                    info.innerText = '❌ 定位失败，请检查权限';
                 }
             });
         }
@@ -201,23 +209,32 @@
             }
             document.getElementById('info').innerText = '⏳ 规划路线中...';
             AMap.plugin('AMap.Driving', () => {
-                const d = new AMap.Driving({ map:map, autoFitView:true });
-                d.search([{ keyword:key }, { location:currentPos }], (s, res) => {
-                    if (s === 'complete') {
-                        document.getElementById('info').innerText = '✅ 路线已规划';
-                        const t = new SpeechSynthesisUtterance('路线已规划，准备出发');
-                        window.speechSynthesis.speak(t);
-                    } else {
-                        document.getElementById('info').innerText = '❌ 路线规划失败';
-                    }
+                const d = new AMap.Driving({ 
+                    map:map, 
+                    autoFitView:true 
                 });
+                d.search(
+                    {
+                        origin: currentPos,
+                        destination: key
+                    },
+                    (s, res) => {
+                        if (s === 'complete') {
+                            document.getElementById('info').innerText = '✅ 路线已规划，开始导航';
+                            const t = new SpeechSynthesisUtterance('路线已规划，准备出发');
+                            window.speechSynthesis.speak(t);
+                        } else {
+                            document.getElementById('info').innerText = '❌ 路线规划失败';
+                        }
+                    }
+                );
             });
         }
 
         function clearMap() {
             if (marker) marker.remove();
             if (map) map.clearMap();
-            document.getElementById('info').innerText = '🗑️ 已清空';
+            document.getElementById('info').innerText = '🗑️ 已清空地图';
         }
 
         function toggleTraffic() {
@@ -228,19 +245,17 @@
 
         function toggleSatellite() {
             isSatellite = !isSatellite;
-            isSatellite ? map.setLayers([new AMap.TileLayer.Satellite()]) : map.setLayers([new AMap.TileLayer()]);
+            if (isSatellite) {
+                map.setLayers([new AMap.TileLayer.Satellite()]);
+            } else {
+                map.setLayers([new AMap.TileLayer()]);
+            }
             document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
         }
 
-        // 修复后的个人中心/登录逻辑
         function openProfile() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (isLoggedIn) {
-                if (confirm('是否退出登录？')) {
-                    localStorage.removeItem('isLoggedIn');
-                    window.location.href = 'login.html';
-                }
-            } else {
+            if (confirm('是否退出登录？')) {
+                localStorage.removeItem('isLoggedIn');
                 window.location.href = 'login.html';
             }
         }
