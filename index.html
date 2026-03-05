@@ -2,212 +2,197 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能头盔定位导航系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能头盔导航</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "SF Pro Display", "Microsoft Yahei", sans-serif;
-            -webkit-font-smoothing: antialiased;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        body {
-            background: #0a0e27;
-            min-height: 100vh;
-            padding: 20px;
-            color: #e6edf3;
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
         }
-        .map-box {
-            background: #121a36;
-            padding: 24px;
-            border-radius: 20px;
-            border: 1px solid #24345e;
-            box-shadow: 0 8px 30px rgba(0,10,40,0.3);
-            max-width: 500px;
-            margin: 0 auto;
+        #map {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
-        .map-box h3 {
-            font-size: 20px;
-            font-weight: 700;
-            color: #f0f4ff;
-            margin-bottom: 20px;
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            background: linear-gradient(180deg, rgba(0,0,0,0.6), transparent);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-box {
+            flex: 1;
+            background: rgba(255,255,255,0.95);
+            border-radius: 24px;
+            padding: 10px 16px;
             display: flex;
             align-items: center;
             gap: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
-        #mapContainer {
-            width: 100%;
-            height: 440px;
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid #273a6e;
-            margin-bottom: 20px;
-        }
-        .nav-controls {
-            margin-bottom: 16px;
-        }
-        .nav-controls input {
-            width: 100%;
-            height: 50px;
-            background: #151d41;
-            border: 1px solid #2a3a6f;
-            border-radius: 14px;
-            padding: 0 16px;
-            font-size: 15px;
-            color: #e6edf3;
-            outline: none;
-        }
-        .nav-controls input:focus {
-            border-color: #4a8cff;
-        }
-        .btn-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .btn-group button {
-            height: 50px;
+        .search-box input {
+            flex: 1;
             border: none;
-            border-radius: 14px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #fff;
-            background: linear-gradient(90deg,#3a66fd,#2e4cff);
-            cursor: pointer;
-            transition: all 0.2s;
+            outline: none;
+            background: transparent;
+            font-size: 16px;
+            color: #333;
         }
-        .btn-group button:nth-child(3) {
-            background: #1f295c;
+        .search-box i {
+            color: #666;
         }
-        .btn-group button:active {
-            transform: scale(0.96);
+        .nav-buttons {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            padding: 0 16px;
         }
-        .location-info {
-            padding: 14px 16px;
+        .nav-btn {
+            background: rgba(255,255,255,0.95);
+            border: none;
+            border-radius: 24px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .nav-btn.primary {
+            background: #2563eb;
+            color: white;
+        }
+        .info-bar {
+            position: absolute;
+            bottom: 80px;
+            left: 16px;
+            right: 16px;
+            z-index: 10;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 12px 16px;
             border-radius: 12px;
             font-size: 14px;
             line-height: 1.4;
-            min-height: 60px;
-            background: #151d41;
-            color: #c6d0ff;
-        }
-        .loading {
-            background: #1a2452;
-            color: #60a5fa;
-        }
-        .success {
-            background: #14383a;
-            color: #5eeebb;
-        }
-        .error {
-            background: #3a1c2c;
-            color: #ff8fa3;
         }
     </style>
     <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking"></script>
 </head>
 <body>
+    <div id="map"></div>
 
-<div class="map-box">
-    <h3>🏍️ 智能头盔定位导航系统</h3>
-    <div class="nav-controls">
-        <input id="destination" placeholder="输入目的地">
+    <div class="top-bar">
+        <div class="search-box">
+            <i>🔍</i>
+            <input id="destination" placeholder="输入目的地...">
+        </div>
     </div>
-    <div class="btn-group">
-        <button onclick="getCurrentLocation()">📍 获取位置</button>
-        <button onclick="startNavigation()">🚀 开始导航</button>
-        <button onclick="clearMap()">🗑️ 清空</button>
+
+    <div class="info-bar" id="info">
+        欢迎使用智能头盔导航
     </div>
-    <div id="mapContainer"></div>
-    <div class="location-info" id="info">欢迎使用，点击获取位置</div>
-</div>
 
-<script>
-let map, marker;
-let currentPos = null;
+    <div class="nav-buttons">
+        <button class="nav-btn" onclick="getCurrentLocation()">📍 定位</button>
+        <button class="nav-btn primary" onclick="startNavigation()">🚗 导航</button>
+        <button class="nav-btn" onclick="clearMap()">🗑️ 清空</button>
+    </div>
 
-// 初始化地图
-function initMap() {
-    map = new AMap.Map('mapContainer', {
-        zoom: 16,
-        resizeEnable: true
-    });
-}
+    <script>
+        let map, marker;
+        let currentPos = null;
 
-// 获取当前位置
-function getCurrentLocation() {
-    const info = document.getElementById('info');
-    info.className = 'location-info loading';
-    info.innerText = '⏳ 正在定位中，请允许权限...';
-
-    let geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 10000
-    });
-
-    geolocation.getCurrentPosition((status, result) => {
-        if (status === 'complete' && result.info === 'SUCCESS') {
-            currentPos = result.position;
-            if (marker) marker.remove();
-            marker = new AMap.Marker({
-                position: currentPos,
-                title: '当前位置'
+        function initMap() {
+            map = new AMap.Map("map", {
+                zoom: 16,
+                resizeEnable: true
             });
-            marker.setMap(map);
-            map.setCenter(currentPos);
-
-            info.className = 'location-info success';
-            info.innerText = `✅ 定位成功！
-经纬度：${currentPos.lng.toFixed(6)}, ${currentPos.lat.toFixed(6)}
-地址：${result.formattedAddress}`;
-        } else {
-            info.className = 'location-info error';
-            info.innerText = '❌ 定位失败：请打开定位权限';
         }
-    });
-}
 
-// 导航
-function startNavigation() {
-    if (!currentPos) {
-        document.getElementById('info').innerText = '⚠️ 请先获取当前位置';
-        return;
-    }
-    let keyword = document.getElementById('destination').value.trim();
-    if (!keyword) {
-        document.getElementById('info').innerText = '⚠️ 请输入目的地';
-        return;
-    }
-    document.getElementById('info').innerText = "⏳ 正在规划路线...";
+        function getCurrentLocation() {
+            const info = document.getElementById('info');
+            info.innerText = '⏳ 正在定位...';
 
-    AMap.plugin('AMap.Walking', function() {
-        let driving = new AMap.Walking({
-            map: map,
-            autoFitView: true
-        });
-        driving.search([
-            { keyword: keyword, city: "重庆市" },
-            { location: currentPos }
-        ], function(status, result) {
-            if (status === 'complete') {
-                document.getElementById('info').innerText = '✅ 导航路线已生成';
-            } else {
-                document.getElementById('info').innerText = '❌ 路线规划失败';
+            let geolocation = new AMap.Geolocation({
+                enableHighAccuracy: true,
+                timeout: 10000
+            });
+
+            geolocation.getCurrentPosition((status, result) => {
+                if (status === 'complete' && result.info === 'SUCCESS') {
+                    currentPos = result.position;
+                    if (marker) marker.remove();
+                    marker = new AMap.Marker({
+                        position: currentPos,
+                        title: '我的位置'
+                    });
+                    marker.setMap(map);
+                    map.setCenter(currentPos);
+                    info.innerText = `✅ 已定位：${result.formattedAddress}`;
+                } else {
+                    info.innerText = '❌ 定位失败';
+                }
+            });
+        }
+
+        function startNavigation() {
+            if (!currentPos) {
+                document.getElementById('info').innerText = '⚠️ 请先定位';
+                return;
             }
-        });
-    });
-}
+            let keyword = document.getElementById('destination').value.trim();
+            if (!keyword) {
+                document.getElementById('info').innerText = '⚠️ 请输入目的地';
+                return;
+            }
+            document.getElementById('info').innerText = '⏳ 正在规划路线...';
 
-// 清空
-function clearMap() {
-    if (marker) marker.remove();
-    if (map) map.clearMap();
-    document.getElementById('info').innerText = '🗑️ 已清空地图';
-}
+            AMap.plugin('AMap.Driving', function() {
+                let driving = new AMap.Driving({
+                    map: map,
+                    autoFitView: true
+                });
+                driving.search([
+                    { keyword: keyword },
+                    { location: currentPos }
+                ], function(status, result) {
+                    if (status === 'complete') {
+                        document.getElementById('info').innerText = '✅ 路线已规划';
+                    } else {
+                        document.getElementById('info').innerText = '❌ 路线规划失败';
+                    }
+                });
+            });
+        }
 
-window.onload = initMap;
-</script>
+        function clearMap() {
+            if (marker) marker.remove();
+            if (map) map.clearMap();
+            document.getElementById('info').innerText = '🗑️ 已清空';
+        }
+
+        window.onload = initMap;
+    </script>
 </body>
 </html>
