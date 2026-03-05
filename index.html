@@ -10,80 +10,103 @@
             padding: 0;
             box-sizing: border-box;
             font-family: "SF Pro Display", "Microsoft Yahei", sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
         body {
-            background: #ffffff;
+            background: #0a0e27;
             min-height: 100vh;
             padding: 20px;
-            color: #1a1a1a;
+            color: #e6edf3;
         }
         .map-box {
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            max-width: 1200px;
+            background: #121a36;
+            padding: 24px;
+            border-radius: 20px;
+            border: 1px solid #24345e;
+            box-shadow: 0 8px 30px rgba(0,10,40,0.3);
+            max-width: 500px;
             margin: 0 auto;
         }
         .map-box h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #4b5563;
+            font-size: 20px;
+            font-weight: 700;
+            color: #f0f4ff;
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         #mapContainer {
             width: 100%;
-            height: 500px;
-            border-radius: 12px;
+            height: 440px;
+            border-radius: 16px;
             overflow: hidden;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #273a6e;
             margin-bottom: 20px;
         }
         .nav-controls {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .nav-controls input {
-            height: 44px;
+            width: 100%;
+            height: 50px;
+            background: #151d41;
+            border: 1px solid #2a3a6f;
+            border-radius: 14px;
             padding: 0 16px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 14px;
-            flex: 1;
+            font-size: 15px;
+            color: #e6edf3;
+            outline: none;
+        }
+        .nav-controls input:focus {
+            border-color: #4a8cff;
         }
         .btn-group {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;
-            flex-wrap: wrap;
             margin-bottom: 20px;
         }
         .btn-group button {
-            padding: 12px 14px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            height: 50px;
+            border: none;
+            border-radius: 14px;
             font-size: 14px;
-            background: #fff;
+            font-weight: 600;
+            color: #fff;
+            background: linear-gradient(90deg,#3a66fd,#2e4cff);
             cursor: pointer;
+            transition: all 0.2s;
         }
-        .btn-group button:hover {
-            border-color: #2563eb;
-            color: #2563eb;
+        .btn-group button:nth-child(3) {
+            background: #1f295c;
+        }
+        .btn-group button:active {
+            transform: scale(0.96);
         }
         .location-info {
-            padding: 14px;
-            border-radius: 8px;
+            padding: 14px 16px;
+            border-radius: 12px;
             font-size: 14px;
+            line-height: 1.4;
             min-height: 60px;
-            background: #f9fafb;
+            background: #151d41;
+            color: #c6d0ff;
         }
-        .loading { background: #dbeafe; color: #3b82f6; }
-        .success { background: #d1fae5; color: #10b981; }
-        .error { background: #fee2e2; color: #ef4444; }
+        .loading {
+            background: #1a2452;
+            color: #60a5fa;
+        }
+        .success {
+            background: #14383a;
+            color: #5eeebb;
+        }
+        .error {
+            background: #3a1c2c;
+            color: #ff8fa3;
+        }
     </style>
-    <!-- 这里用的是你自己的 Key！ -->
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving"></script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking"></script>
 </head>
 <body>
 
@@ -93,9 +116,9 @@
         <input id="destination" placeholder="输入目的地">
     </div>
     <div class="btn-group">
-        <button onclick="getCurrentLocation()">📍 获取当前位置</button>
+        <button onclick="getCurrentLocation()">📍 获取位置</button>
         <button onclick="startNavigation()">🚀 开始导航</button>
-        <button onclick="clearMap()">🗑️ 清空地图</button>
+        <button onclick="clearMap()">🗑️ 清空</button>
     </div>
     <div id="mapContainer"></div>
     <div class="location-info" id="info">欢迎使用，点击获取位置</div>
@@ -113,7 +136,7 @@ function initMap() {
     });
 }
 
-// 获取当前位置（手机真正能用）
+// 获取当前位置
 function getCurrentLocation() {
     const info = document.getElementById('info');
     info.className = 'location-info loading';
@@ -141,7 +164,7 @@ function getCurrentLocation() {
 地址：${result.formattedAddress}`;
         } else {
             info.className = 'location-info error';
-            info.innerText = '❌ 定位失败：请打开手机定位 + 浏览器权限';
+            info.innerText = '❌ 定位失败：请打开定位权限';
         }
     });
 }
@@ -157,16 +180,19 @@ function startNavigation() {
         document.getElementById('info').innerText = '⚠️ 请输入目的地';
         return;
     }
-    AMap.plugin('AMap.Driving', function() {
-        let driving = new AMap.Driving({
-            map: map
+    document.getElementById('info').innerText = "⏳ 正在规划路线...";
+
+    AMap.plugin('AMap.Walking', function() {
+        let driving = new AMap.Walking({
+            map: map,
+            autoFitView: true
         });
         driving.search([
-            { keyword: keyword, city: '' },
+            { keyword: keyword, city: "重庆市" },
             { location: currentPos }
         ], function(status, result) {
             if (status === 'complete') {
-                document.getElementById('info').innerText = '✅ 已规划导航路线';
+                document.getElementById('info').innerText = '✅ 导航路线已生成';
             } else {
                 document.getElementById('info').innerText = '❌ 路线规划失败';
             }
@@ -181,7 +207,6 @@ function clearMap() {
     document.getElementById('info').innerText = '🗑️ 已清空地图';
 }
 
-// 启动
 window.onload = initMap;
 </script>
 </body>
