@@ -58,6 +58,25 @@
         .search-box i {
             color: #666;
         }
+        .map-controls {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.95);
+            border: none;
+            font-size: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
         .nav-buttons {
             position: absolute;
             bottom: 20px;
@@ -97,7 +116,7 @@
             line-height: 1.4;
         }
     </style>
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking"></script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking,AMap.Traffic"></script>
 </head>
 <body>
     <div id="map"></div>
@@ -107,6 +126,12 @@
             <i>🔍</i>
             <input id="destination" placeholder="输入目的地...">
         </div>
+    </div>
+
+    <div class="map-controls">
+        <button class="control-btn" onclick="toggleTraffic()" title="实时路况">🚦</button>
+        <button class="control-btn" onclick="toggleSatellite()" title="卫星图">🛰️</button>
+        <button class="control-btn" onclick="getCurrentLocation()" title="定位到我">📍</button>
     </div>
 
     <div class="info-bar" id="info">
@@ -122,12 +147,16 @@
     <script>
         let map, marker;
         let currentPos = null;
+        let trafficLayer = null;
+        let isSatellite = false;
+        let isTraffic = false;
 
         function initMap() {
             map = new AMap.Map("map", {
                 zoom: 16,
                 resizeEnable: true
             });
+            trafficLayer = new AMap.TileLayer.Traffic({ autoRefresh: true, interval: 180 });
         }
 
         function getCurrentLocation() {
@@ -178,7 +207,13 @@
                     { location: currentPos }
                 ], function(status, result) {
                     if (status === 'complete') {
-                        document.getElementById('info').innerText = '✅ 路线已规划';
+                        const steps = result.routes[0].steps;
+                        let stepsText = "✅ 路线已规划：\n";
+                        steps.forEach((step, index) => {
+                            stepsText += `${index + 1}. ${step.instruction}\n`;
+                        });
+                        document.getElementById('info').innerText = stepsText;
+                        speakNavigation(steps[0].instruction);
                     } else {
                         document.getElementById('info').innerText = '❌ 路线规划失败';
                     }
@@ -190,6 +225,36 @@
             if (marker) marker.remove();
             if (map) map.clearMap();
             document.getElementById('info').innerText = '🗑️ 已清空';
+        }
+
+        function toggleTraffic() {
+            isTraffic = !isTraffic;
+            if (isTraffic) {
+                map.add(trafficLayer);
+                document.getElementById('info').innerText = '✅ 已开启实时路况';
+            } else {
+                map.remove(trafficLayer);
+                document.getElementById('info').innerText = '❌ 已关闭实时路况';
+            }
+        }
+
+        function toggleSatellite() {
+            isSatellite = !isSatellite;
+            if (isSatellite) {
+                map.setLayers([new AMap.TileLayer.Satellite()]);
+                document.getElementById('info').innerText = '✅ 已切换至卫星图';
+            } else {
+                map.setLayers([new AMap.TileLayer()]);
+                document.getElementById('info').innerText = '❌ 已切换至标准图';
+            }
+        }
+
+        function speakNavigation(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                window.speechSynthesis.speak(utterance);
+            }
         }
 
         window.onload = initMap;
