@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人中心</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: sans-serif;
+    }
+    body {
+      background: #f5f7fa;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+    .info-row {
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 16px;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    .primary {
+      background: #007aff;
+      color: white;
+    }
+    .danger {
+      background: #ff3b30;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="title">个人信息</div>
+    <div class="info-row">用户名：<span id="username">用户</span></div>
+    <div class="info-row">登录状态：已登录</div>
+  </div>
+
+  <div class="card">
+    <div class="title">智能头盔</div>
+    <div class="info-row">绑定状态：<span id="deviceStatus">未绑定</span></div>
+    <button class="btn primary" onclick="bindDevice()">绑定头盔</button>
+  </div>
+
+  <div class="card">
+    <div class="title">健康数据</div>
+    <div class="info-row">心率：-- bpm</div>
+    <div class="info-row">电量：-- %</div>
+    <button class="btn primary" onclick="goToHealth()">查看详细数据</button>
+  </div>
+
+  <button class="btn danger" onclick="logout()">退出登录</button>
+
+  <script>
+    window.onload = function () {
+      const user = localStorage.getItem('username');
+      if (user) {
+        document.getElementById('username').innerText = user;
+      }
+    }
+
+    function bindDevice() {
+      document.getElementById('deviceStatus').innerText = '已绑定';
+      alert('头盔绑定成功！');
+    }
+
+    function goToHealth() {
+      alert('跳转到健康数据页面');
+    }
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>
