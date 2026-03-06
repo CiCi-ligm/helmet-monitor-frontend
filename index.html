@@ -14,6 +14,7 @@
     body {
       background: #fff;
     }
+    /* 顶部导航栏 */
     .top-bar {
       position: fixed;
       top: 0;
@@ -26,6 +27,7 @@
       gap: 10px;
       z-index: 999;
     }
+    /* 搜索框 */
     .search-box {
       flex: 1;
       height: 44px;
@@ -43,6 +45,7 @@
       background: transparent;
       font-size: 16px;
     }
+    /* 个人中心按钮 */
     .profile-btn {
       width: 44px;
       height: 44px;
@@ -51,8 +54,11 @@
       border: none;
       font-size: 20px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
     }
-    .map {
+    /* 地图容器 - 保留给你原来的地图用 */
+    #map {
+      width: 100%;
       height: 100vh;
       background: #eaeaea;
     }
@@ -60,17 +66,21 @@
 </head>
 
 <body>
+
   <div class="top-bar">
     <div class="search-box">
       <i>🔍</i>
       <input id="destination" placeholder="输入目的地...">
     </div>
+    <!-- 个人中心按钮 -->
     <button class="profile-btn" onclick="goToProfile()">👤</button>
   </div>
 
-  <div class="map"></div>
+  <!-- 地图容器，你原来的地图会渲染在这里 -->
+  <div id="map"></div>
 
   <script>
+    // 跳转到个人中心 / 登录页
     function goToProfile() {
       const isLoggedIn = localStorage.getItem('isLoggedIn');
       if (isLoggedIn) {
@@ -79,6 +89,10 @@
         window.location.href = 'login.html';
       }
     }
+
+    // ———— 你原来的地图JS代码放在下面这里就行 ————
+    // 例如：地图初始化、定位、导航等代码
   </script>
+
 </body>
 </html>
