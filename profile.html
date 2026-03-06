@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>个人中心</title>
   <style>
     * {
@@ -60,6 +60,7 @@
       border-radius: 8px;
       font-size: 14px;
       color: #94a3b8;
+      display: none;
     }
   </style>
 </head>
@@ -74,8 +75,10 @@
   <div class="card">
     <div class="title">智能头盔</div>
     <div class="info-row">绑定状态：<span id="deviceStatus">未绑定</span></div>
-    <div id="deviceInfo" class="device-info" style="display: none;"></div>
-    <button class="btn primary" onclick="bindDevice()">绑定头盔</button>
+    <div id="deviceInfo" class="device-info"></div>
+    
+    <button class="btn primary" onclick="goPay()">购买并绑定头盔</button>
+    <button class="btn primary" onclick="bindDevice()">手动绑定头盔</button>
     <button class="btn danger" onclick="unbindDevice()">解绑头盔</button>
   </div>
 
@@ -89,71 +92,51 @@
   <button class="btn danger" onclick="logout()">退出登录</button>
 
   <script>
-    // 模拟头盔设备信息
     const mockHelmet = {
-      deviceId: 'HELMET-STC15F2K60S2-001',
-      name: '智能骑行头盔 V1.0',
+      deviceId: 'HELMET-DEMO-001',
+      name: '智能骑行头盔演示版',
       mac: '00:11:22:33:44:55',
-      firmware: 'v2.1.0'
+      firmware: 'v1.0'
     };
 
     window.onload = function () {
       const user = localStorage.getItem('username');
-      if (user) {
-        document.getElementById('username').innerText = user;
-      }
-      // 从本地存储恢复绑定状态
-      const boundDevice = localStorage.getItem('boundHelmet');
-      if (boundDevice) {
-        const device = JSON.parse(boundDevice);
+      if (user) document.getElementById('username').innerText = user;
+
+      const bound = localStorage.getItem('boundHelmet');
+      if (bound) {
+        const d = JSON.parse(bound);
         document.getElementById('deviceStatus').innerText = '已绑定';
-        document.getElementById('deviceInfo').style.display = 'block';
-        document.getElementById('deviceInfo').innerHTML = `
-          设备ID：${device.deviceId}<br>
-          名称：${device.name}<br>
-          MAC：${device.mac}<br>
-          固件：${device.firmware}
-        `;
+        const info = document.getElementById('deviceInfo');
+        info.style.display = 'block';
+        info.innerHTML = `设备ID：${d.deviceId}<br>名称：${d.name}<br>MAC：${d.mac}<br>固件：${d.firmware}`;
       }
+    };
+
+    function goPay() {
+      window.location.href = 'pay.html';
     }
 
-    // 绑定头盔
     function bindDevice() {
-      const userId = localStorage.getItem('username');
-      if (!userId) {
-        alert('请先登录');
-        return;
-      }
-
-      // 模拟扫描头盔过程
-      alert('正在扫描附近头盔...');
-      setTimeout(() => {
-        // 模拟绑定成功
-        localStorage.setItem('boundHelmet', JSON.stringify(mockHelmet));
-        document.getElementById('deviceStatus').innerText = '已绑定';
-        document.getElementById('deviceInfo').style.display = 'block';
-        document.getElementById('deviceInfo').innerHTML = `
-          设备ID：${mockHelmet.deviceId}<br>
-          名称：${mockHelmet.name}<br>
-          MAC：${mockHelmet.mac}<br>
-          固件：${mockHelmet.firmware}
-        `;
-        alert('头盔绑定成功！');
-      }, 1500);
+      localStorage.setItem('boundHelmet', JSON.stringify(mockHelmet));
+      document.getElementById('deviceStatus').innerText = '已绑定';
+      const info = document.getElementById('deviceInfo');
+      info.style.display = 'block';
+      info.innerHTML = `设备ID：${mockHelmet.deviceId}<br>名称：${mockHelmet.name}<br>MAC：${mockHelmet.mac}<br>固件：${mockHelmet.firmware}`;
+      alert('头盔绑定成功！');
     }
 
-    // 解绑头盔
     function unbindDevice() {
-      if (confirm('确定要解绑头盔吗？')) {
+      if (confirm('确定解绑？')) {
         localStorage.removeItem('boundHelmet');
         document.getElementById('deviceStatus').innerText = '未绑定';
         document.getElementById('deviceInfo').style.display = 'none';
-        alert('头盔已解绑');
+        alert('已解绑');
       }
     }
 
     function goToHealth() {
-      alert('跳转到健康数据页面');
+      alert('健康页面待开发');
     }
 
     function logout() {
@@ -161,6 +144,5 @@
       window.location.href = "index.html";
     }
   </script>
-
 </body>
 </html>
