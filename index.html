@@ -3,64 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>智能头盔导航</title>
+  <title>智能头盔定位系统</title>
+  <!-- 高德地图 JS API -->
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=你的高德Key"></script>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: sans-serif;
+      font-family: "Microsoft Yahei", sans-serif;
     }
-    body {
-      background: #fff;
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
-    /* 顶部导航栏 */
+    /* 顶部栏 */
     .top-bar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      padding: 10px 15px;
-      background: white;
+      height: 50px;
+      background: #fff;
       display: flex;
       align-items: center;
-      gap: 10px;
+      padding: 0 15px;
       z-index: 999;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     /* 搜索框 */
     .search-box {
       flex: 1;
-      height: 44px;
-      border-radius: 22px;
-      background: #f2f2f2;
+      height: 36px;
+      background: #f5f5f5;
+      border-radius: 18px;
       display: flex;
       align-items: center;
       padding: 0 15px;
-      gap: 8px;
+      margin-right: 10px;
     }
     .search-box input {
       flex: 1;
       border: none;
       outline: none;
       background: transparent;
-      font-size: 16px;
+      font-size: 14px;
     }
     /* 个人中心按钮 */
     .profile-btn {
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.95);
+      background: #fff;
       border: none;
-      font-size: 20px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      font-size: 18px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.2);
       cursor: pointer;
     }
-    /* 地图容器 - 保留给你原来的地图用 */
-    #map {
+    /* 地图容器 */
+    #container {
       width: 100%;
-      height: 100vh;
-      background: #eaeaea;
+      height: 100%;
+    }
+    /* 实时信息面板 */
+    .info-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px 15px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      z-index: 999;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
   </style>
 </head>
@@ -69,29 +86,65 @@
 
   <div class="top-bar">
     <div class="search-box">
-      <i>🔍</i>
-      <input id="destination" placeholder="输入目的地...">
+      <input id="keyword" placeholder="输入目的地">
     </div>
-    <!-- 个人中心按钮 -->
     <button class="profile-btn" onclick="goToProfile()">👤</button>
   </div>
 
-  <!-- 地图容器，你原来的地图会渲染在这里 -->
-  <div id="map"></div>
+  <div id="container"></div>
+
+  <div class="info-panel">
+    实时状态：已连接<br>
+    定位：正常<br>
+    卫星数：8 颗
+  </div>
 
   <script>
-    // 跳转到个人中心 / 登录页
+    // 个人中心跳转
     function goToProfile() {
-      const isLoggedIn = localStorage.getItem('isLoggedIn');
-      if (isLoggedIn) {
+      const isLogin = localStorage.getItem('isLoggedIn');
+      if (isLogin) {
         window.location.href = 'profile.html';
       } else {
         window.location.href = 'login.html';
       }
     }
 
-    // ———— 你原来的地图JS代码放在下面这里就行 ————
-    // 例如：地图初始化、定位、导航等代码
+    // 地图初始化
+    var map = new AMap.Map('container', {
+      zoom: 17,
+      center: [116.397428, 39.90923],
+      resizeEnable: true
+    });
+
+    // 卫星图 + 路网
+    AMap.plugin(['AMap.Satellite', 'AMap.Traffic'], function() {
+      var satellite = new AMap.Satellite({});
+      map.add(satellite);
+    });
+
+    // 定位
+    map.plugin('AMap.Geolocation', function() {
+      var geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000
+      });
+      geolocation.getCurrentPosition(function(status, result) {
+        if (status == 'complete') {
+          map.setCenter(result.position);
+        }
+      });
+    });
+
+    // 搜索
+    var placeSearch = new AMap.PlaceSearch({
+      map: map
+    });
+    document.getElementById('keyword').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        placeSearch.search(this.value);
+      }
+    });
   </script>
 
 </body>
