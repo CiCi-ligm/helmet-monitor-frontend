@@ -125,143 +125,140 @@
     <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking,AMap.Traffic"></script>
 </head>
 <body>
+    <div id="map"></div>
 
-<script>
-// 一进来就强制检查登录，没有就直接跳登录页
-if (!localStorage.getItem('isLoggedIn')) {
-    window.location.replace("login.html");
-}
-</script>
-
-<div id="map"></div>
-
-<div class="top-bar">
-    <div class="search-box">
-        <i>🔍</i>
-        <input id="destination" placeholder="输入目的地...">
+    <div class="top-bar">
+        <div class="search-box">
+            <i>🔍</i>
+            <input id="destination" placeholder="输入目的地...">
+        </div>
+        <button class="profile-btn" onclick="openProfile()">👤</button>
     </div>
-    <button class="profile-btn" onclick="openProfile()">👤</button>
-</div>
 
-<div class="map-controls">
-    <button class="control-btn" onclick="toggleTraffic()">🚦</button>
-    <button class="control-btn" onclick="toggleSatellite()">🛰️</button>
-    <button class="control-btn" onclick="getCurrentLocation()">📍</button>
-</div>
+    <div class="map-controls">
+        <button class="control-btn" onclick="toggleTraffic()">🚦</button>
+        <button class="control-btn" onclick="toggleSatellite()">🛰️</button>
+        <button class="control-btn" onclick="getCurrentLocation()">📍</button>
+    </div>
 
-<div class="info-bar" id="info">欢迎使用智能头盔导航</div>
+    <div class="info-bar" id="info">欢迎使用智能头盔导航</div>
 
-<div class="nav-buttons">
-    <button class="nav-btn" onclick="getCurrentLocation()">📍 定位</button>
-    <button class="nav-btn primary" onclick="startNavigation()">🚗 导航</button>
-    <button class="nav-btn" onclick="clearMap()">🗑️ 清空</button>
-</div>
+    <div class="nav-buttons">
+        <button class="nav-btn" onclick="getCurrentLocation()">📍 定位</button>
+        <button class="nav-btn primary" onclick="startNavigation()">🚗 导航</button>
+        <button class="nav-btn" onclick="clearMap()">🗑️ 清空</button>
+    </div>
 
-<script>
-    let map, marker;
-    let currentPos = null;
-    let trafficLayer = null;
-    let isSatellite = false;
-    let isTraffic = false;
+    <script>
+        let map, marker;
+        let currentPos = null;
+        let trafficLayer = null;
+        let isSatellite = false;
+        let isTraffic = false;
 
-    window.onload = function () {
-        initMap();
-    };
-
-    function initMap() {
-        map = new AMap.Map("map", { 
-            zoom:16, 
-            resizeEnable:true 
-        });
-        trafficLayer = new AMap.TileLayer.Traffic({ 
-            autoRefresh:true, 
-            interval:180 
-        });
-    }
-
-    function getCurrentLocation() {
-        const info = document.getElementById('info');
-        info.innerText = '⏳ 正在定位...';
-        let geo = new AMap.Geolocation({ 
-            enableHighAccuracy:true, 
-            timeout:10000 
-        });
-        geo.getCurrentPosition((status, result) => {
-            if (status === 'complete' && result.info === 'SUCCESS') {
-                currentPos = result.position;
-                if (marker) marker.remove();
-                marker = new AMap.Marker({ position: currentPos });
-                marker.setMap(map);
-                map.setCenter(currentPos);
-                info.innerText = '✅ 已定位：'+ result.formattedAddress;
-            } else {
-                info.innerText = '❌ 定位失败，请检查权限';
+        window.onload = function () {
+            const logged = localStorage.getItem('isLoggedIn');
+            if (!logged) {
+                window.location.href = 'login.html';
+                return;
             }
-        });
-    }
+            initMap();
+        };
 
-    function startNavigation() {
-        if (!currentPos) {
-            document.getElementById('info').innerText = '⚠️ 请先定位';
-            return;
-        }
-        const key = document.getElementById('destination').value.trim();
-        if (!key) {
-            document.getElementById('info').innerText = '⚠️ 请输入目的地';
-            return;
-        }
-        document.getElementById('info').innerText = '⏳ 规划路线中...';
-        AMap.plugin('AMap.Driving', () => {
-            const d = new AMap.Driving({ 
-                map:map, 
-                autoFitView:true 
+        function initMap() {
+            map = new AMap.Map("map", { 
+                zoom:16, 
+                resizeEnable:true 
             });
-            d.search(
-                {
-                    origin: currentPos,
-                    destination: key
-                },
-                (s, res) => {
-                    if (s === 'complete') {
-                        document.getElementById('info').innerText = '✅ 路线已规划，开始导航';
-                        const t = new SpeechSynthesisUtterance('路线已规划，准备出发');
-                        window.speechSynthesis.speak(t);
-                    } else {
-                        document.getElementById('info').innerText = '❌ 路线规划失败';
-                    }
+            trafficLayer = new AMap.TileLayer.Traffic({ 
+                autoRefresh:true, 
+                interval:180 
+            });
+        }
+
+        function getCurrentLocation() {
+            const info = document.getElementById('info');
+            info.innerText = '⏳ 正在定位...';
+            let geo = new AMap.Geolocation({ 
+                enableHighAccuracy:true, 
+                timeout:10000 
+            });
+            geo.getCurrentPosition((status, result) => {
+                if (status === 'complete' && result.info === 'SUCCESS') {
+                    currentPos = result.position;
+                    if (marker) marker.remove();
+                    marker = new AMap.Marker({ position: currentPos });
+                    marker.setMap(map);
+                    map.setCenter(currentPos);
+                    info.innerText = '✅ 已定位：'+ result.formattedAddress;
+                } else {
+                    info.innerText = '❌ 定位失败，请检查权限';
                 }
-            );
-        });
-    }
-
-    function clearMap() {
-        if (marker) marker.remove();
-        if (map) map.clearMap();
-        document.getElementById('info').innerText = '🗑️ 已清空地图';
-    }
-
-    function toggleTraffic() {
-        isTraffic = !isTraffic;
-        isTraffic ? map.add(trafficLayer) : map.remove(trafficLayer);
-        document.getElementById('info').innerText = isTraffic ? '✅ 实时路况已开启' : '❌ 实时路况已关闭';
-    }
-
-    function toggleSatellite() {
-        isSatellite = !isSatellite;
-        if (isSatellite) {
-            map.setLayers([new AMap.TileLayer.Satellite()]);
-        } else {
-            map.setLayers([new AMap.TileLayer()]);
+            });
         }
-        document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
-    }
 
-    function openProfile() {
-        if (confirm('是否退出登录？')) {
-            localStorage.removeItem('isLoggedIn');
-            window.location.replace("login.html");
+        function startNavigation() {
+            if (!currentPos) {
+                document.getElementById('info').innerText = '⚠️ 请先定位';
+                return;
+            }
+            const key = document.getElementById('destination').value.trim();
+            if (!key) {
+                document.getElementById('info').innerText = '⚠️ 请输入目的地';
+                return;
+            }
+            document.getElementById('info').innerText = '⏳ 规划路线中...';
+            AMap.plugin('AMap.Driving', () => {
+                const d = new AMap.Driving({ 
+                    map:map, 
+                    autoFitView:true 
+                });
+                d.search(
+                    {
+                        origin: currentPos,
+                        destination: key
+                    },
+                    (s, res) => {
+                        if (s === 'complete') {
+                            document.getElementById('info').innerText = '✅ 路线已规划，开始导航';
+                            const t = new SpeechSynthesisUtterance('路线已规划，准备出发');
+                            window.speechSynthesis.speak(t);
+                        } else {
+                            document.getElementById('info').innerText = '❌ 路线规划失败';
+                        }
+                    }
+                );
+            });
         }
-    }
-</script>
+
+        function clearMap() {
+            if (marker) marker.remove();
+            if (map) map.clearMap();
+            document.getElementById('info').innerText = '🗑️ 已清空地图';
+        }
+
+        function toggleTraffic() {
+            isTraffic = !isTraffic;
+            isTraffic ? map.add(trafficLayer) : map.remove(trafficLayer);
+            document.getElementById('info').innerText = isTraffic ? '✅ 实时路况已开启' : '❌ 实时路况已关闭';
+        }
+
+        function toggleSatellite() {
+            isSatellite = !isSatellite;
+            if (isSatellite) {
+                map.setLayers([new AMap.TileLayer.Satellite()]);
+            } else {
+                map.setLayers([new AMap.TileLayer()]);
+            }
+            document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
+        }
+
+        function openProfile() {
+            if (confirm('是否退出登录？')) {
+                localStorage.removeItem('isLoggedIn');
+                window.location.href = 'login.html';
+            }
+        }
+    </script>
 </body>
 </html>
