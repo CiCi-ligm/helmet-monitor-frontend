@@ -1,208 +1,85 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>智能头盔 - 登录</title>
-    <style>
-        * {
-            margin:0; padding:0; box-sizing:border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-        body, html {
-            width:100%;
-            min-height:100vh;
-            color:#e6edf3;
-            overflow-x: hidden;
-            background: #0a0e27;
-        }
-        .parallax {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background: linear-gradient(180deg, #0a0e27, #121a36, #1e2b5a);
-        }
-        .light {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(74, 140, 255, 0.12);
-            filter: blur(40px);
-        }
-        .light1 { width:300px; height:300px; top:10%; left:-100px; }
-        .light2 { width:400px; height:400px; top:40%; right:-150px; }
-        .light3 { width:250px; height:250px; top:70%; left:50%; }
-
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width:400px;
-            margin:0 auto;
-            padding: 120px 20px 60px;
-        }
-        .logo {
-            text-align:center;
-            margin-bottom:60px;
-            transform: translateY(30px);
-            opacity: 0;
-            animation: up 1s 0.2s forwards;
-        }
-        @keyframes up {
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .logo h1 {
-            font-size:28px;
-            font-weight:700;
-            color:#f0f4ff;
-            margin-bottom:8px;
-        }
-        .logo p {
-            color:#94a3b8;
-            font-size:14px;
-        }
-        .form-group {
-            margin-bottom:20px;
-        }
-        .form-group label {
-            display:block;
-            font-size:14px;
-            color:#c6d0ff;
-            margin-bottom:8px;
-        }
-        .form-group input {
-            width:100%;
-            height:50px;
-            background:rgba(21,31,77,0.6);
-            backdrop-filter: blur(10px);
-            border:1px solid #2a3a6f;
-            border-radius:14px;
-            padding:0 16px;
-            font-size:15px;
-            color:#e6edf3;
-            outline:none;
-            transition: 0.2s;
-        }
-        .form-group input:focus {
-            border-color:#4a8cff;
-            background:rgba(30,45,100,0.6);
-        }
-        .btn {
-            width:100%;
-            height:50px;
-            border:none;
-            border-radius:14px;
-            font-size:16px;
-            font-weight:600;
-            color:#fff;
-            background:linear-gradient(90deg,#3a66fd,#2e4cff);
-            margin-bottom:16px;
-            cursor:pointer;
-            transition: 0.2s;
-        }
-        .btn:active { transform: scale(0.98); }
-        .btn-outline {
-            background:transparent;
-            border:1px solid #2a3a6f;
-            color:#c6d0ff;
-        }
-        .tip {
-            text-align:center;
-            color:#94a3b8;
-            font-size:14px;
-            margin-top:12px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: sans-serif;
+    }
+    body {
+      background: #f5f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .login-box {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+      width: 320px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    #info {
+      margin-top: 10px;
+      text-align: center;
+      color: #007aff;
+    }
+  </style>
 </head>
-
 <body>
-    <div class="parallax">
-        <div class="light light1"></div>
-        <div class="light light2"></div>
-        <div class="light light3"></div>
-    </div>
+  <div class="login-box">
+    <h2>智能头盔登录</h2>
+    <input type="text" id="user" placeholder="用户名">
+    <input type="password" id="pwd" placeholder="密码">
+    <button onclick="login()">登录</button>
+    <div id="info"></div>
+  </div>
 
-    <div class="container">
-        <div class="logo">
-            <h1>🏍️ 智能头盔</h1>
-            <p>登录后即可使用导航与监控功能</p>
-        </div>
+  <script>
+    function login() {
+      let username = document.getElementById('user').value;
+      let pwd = document.getElementById('pwd').value;
+      let info = document.getElementById('info');
 
-        <div id="loginForm">
-            <div class="form-group">
-                <label>用户名</label>
-                <input id="user" placeholder="请输入用户名">
-            </div>
-            <div class="form-group">
-                <label>密码</label>
-                <input id="pwd" type="password" placeholder="请输入密码">
-            </div>
-            <button class="btn" onclick="login()">登录</button>
-            <button class="btn btn-outline" onclick="showReg()">没有账号？立即注册</button>
-        </div>
+      if (!username || !pwd) {
+        info.innerText = '请输入账号密码';
+        return;
+      }
 
-        <div id="regForm" style="display:none;">
-            <div class="form-group">
-                <label>用户名</label>
-                <input id="ruser" placeholder="设置用户名">
-            </div>
-            <div class="form-group">
-                <label>密码</label>
-                <input id="rpwd" type="password" placeholder="设置密码">
-            </div>
-            <div class="form-group">
-                <label>确认密码</label>
-                <input id="rpwd2" type="password" placeholder="再次输入密码">
-            </div>
-            <button class="btn" onclick="reg()">注册</button>
-            <button class="btn btn-outline" onclick="showLogin()">返回登录</button>
-        </div>
+      info.innerText = '✅ 登录成功，正在跳转...';
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('username', username);
 
-        <div class="tip" id="msg"></div>
-    </div>
-
-    <script>
-        function showReg() {
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('regForm').style.display = 'block';
-            document.getElementById('msg').innerText = '';
-        }
-        function showLogin() {
-            document.getElementById('regForm').style.display = 'none';
-            document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('msg').innerText = '';
-        }
-        function login() {
-            const u = document.getElementById('user').value.trim();
-            const p = document.getElementById('pwd').value.trim();
-            const m = document.getElementById('msg');
-            if (!u || !p) {
-                m.innerText = '⚠️ 请输入账号密码';
-                return;
-            }
-            m.innerText = '✅ 登录成功，正在进入...';
-            localStorage.setItem('isLoggedIn', 'true');
-            setTimeout(()=>{
-                window.location.href = 'index.html';
-            }, 1000);
-        }
-        function reg() {
-            const u = document.getElementById('ruser').value.trim();
-            const p = document.getElementById('rpwd').value.trim();
-            const p2 = document.getElementById('rpwd2').value.trim();
-            const m = document.getElementById('msg');
-            if (!u || !p || !p2) {
-                m.innerText = '⚠️ 请填写完整信息';
-                return;
-            }
-            if (p !== p2) {
-                m.innerText = '⚠️ 两次密码不一致';
-                return;
-            }
-            m.innerText = '✅ 注册成功，请登录';
-            setTimeout(showLogin, 1000);
-        }
-    </script>
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 1500);
+    }
+  </script>
 </body>
 </html>
