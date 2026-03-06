@@ -63,6 +63,7 @@
             border: none;
             font-size: 20px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
         }
         .map-controls {
             position: absolute;
@@ -253,12 +254,16 @@
             document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
         }
 
-        // 修正：点击头像跳转到个人中心，而不是直接退出
+        // 修复后的跳转函数，带错误处理
         function goToProfile() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (isLoggedIn) {
-                window.location.href = 'profile.html';
-            } else {
+            try {
+                const isLoggedIn = localStorage.getItem('isLoggedIn');
+                if (isLoggedIn) {
+                    window.location.href = 'profile.html';
+                } else {
+                    window.location.href = 'login.html';
+                }
+            } catch (e) {
                 window.location.href = 'login.html';
             }
         }
