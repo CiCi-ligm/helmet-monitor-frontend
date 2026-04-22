@@ -3,85 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>会员充值</title>
+    <title>会员充值 - 智能头盔</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
-        body{background:#f5f7fa;padding:20px;padding-bottom:80px;}
-        .back{margin-bottom:20px;color:#2563eb;}
-        .pay-card{background:#fff;border-radius:16px;padding:25px;margin-bottom:15px;}
-        .money{font-size:26px;color:#2563eb;font-weight:bold;margin:12px 0;}
-        .pay-btn{width:100%;height:46px;background:#2563eb;color:#fff;border:none;border-radius:8px;margin-top:10px;}
-
-        .mask{
-            position:fixed;inset:0;
-            background:rgba(0,0,0,0.7);
-            display:none;
-            align-items:center;justify-content:center;
+        body{background:#f5f7fa;padding:20px;padding-bottom:100px;font-family: -apple-system, BlinkMacSystemFont, sans-serif;}
+        .header{text-align: center; margin-bottom: 20px;}
+        .header h2{color: #333; font-size: 22px;}
+        .header p{color: #666; font-size: 14px; margin-top: 5px;}
+        
+        /* 会员卡片样式 */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
-        .pop-box{
-            width:320px;background:#fff;border-radius:16px;
-            padding:20px;text-align:center;
+        .card-title {font-size: 18px; font-weight: bold; color: #333;}
+        .price {font-size: 28px; color: #2563eb; font-weight: bold; margin: 10px 0;}
+        .desc {color: #999; font-size: 13px; margin-bottom: 15px;}
+        .buy-btn {
+            width: 100%;
+            height: 48px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
         }
-        .qrcode{width:200px;height:200px;margin:15px auto;}
-        .qrcode img{width:100%;height:100%;border-radius:8px;object-fit:cover;}
 
-        .pop-btn{display:flex;gap:10px;margin-top:20px;}
-        .pop-btn button{flex:1;height:40px;border-radius:6px;border:none;}
-        .cancel{background:#eee;}
-        .confirm{background:#2563eb;color:#fff;}
+        /* ######## 关键部分：文字收款码区域 ######## */
+        #qrcodeContainer {
+            display: none; /* 默认隐藏，点按钮后显示 */
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        #qrcodeContainer h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        /* 这里显示你的微信收款码图片 */
+        #qrcodeImg {
+            width: 200px;
+            height: 200px;
+            border: 1px solid #eee;
+            margin: 0 auto;
+            background: #f5f5f5;
+            line-height: 200px;
+            color: #999;
+            border-radius: 8px;
+        }
+        .tip-text {
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        .confirm-btn {
+            margin-top: 15px;
+            width: 100%;
+            height: 44px;
+            background: #4cd964;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <div class="back" onclick="history.back()">← 返回个人中心</div>
-    <h2>会员充值中心</h2>
-
-    <div class="pay-card" onclick="showPay(15,'月度会员',30)">
-        <div>⛑️ 月度会员</div>
-        <div class="money">¥15.00</div>
-        <button class="pay-btn">立即购买</button>
+    <div class="header">
+        <h2>⛑️ 会员充值中心</h2>
+        <p>解锁智能头盔全部导航特权</p>
     </div>
 
-    <div class="pay-card" onclick="showPay(98,'年度会员',365)">
-        <div>⛑️ 年度会员</div>
-        <div class="money">¥98.00</div>
-        <button class="pay-btn">立即购买</button>
+    <!-- 月度会员 -->
+    <div class="card">
+        <div class="card-title">月度会员</div>
+        <div class="price">¥15.00</div>
+        <div class="desc">有效期30天 | 解锁全部导航</div>
+        <button class="buy-btn" onclick="showQrcode(15, '月度会员', 30)">立即购买</button>
     </div>
 
-    <div class="mask" id="mask">
-        <div class="pop-box">
-            <h4>微信扫码支付</h4>
-            <div class="qrcode">
-                <!-- 已嵌入你的收款码链接 -->
-                <img src="https://s2.ax1x.com/2026/04/22/pe2xSu4.png" alt="微信收款码">
-            </div>
-            <div>金额：<span id="payPrice"></span> 元</div>
-            <div class="pop-btn">
-                <button class="cancel" onclick="closeMask()">取消</button>
-                <button class="confirm" onclick="paySuccess()">我已付款</button>
-            </div>
+    <!-- 年度会员 -->
+    <div class="card">
+        <div class="card-title">年度会员</div>
+        <div class="price">¥98.00</div>
+        <div class="desc">有效期365天 | 超值优惠</div>
+        <button class="buy-btn" onclick="showQrcode(98, '年度会员', 365)">立即购买</button>
+    </div>
+
+    <!-- ######## 核心区域：文字收款码 ######## -->
+    <div id="qrcodeContainer">
+        <h3 id="payTitle">微信扫码支付</h3>
+        
+        <!-- 这里直接放你的图片链接，GitHub Pages 可以正常加载 -->
+        <div id="qrcodeImg">
+            <img src="https://s2.ax1x.com/2026/04/22/pe2xSu4.png" alt="微信收款码" style="width:100%;height:100%;object-fit:contain;border-radius:8px;">
         </div>
+        
+        <div class="tip-text">
+            应付金额：<span id="payAmount" style="color:red;font-weight:bold"></span> 元
+        </div>
+        
+        <button class="confirm-btn" onclick="paySuccess()">✅ 我已付款，开通会员</button>
     </div>
 
     <script>
-        let payName,payDay;
-        function showPay(price,name,day){
-            payName = name;
-            payDay = day;
-            document.getElementById('payPrice').innerText = price;
-            document.getElementById('mask').style.display = 'flex';
+        let currentName = '';
+        let currentDays = 0;
+
+        // 点击购买，显示收款码区域
+        function showQrcode(price, name, days) {
+            currentName = name;
+            currentDays = days;
+            
+            // 滚动到收款码区域
+            document.getElementById('payAmount').innerText = price;
+            document.getElementById('payTitle').innerText = name + ' - 微信扫码支付';
+            
+            // 显示区域
+            document.getElementById('qrcodeContainer').style.display = 'block';
+            
+            // 滚动到底部
+            window.scrollTo(0, document.body.scrollHeight);
         }
-        function closeMask(){
-            document.getElementById('mask').style.display = 'none';
+
+        // 付款成功逻辑
+        function paySuccess() {
+            if(!currentName || !currentDays) {
+                alert('请先选择充值套餐');
+                return;
+            }
+
+            const expireTime = Date.now() + currentDays * 24 * 60 * 60 * 1000;
+            localStorage.setItem('vipType', currentName);
+            localStorage.setItem('vipExpire', expireTime);
+
+            alert(`✅ 充值成功！\n已开通【${currentName}】\n享受全部特权！`);
+            
+            // 刷新页面回到顶部
+            window.location.href = window.location.href;
         }
-        function paySuccess(){
-            closeMask();
-            let expire = Date.now() + payDay * 24 * 60 * 60 * 1000;
-            localStorage.setItem('vipType', payName);
-            localStorage.setItem('vipExpire', expire);
-            alert('✅ 充值成功，会员已生效');
-        }
-        window.onload = function(){
-            if(!localStorage.getItem('isLoggedIn')) location.href='login.html';
+
+        // 登录拦截
+        window.onload = function() {
+            if (!localStorage.getItem('isLoggedIn')) {
+                window.location.href = 'login.html';
+            }
         }
     </script>
 </body>
