@@ -90,7 +90,7 @@
         <div class="card-title">月度会员</div>
         <div class="price">¥15.00</div>
         <div class="desc">有效期30天 | 解锁全部导航</div>
-        <button class="buy-btn" onclick="showQrcode(15, '月度会员', 30)">立即购买</button>
+        <button class="buy-btn" onclick="showQrcode(15, '月度会员', 30, 'https://www.tuchuli.cn/p.php?8tp=t3.27172a1988b1500.pg1')">立即购买</button>
     </div>
 
     <!-- 年度会员 -->
@@ -98,15 +98,14 @@
         <div class="card-title">年度会员</div>
         <div class="price">¥98.00</div>
         <div class="desc">有效期365天 | 超值优惠</div>
-        <button class="buy-btn" onclick="showQrcode(98, '年度会员', 365)">立即购买</button>
+        <button class="buy-btn" onclick="showQrcode(98, '年度会员', 365, 'https://www.tuchuli.cn/p.php?8tp=t1.27172a1989b9800.pg1')">立即购买</button>
     </div>
 
     <!-- 收款码区域 -->
     <div id="qrcodeContainer">
         <h3 id="payTitle">微信扫码支付</h3>
         <div id="qrcodeImg">
-            <!-- 已替换为你提供的新图片链接 -->
-            <img src="https://www.tuchuli.cn/p.php?8tp=t1.27172a1987b1500.pg1" alt="微信收款码">
+            <img id="payQrcode" src="" alt="微信收款码">
         </div>
         <div class="tip-text">
             应付金额：<span id="payAmount" style="color:red;font-weight:bold"></span> 元
@@ -118,12 +117,14 @@
         let currentName = '';
         let currentDays = 0;
 
-        function showQrcode(price, name, days) {
+        // 显示对应会员的二维码
+        function showQrcode(price, name, days, qrcodeUrl) {
             currentName = name;
             currentDays = days;
             
             document.getElementById('payAmount').innerText = price;
             document.getElementById('payTitle').innerText = name + ' - 微信扫码支付';
+            document.getElementById('payQrcode').src = qrcodeUrl;
             
             document.getElementById('qrcodeContainer').style.display = 'block';
             window.scrollTo(0, document.body.scrollHeight);
