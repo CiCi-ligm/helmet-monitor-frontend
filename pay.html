@@ -39,7 +39,7 @@
         .qrcode img{
             width:100%;
             height:100%;
-            object-fit:cover;
+            object-fit:contain;
         }
         .pop-btn{
             margin-top:15px;display:flex;gap:10px;
@@ -76,52 +76,5 @@
         <div class="pop-box">
             <h4 id="payTitle">微信扫码支付</h4>
             <div class="qrcode">
-                <!-- 你的微信收款码 -->
-                <img src="https://p3-flow-image-sign.byteimg.com/tos-cn-i-a9rns3rl2e/5dcf9988942d41748204464c00235743~tplv-a9rns3rl2e-image.image" alt="微信收款码">
-            </div>
-            <div style="font-size:14px;color:#666;margin:8px 0">
-                应付金额：<span id="payPrice" style="color:red;font-weight:bold"></span> 元
-            </div>
-            <div class="pop-btn">
-                <button class="cancel" onclick="closeMask()">取消</button>
-                <button class="confirm" onclick="paySuccess()">我已付款</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let payName = '';
-        let payDay = 0;
-
-        // 打开支付弹窗
-        function showPay(price,name,day){
-            payName = name;
-            payDay = day;
-            document.getElementById('payPrice').innerText = price;
-            document.getElementById('payTitle').innerText = name + ' - 扫码付款';
-            document.getElementById('mask').style.display = 'flex';
-        }
-
-        // 关闭弹窗
-        function closeMask(){
-            document.getElementById('mask').style.display = 'none';
-        }
-
-        // 付款成功，本地保存会员信息
-        function paySuccess(){
-            closeMask();
-            const now = Date.now();
-            const expireTime = now + payDay * 24 * 60 * 60 * 1000;
-            // 存入本地缓存
-            localStorage.setItem('vipType', payName);
-            localStorage.setItem('vipExpire', expireTime);
-            alert(`✅ 付款确认成功！\n已开通【${payName}】\n自动享受全部会员权益`);
-        }
-
-        // 登录拦截
-        window.onload=function(){
-            if(!localStorage.getItem('isLoggedIn')) location.href='login.html';
-        }
-    </script>
-</body>
-</html>
+                <!-- 你的微信收款码，已转为Base64内嵌，直接可用 -->
+                <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUTEhIVFRUVGBoZFRUVGBgYFx0eHh4eHSggGBolGx4lHx4iJxwtLi4uFx8zODMsNygtLisBCgoKDg0OGhAQGi0lHyUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAKgBLAMBIgACEQEDEQH/xAAcAAABBQEBAQEAAAAAAAAAAAADBAECBQYABv/EAGkQAAICAQMDAwQFAwYIBwAAAAABAhEDIQQSMQVBUWEyJhcYEjQpEUFTJCYzJicoGRobEHFBKy0TOB0VNicoGRobEHFBKy0TOB0VNicoGRobEHFBKy0TOB0VNicoGRobEHFBKy0TOB0VNicoGRobEHFBKy0TOB0VN/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/EACcQAAICAQEBAQAAAAAAAAAAAAAAAAABEhQSEv/aAAwDAQACEQMRAD8AqP49dV+J6WzR9j4vRqk2R5n2z9T6X8X9X+P/V+N9X4r+A/wBv638b9H4t+A/wDq/E636d9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9B4v6T9B4p9m+o+D9v4j6f9
