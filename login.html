@@ -1,85 +1,75 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>登录</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: sans-serif;
-    }
-    body {
-      background: #f5f7fa;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .login-box {
-      background: white;
-      padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-      width: 320px;
-    }
-    input {
-      width: 100%;
-      padding: 12px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    button {
-      width: 100%;
-      padding: 14px;
-      background: #007aff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      margin-top: 10px;
-    }
-    #info {
-      margin-top: 10px;
-      text-align: center;
-      color: #007aff;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 智能头盔导航</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{
+            background:#f5f7fa;
+            padding:40px 20px;
+        }
+        .login-box{
+            max-width:400px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:16px;
+            padding:30px 20px;
+            box-shadow:0 4px 20px rgba(0,0,0,0.1);
+        }
+        h2{
+            text-align:center;
+            margin-bottom:30px;
+            color:#2563eb;
+        }
+        .item{
+            margin-bottom:20px;
+        }
+        input{
+            width:100%;
+            height:48px;
+            padding:0 15px;
+            border:1px solid #eee;
+            border-radius:8px;
+            font-size:16px;
+        }
+        .login-btn{
+            width:100%;
+            height:48px;
+            background:#2563eb;
+            color:#fff;
+            border:none;
+            border-radius:8px;
+            font-size:16px;
+            cursor:pointer;
+        }
+    </style>
 </head>
 <body>
-  <div class="login-box">
-    <h2>智能头盔登录</h2>
-    <input type="text" id="user" placeholder="用户名">
-    <input type="password" id="pwd" placeholder="密码">
-    <button onclick="login()">登录</button>
-    <div id="info"></div>
-  </div>
+    <div class="login-box">
+        <h2>智能头盔系统登录</h2>
+        <div class="item">
+            <input type="text" id="username" placeholder="请输入账号">
+        </div>
+        <div class="item">
+            <input type="password" id="pwd" placeholder="请输入密码">
+        </div>
+        <button class="login-btn" onclick="login()">立即登录</button>
+    </div>
 
-  <script>
-    function login() {
-      let username = document.getElementById('user').value;
-      let pwd = document.getElementById('pwd').value;
-      let info = document.getElementById('info');
-
-      if (!username || !pwd) {
-        info.innerText = '请输入账号密码';
-        return;
-      }
-
-      info.innerText = '✅ 登录成功，正在跳转...';
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('username', username);
-
-      setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 1500);
-    }
-  </script>
+    <script>
+        function login(){
+            let user = document.getElementById('username').value;
+            let pwd = document.getElementById('pwd').value;
+            if(user && pwd){
+                localStorage.setItem('isLoggedIn','1');
+                localStorage.setItem('userName',user);
+                window.location.href = 'index.html';
+            }else{
+                alert('请输入账号密码');
+            }
+        }
+    </script>
 </body>
 </html>
