@@ -10,6 +10,7 @@
             padding: 0;
             box-sizing: border-box;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            transition: all 0.3s ease;
         }
         body, html {
             width: 100%;
@@ -17,6 +18,14 @@
             overflow: hidden;
             background: #000;
         }
+        /* 深色模式样式 */
+        body.dark{background:#111;}
+        body.dark .search-box,
+        body.dark .control-btn,
+        body.dark .nav-btn,
+        body.dark .profile-btn{background:#222;color:#fff;}
+        body.dark .tab-bar{background:#1f1f1f;}
+
         #map {
             width: 100%;
             height: 100%;
@@ -124,7 +133,6 @@
             font-size: 14px;
             line-height: 1.4;
         }
-        /* 底部全局导航栏 */
         .tab-bar {
             position: absolute;
             bottom: 0;
@@ -153,18 +161,30 @@
             font-size: 20px;
             margin-bottom: 4px;
         }
+        .dark-btn{
+            position:absolute;
+            top:16px;
+            left:16px;
+            z-index:15;
+            background:rgba(0,0,0,0.4);
+            color:#fff;
+            border:none;
+            border-radius:20px;
+            padding:4px 10px;
+        }
     </style>
     <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking,AMap.Traffic"></script>
 </head>
 <body>
     <div id="map"></div>
+    <button class="dark-btn" onclick="toggleDark()">🌓 深色</button>
 
     <div class="top-bar">
         <div class="search-box">
             <i>🔍</i>
             <input id="destination" placeholder="输入目的地...">
         </div>
-        <button class="profile-btn" onclick="goToProfile()">👤</button>
+        <button class="profile-btn" onclick="jump('profile.html')">👤</button>
     </div>
 
     <div class="map-controls">
@@ -181,17 +201,20 @@
         <button class="nav-btn" onclick="clearMap()">🗑️ 清空</button>
     </div>
 
-    <!-- 底部导航栏 -->
     <div class="tab-bar">
-        <div class="tab-item active" onclick="jumpPage('index.html')">
+        <div class="tab-item active" onclick="jump('index.html')">
             <div class="tab-icon">🗺️</div>
             <div>导航</div>
         </div>
-        <div class="tab-item" onclick="jumpPage('bind.html')">
+        <div class="tab-item" onclick="jump('bind.html')">
             <div class="tab-icon">⛑️</div>
-            <div>头盔绑定</div>
+            <div>头盔</div>
         </div>
-        <div class="tab-item" onclick="jumpPage('profile.html')">
+        <div class="tab-item" onclick="jump('record.html')">
+            <div class="tab-icon">📋</div>
+            <div>记录</div>
+        </div>
+        <div class="tab-item" onclick="jump('profile.html')">
             <div class="tab-icon">👤</div>
             <div>我的</div>
         </div>
@@ -204,38 +227,29 @@
         let isSatellite = false;
         let isTraffic = false;
 
-        // 全局页面跳转方法
-        function jumpPage(url) {
+        // 全局跳转
+        function jump(url){
             window.location.href = url;
+        }
+        // 深色模式
+        function toggleDark(){
+            document.body.classList.toggle('dark');
         }
 
         window.onload = function () {
-            const logged = localStorage.getItem('isLoggedIn');
-            if (!logged) {
-                jumpPage('login.html');
-                return;
-            }
+            if (!localStorage.getItem('isLoggedIn')) jump('login.html');
             initMap();
         };
 
         function initMap() {
-            map = new AMap.Map("map", { 
-                zoom:16, 
-                resizeEnable:true 
-            });
-            trafficLayer = new AMap.TileLayer.Traffic({ 
-                autoRefresh:true, 
-                interval:180 
-            });
+            map = new AMap.Map("map", { zoom:16, resizeEnable:true });
+            trafficLayer = new AMap.TileLayer.Traffic({ autoRefresh:true, interval:180 });
         }
 
         function getCurrentLocation() {
             const info = document.getElementById('info');
             info.innerText = '⏳ 正在定位...';
-            let geo = new AMap.Geolocation({ 
-                enableHighAccuracy:true, 
-                timeout:10000 
-            });
+            let geo = new AMap.Geolocation({ enableHighAccuracy:true, timeout:10000 });
             geo.getCurrentPosition((status, result) => {
                 if (status === 'complete' && result.info === 'SUCCESS') {
                     currentPos = result.position;
@@ -251,64 +265,38 @@
         }
 
         function startNavigation() {
-            if (!currentPos) {
-                document.getElementById('info').innerText = '⚠️ 请先定位';
-                return;
-            }
+            if (!currentPos) return document.getElementById('info').innerText = '⚠️ 请先定位';
             const key = document.getElementById('destination').value.trim();
-            if (!key) {
-                document.getElementById('info').innerText = '⚠️ 请输入目的地';
-                return;
-            }
+            if (!key) return document.getElementById('info').innerText = '⚠️ 请输入目的地';
+
             document.getElementById('info').innerText = '⏳ 规划路线中...';
             AMap.plugin('AMap.Driving', () => {
-                const d = new AMap.Driving({ 
-                    map:map, 
-                    autoFitView:true 
-                });
-                d.search(
-                    {
-                        origin: currentPos,
-                        destination: key
-                    },
-                    (s, res) => {
-                        if (s === 'complete') {
-                            document.getElementById('info').innerText = '✅ 路线已规划，开始导航';
-                            const t = new SpeechSynthesisUtterance('路线已规划，准备出发');
-                            window.speechSynthesis.speak(t);
-                        } else {
-                            document.getElementById('info').innerText = '❌ 路线规划失败';
-                        }
+                const d = new AMap.Driving({ map, autoFitView:true });
+                d.search({origin:currentPos, destination:key},(s)=>{
+                    if(s==='complete'){
+                        document.getElementById('info').innerText = '✅ 路线已规划，开始导航';
+                        speechSynthesis.speak(new SpeechSynthesisUtterance('路线已规划，准备出发'));
+                    }else{
+                        document.getElementById('info').innerText = '❌ 路线规划失败';
                     }
-                );
+                })
             });
         }
 
         function clearMap() {
-            if (marker) marker.remove();
-            if (map) map.clearMap();
+            if(marker) marker.remove();
+            map.clearMap();
             document.getElementById('info').innerText = '🗑️ 已清空地图';
         }
-
-        function toggleTraffic() {
+        function toggleTraffic(){
             isTraffic = !isTraffic;
             isTraffic ? map.add(trafficLayer) : map.remove(trafficLayer);
-            document.getElementById('info').innerText = isTraffic ? '✅ 实时路况已开启' : '❌ 实时路况已关闭';
+            document.getElementById('info').innerText = isTraffic ? '✅ 实时路况开启' : '✅ 实时路况关闭';
         }
-
-        function toggleSatellite() {
+        function toggleSatellite(){
             isSatellite = !isSatellite;
-            if (isSatellite) {
-                map.setLayers([new AMap.TileLayer.Satellite()]);
-            } else {
-                map.setLayers([new AMap.TileLayer()]);
-            }
-            document.getElementById('info').innerText = isSatellite ? '✅ 卫星图已开启' : '❌ 标准地图';
-        }
-
-        // 个人中心跳转
-        function goToProfile() {
-            jumpPage('profile.html');
+            isSatellite ? map.setLayers([new AMap.TileLayer.Satellite()]) : map.setLayers([new AMap.TileLayer()]);
+            document.getElementById('info').innerText = isSatellite ? '✅ 卫星图' : '✅ 标准地图';
         }
     </script>
 </body>
