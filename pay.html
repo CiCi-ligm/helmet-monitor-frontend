@@ -34,9 +34,8 @@
             cursor: pointer;
         }
 
-        /* ######## 关键部分：文字收款码区域 ######## */
         #qrcodeContainer {
-            display: none; /* 默认隐藏，点按钮后显示 */
+            display: none;
             text-align: center;
             margin: 20px 0;
             padding: 20px;
@@ -49,16 +48,18 @@
             margin-bottom: 15px;
             font-size: 18px;
         }
-        /* 这里显示你的微信收款码图片 */
         #qrcodeImg {
             width: 200px;
             height: 200px;
             border: 1px solid #eee;
             margin: 0 auto;
-            background: #f5f5f5;
-            line-height: 200px;
-            color: #999;
             border-radius: 8px;
+            overflow: hidden;
+        }
+        #qrcodeImg img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         .tip-text {
             margin-top: 10px;
@@ -100,19 +101,16 @@
         <button class="buy-btn" onclick="showQrcode(98, '年度会员', 365)">立即购买</button>
     </div>
 
-    <!-- ######## 核心区域：文字收款码 ######## -->
+    <!-- 收款码区域 -->
     <div id="qrcodeContainer">
         <h3 id="payTitle">微信扫码支付</h3>
-        
-        <!-- 这里直接放你的图片链接，GitHub Pages 可以正常加载 -->
         <div id="qrcodeImg">
-            <img src="https://s2.ax1x.com/2026/04/22/pe2xSu4.png" alt="微信收款码" style="width:100%;height:100%;object-fit:contain;border-radius:8px;">
+            <!-- 你刚复制的正版无防盗链图片链接 -->
+            <img src="https://www.tuchuli.cn/p.php?8tp=t3.27172a1984b1500.pg1" alt="微信收款码">
         </div>
-        
         <div class="tip-text">
             应付金额：<span id="payAmount" style="color:red;font-weight:bold"></span> 元
         </div>
-        
         <button class="confirm-btn" onclick="paySuccess()">✅ 我已付款，开通会员</button>
     </div>
 
@@ -120,37 +118,24 @@
         let currentName = '';
         let currentDays = 0;
 
-        // 点击购买，显示收款码区域
         function showQrcode(price, name, days) {
             currentName = name;
             currentDays = days;
             
-            // 滚动到收款码区域
             document.getElementById('payAmount').innerText = price;
             document.getElementById('payTitle').innerText = name + ' - 微信扫码支付';
             
-            // 显示区域
             document.getElementById('qrcodeContainer').style.display = 'block';
-            
-            // 滚动到底部
             window.scrollTo(0, document.body.scrollHeight);
         }
 
-        // 付款成功逻辑
         function paySuccess() {
-            if(!currentName || !currentDays) {
-                alert('请先选择充值套餐');
-                return;
-            }
-
             const expireTime = Date.now() + currentDays * 24 * 60 * 60 * 1000;
             localStorage.setItem('vipType', currentName);
             localStorage.setItem('vipExpire', expireTime);
 
             alert(`✅ 充值成功！\n已开通【${currentName}】\n享受全部特权！`);
-            
-            // 刷新页面回到顶部
-            window.location.href = window.location.href;
+            window.location.reload();
         }
 
         // 登录拦截
