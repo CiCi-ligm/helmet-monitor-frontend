@@ -173,7 +173,8 @@
             padding:4px 10px;
         }
     </style>
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking,AMap.Traffic"></script>
+    <!-- 插件补齐：步行 + 骑行 + 驾车 + 定位 + 路况 -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking,AMap.Riding,AMap.Traffic"></script>
 </head>
 <body>
     <div id="map"></div>
@@ -197,7 +198,8 @@
 
     <div class="nav-buttons">
         <button class="nav-btn" onclick="getCurrentLocation()">📍 定位</button>
-        <button class="nav-btn primary" onclick="startNavigation()">🚗 导航</button>
+        <button class="nav-btn" onclick="startWalkNav()">🚶 步行</button>
+        <button class="nav-btn primary" onclick="startRideNav()">🛵 骑行</button>
         <button class="nav-btn" onclick="clearMap()">🗑️ 清空</button>
     </div>
 
@@ -226,6 +228,10 @@
         let trafficLayer = null;
         let isSatellite = false;
         let isTraffic = false;
+
+        // 路线实例
+        let walkRoute = null;
+        let rideRoute = null;
 
         // 全局跳转
         function jump(url){
@@ -264,27 +270,52 @@
             });
         }
 
-        function startNavigation() {
+        // 步行导航
+        function startWalkNav(){
             if (!currentPos) return document.getElementById('info').innerText = '⚠️ 请先定位';
             const key = document.getElementById('destination').value.trim();
             if (!key) return document.getElementById('info').innerText = '⚠️ 请输入目的地';
 
-            document.getElementById('info').innerText = '⏳ 规划路线中...';
-            AMap.plugin('AMap.Driving', () => {
-                const d = new AMap.Driving({ map, autoFitView:true });
-                d.search({origin:currentPos, destination:key},(s)=>{
-                    if(s==='complete'){
-                        document.getElementById('info').innerText = '✅ 路线已规划，开始导航';
-                        speechSynthesis.speak(new SpeechSynthesisUtterance('路线已规划，准备出发'));
+            document.getElementById('info').innerText = '⏳ 步行路线规划中...';
+            AMap.plugin('AMap.Walking', ()=>{
+                if(walkRoute) walkRoute.clear();
+                walkRoute = new AMap.WalkingRoute(map,{autoFitView:true});
+                walkRoute.search(currentPos, key, (status)=>{
+                    if(status === 'complete'){
+                        document.getElementById('info').innerText = '✅ 步行路线规划完成';
+                        speechSynthesis.speak(new SpeechSynthesisUtterance('步行路线已规划'));
                     }else{
-                        document.getElementById('info').innerText = '❌ 路线规划失败';
+                        document.getElementById('info').innerText = '❌ 步行路线规划失败';
                     }
                 })
-            });
+            })
+        }
+
+        // 骑行导航
+        function startRideNav(){
+            if (!currentPos) return document.getElementById('info').innerText = '⚠️ 请先定位';
+            const key = document.getElementById('destination').value.trim();
+            if (!key) return document.getElementById('info').innerText = '⚠️ 请输入目的地';
+
+            document.getElementById('info').innerText = '⏳ 骑行路线规划中...';
+            AMap.plugin('AMap.Riding', ()=>{
+                if(rideRoute) rideRoute.clear();
+                rideRoute = new AMap.RidingRoute(map,{autoFitView:true});
+                rideRoute.search(currentPos, key, (status)=>{
+                    if(status === 'complete'){
+                        document.getElementById('info').innerText = '✅ 骑行路线规划完成';
+                        speechSynthesis.speak(new SpeechSynthesisUtterance('骑行路线已规划'));
+                    }else{
+                        document.getElementById('info').innerText = '❌ 骑行路线规划失败';
+                    }
+                })
+            })
         }
 
         function clearMap() {
             if(marker) marker.remove();
+            if(walkRoute) walkRoute.clear();
+            if(rideRoute) rideRoute.clear();
             map.clearMap();
             document.getElementById('info').innerText = '🗑️ 已清空地图';
         }
