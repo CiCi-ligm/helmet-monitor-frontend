@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>头盔导航-移动端</title>
 
   <script>
@@ -21,71 +21,66 @@
     html, body {
       height: 100%;
       overflow: hidden;
-      /* 适配刘海屏安全区 */
-      padding-top: env(safe-area-inset-top);
     }
     #container {
       width: 100%;
       height: 100vh;
     }
 
-    /* 修复：精简顶部面板，手机绝对可见 */
+    /* 简单、矮、置顶，绝不遮挡 */
     .input-box {
       position: fixed;
-      top: calc(10px + env(safe-area-inset-top));
-      left: 8px;
-      right: 8px;
+      top: 0;
+      left: 0;
+      right: 0;
       z-index: 9999;
       background: #fff;
-      padding: 6px 8px;
-      border-radius: 8px;
+      padding: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
     .input-box input {
-      width: 49%;
-      padding: 6px;
-      font-size: 13px;
+      width: 48%;
+      padding: 8px;
+      font-size: 14px;
       border: 1px solid #ccc;
-      border-radius: 4px;
-      margin-bottom: 6px;
+      border-radius: 6px;
+      margin-bottom: 8px;
     }
     .input-box button {
       width: 100%;
-      padding: 7px;
+      padding: 10px;
       background: #1677ff;
       color: #fff;
       border: none;
-      border-radius: 4px;
-      font-size: 14px;
+      border-radius: 6px;
+      font-size: 15px;
     }
 
-    /* 定位加载提示 */
     #loadingTip {
       position: fixed;
-      top: 90px;
+      top: 110px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
       background: rgba(0,0,0,0.7);
       color: #fff;
-      padding: 8px 16px;
+      padding: 10px 20px;
       border-radius: 20px;
-      font-size: 13px;
+      font-size: 14px;
     }
 
-    /* 底部导航面板 */
     #panel {
       position: fixed;
       bottom: 10px;
-      left: 8px;
-      right: 8px;
+      left: 10px;
+      right: 10px;
       z-index: 9999;
       background: #fff;
-      padding: 8px;
-      border-radius: 8px;
-      max-height: 140px;
+      padding: 10px;
+      border-radius: 10px;
+      max-height: 160px;
       overflow-y: auto;
-      font-size: 12px;
+      font-size: 13px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
   </style>
@@ -109,23 +104,21 @@
     let currentPos = null;
     const loadingTip = document.getElementById('loadingTip');
 
+    // 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
-      viewMode: "3D",
-      center: [116.397428, 39.90923]
+      viewMode: "3D"
     });
 
-    const defaultStartPos = new AMap.LngLat(116.397428, 39.90923);
+    // 先放一个临时起点
+    currentPos = new AMap.LngLat(104.63, 28.77);
     startMarker = new AMap.Marker({
-      position: defaultStartPos,
+      position: currentPos,
       map: map,
-      label: {
-        content: "模拟起点（定位中...）",
-        offset: new AMap.Pixel(0, -30)
-      }
+      label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
-    currentPos = defaultStartPos;
 
+    // 和你之前能用的版本一模一样的定位代码
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -145,13 +138,13 @@
           loadingTip.textContent = "定位成功！";
           setTimeout(() => loadingTip.style.display = 'none', 1000);
         } else {
-          loadingTip.textContent = "定位失败，使用模拟起点";
+          loadingTip.textContent = "定位失败，请刷新重试";
           setTimeout(() => loadingTip.style.display = 'none', 2000);
-          console.error("定位失败：", res);
         }
       });
     });
 
+    // 路线规划
     document.getElementById("calcBtn").addEventListener("click", function () {
       const lng = parseFloat(document.getElementById("lngInp").value);
       const lat = parseFloat(document.getElementById("latInp").value);
@@ -173,10 +166,7 @@
       endMarker = new AMap.Marker({
         position: endPos,
         map: map,
-        label: {
-          content: "目的地",
-          offset: new AMap.Pixel(0, -30)
-        }
+        label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
       });
 
       AMap.plugin("AMap.Walking", function () {
