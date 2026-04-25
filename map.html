@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地图导航</title>
+  <!-- 引入高德JS API -->
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
+  <style>
+    html,body,#container {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      background: white;
+      padding: 10px;
+      z-index: 999;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="panel"></div>
+
+  <script>
+    // 安全密钥
+    window._AMapSecurityConfig = {
+      securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
+    };
+
+    // 初始化地图
+    const map = new AMap.Map('container', {
+      zoom: 14,
+      center: [116.397428, 39.90923]
+    });
+
+    // 定位当前位置
+    AMap.plugin('AMap.Geolocation', function () {
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000
+      });
+
+      geolocation.getCurrentPosition(function (status, result) {
+        if (status === 'complete') {
+          const startPoint = result.position;
+
+          // 标记：我的位置（永久显示文字）
+          new AMap.Marker({
+            position: startPoint,
+            map: map,
+            label: { content: "我的位置", offset: new AMap.Pixel(0, -30) }
+          });
+
+          // 终点（可自己修改）
+          const endPoint = new AMap.LngLat(116.410703, 39.903752);
+
+          // 标记：目的地
+          new AMap.Marker({
+            position: endPoint,
+            map: map,
+            label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
+          });
+
+          // 步行路径规划
+          AMap.plugin('AMap.Walking', function () {
+            const walking = new AMap.Walking({
+              map: map,
+              panel: 'panel'
+            });
+
+            walking.search(startPoint, endPoint, function (status, result) {
+              if (status === 'complete') {
+                map.setFitView();
+              }
+            });
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
