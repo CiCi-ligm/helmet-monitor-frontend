@@ -2,25 +2,32 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>地图导航</title>
-  <!-- 引入高德JS API -->
-  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>头盔监控地图</title>
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
+    }
+  </script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
   <style>
     html,body,#container {
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100%;
+      height: 100vh;
+      overflow: hidden;
     }
     #panel {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      background: white;
+      bottom: 15px;
+      left: 10px;
+      background: #fff;
       padding: 10px;
       z-index: 999;
-      max-width: 300px;
+      max-width: 280px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
   </style>
 </head>
@@ -29,61 +36,48 @@
   <div id="panel"></div>
 
   <script>
-    // 安全密钥
-    window._AMapSecurityConfig = {
-      securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
-    };
-
-    // 初始化地图
     const map = new AMap.Map('container', {
-      zoom: 14,
-      center: [116.397428, 39.90923]
+      zoom: 15,
+      center: [116.397428, 39.90923],
+      viewMode: '3D'
     });
 
-    // 定位当前位置
-    AMap.plugin('AMap.Geolocation', function () {
-      const geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 10000
+    // 直接写死坐标，绕过手机定位拦截
+    const startPoint = new AMap.LngLat(116.397428, 39.90923);
+    const endPoint = new AMap.LngLat(116.410703, 39.903752);
+
+    // 起点标记 永久文字
+    new AMap.Marker({
+      position: startPoint,
+      map: map,
+      label: {
+        content: "头盔当前位置",
+        offset: new AMap.Pixel(0, -30)
+      }
+    });
+
+    // 终点标记 永久文字
+    new AMap.Marker({
+      position: endPoint,
+      map: map,
+      label: {
+        content: "目的地",
+        offset: new AMap.Pixel(0, -30)
+      }
+    });
+
+    // 步行路线规划 直接渲染
+    AMap.plugin('AMap.Walking', function () {
+      const walking = new AMap.Walking({
+        map: map,
+        panel: 'panel'
       });
-
-      geolocation.getCurrentPosition(function (status, result) {
-        if (status === 'complete') {
-          const startPoint = result.position;
-
-          // 标记：我的位置（永久显示文字）
-          new AMap.Marker({
-            position: startPoint,
-            map: map,
-            label: { content: "我的位置", offset: new AMap.Pixel(0, -30) }
-          });
-
-          // 终点（可自己修改）
-          const endPoint = new AMap.LngLat(116.410703, 39.903752);
-
-          // 标记：目的地
-          new AMap.Marker({
-            position: endPoint,
-            map: map,
-            label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
-          });
-
-          // 步行路径规划
-          AMap.plugin('AMap.Walking', function () {
-            const walking = new AMap.Walking({
-              map: map,
-              panel: 'panel'
-            });
-
-            walking.search(startPoint, endPoint, function (status, result) {
-              if (status === 'complete') {
-                map.setFitView();
-              }
-            });
-          });
+      walking.search(startPoint, endPoint, function(status){
+        if(status === 'complete'){
+          map.setFitView();
         }
-      });
-    });
+      })
+    })
   </script>
 </body>
 </html>
