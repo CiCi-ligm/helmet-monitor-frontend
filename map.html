@@ -27,7 +27,7 @@
       height: 100vh;
     }
 
-    /* 手机顶部输入栏：绝对置顶，不被遮挡 */
+    /* 手机顶部输入栏 */
     .input-box {
       position: fixed;
       top: 10px;
@@ -48,13 +48,17 @@
       margin-bottom: 8px;
     }
     .input-box button {
-      width: 100%;
+      width: 48%;
       padding: 10px;
       background: #1677ff;
       color: #fff;
       border: none;
       border-radius: 6px;
       font-size: 15px;
+    }
+    .input-box .test-btn {
+      background: #52c41a;
+      margin-left: 4%;
     }
 
     /* 定位加载提示 */
@@ -71,7 +75,7 @@
       font-size: 14px;
     }
 
-    /* 底部导航面板：手机底部不遮挡 */
+    /* 底部导航面板 */
     #panel {
       position: fixed;
       bottom: 10px;
@@ -91,11 +95,12 @@
 <body>
   <div id="container"></div>
 
-  <!-- 手机端绝对可见的输入区域 -->
+  <!-- 手机端输入区域（带一键测试） -->
   <div class="input-box">
     <input id="lngInp" placeholder="目的地 经度" />
     <input id="latInp" placeholder="目的地 纬度" />
-    <button id="calcBtn">开始规划路线</button>
+    <button id="calcBtn">规划路线</button>
+    <button id="testBtn" class="test-btn">一键测试</button>
   </div>
 
   <!-- 定位加载提示 -->
@@ -111,26 +116,13 @@
     let currentPos = null;
     const loadingTip = document.getElementById('loadingTip');
 
-    // 1. 初始化地图，先设置一个默认中心点
+    // 1. 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
-      viewMode: "3D",
-      center: [116.397428, 39.90923] // 默认天安门
+      viewMode: "3D"
     });
 
-    // 2. 先给一个默认的模拟起点，就算定位失败也能跑
-    const defaultStartPos = new AMap.LngLat(116.397428, 39.90923);
-    startMarker = new AMap.Marker({
-      position: defaultStartPos,
-      map: map,
-      label: {
-        content: "模拟起点（定位中...）",
-        offset: new AMap.Pixel(0, -30)
-      }
-    });
-    currentPos = defaultStartPos;
-
-    // 3. 尝试获取手机真实GPS定位（兜底方案）
+    // 2. 定位成功后自动更新标记
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -141,45 +133,65 @@
       });
 
       geo.getCurrentPosition(function (status, res) {
-        console.log("定位状态：", status, res);
         if (status === "complete") {
-          // 拿到手机真实经纬度，更新标记和中心点
           currentPos = res.position;
           map.setCenter(currentPos);
-          startMarker.setPosition(currentPos);
-          startMarker.setLabel({ content: "头盔当前位置", offset: new AMap.Pixel(0, -30) });
+          // 创建起点标记
+          startMarker = new AMap.Marker({
+            position: currentPos,
+            map: map,
+            label: {
+              content: "头盔当前位置",
+              offset: new AMap.Pixel(0, -30)
+            }
+          });
           loadingTip.textContent = "定位成功！";
           setTimeout(() => loadingTip.style.display = 'none', 1000);
         } else {
-          // 定位失败，用默认点
-          loadingTip.textContent = "定位失败，使用模拟起点";
-          setTimeout(() => loadingTip.style.display = 'none', 2000);
-          console.error("定位失败：", res);
+          loadingTip.textContent = "定位失败，无法规划路线";
         }
       });
     });
 
-    // 4. 路线规划逻辑
+    // 3. 一键测试按钮：用你学校附近的真实经纬度规划路线
+    document.getElementById("testBtn").addEventListener("click", function () {
+      if (!currentPos) {
+        alert("定位还没成功，请稍等！");
+        return;
+      }
+      // 宜宾学院附近的一个测试点
+      const testLng = 104.6356;
+      const testLat = 28.7689;
+      document.getElementById("lngInp").value = testLng;
+      document.getElementById("latInp").value = testLat;
+      planRoute(testLng, testLat);
+    });
+
+    // 4. 手动输入规划路线
     document.getElementById("calcBtn").addEventListener("click", function () {
       const lng = parseFloat(document.getElementById("lngInp").value);
       const lat = parseFloat(document.getElementById("latInp").value);
 
       if (!currentPos) {
-        alert("还未获取到当前定位，请稍等！");
+        alert("定位还没成功，请稍等！");
         return;
       }
-      if (isNaN(lng) || isNaN(lat)) {
-        alert("请输入正确的经纬度");
+      if (isNaN(lng) || isNaN(lat) || lng < 70 || lng > 140 || lat < 0 || lat > 60) {
+        alert("请输入有效的经纬度（例如：104.6356, 28.7689）");
         return;
       }
+      planRoute(lng, lat);
+    });
 
+    // 核心路线规划函数
+    function planRoute(lng, lat) {
       const endPos = new AMap.LngLat(lng, lat);
 
-      // 清空旧终点和路线
+      // 清除旧的终点和路线
       if (endMarker) map.remove(endMarker);
-      map.clearMap('polyline'); // 清除之前的路线
+      map.clearMap('polyline');
 
-      // 新建终点标记
+      // 创建终点标记
       endMarker = new AMap.Marker({
         position: endPos,
         map: map,
@@ -196,9 +208,15 @@
           panel: "panel",
           autoFitView: true
         });
-        walking.search(currentPos, endPos);
+        walking.search(currentPos, endPos, function(status, result){
+          if (status === 'complete') {
+            console.log("路线规划成功");
+          } else {
+            alert("路线规划失败，请检查经纬度是否在附近");
+          }
+        });
       });
-    });
+    }
   </script>
 </body>
 </html>
