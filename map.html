@@ -27,7 +27,6 @@
       height: 100vh;
     }
 
-    /* 简单、矮、置顶，绝不遮挡 */
     .input-box {
       position: fixed;
       top: 0;
@@ -102,15 +101,15 @@
     let startMarker = null;
     let endMarker = null;
     let currentPos = null;
+    let walkingInstance = null;
+
     const loadingTip = document.getElementById('loadingTip');
 
-    // 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
       viewMode: "3D"
     });
 
-    // 先放一个临时起点
     currentPos = new AMap.LngLat(104.63, 28.77);
     startMarker = new AMap.Marker({
       position: currentPos,
@@ -118,7 +117,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
-    // 和你之前能用的版本一模一样的定位代码
+    // 【定位逻辑完全不动，和你原来一模一样】
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -144,7 +143,7 @@
       });
     });
 
-    // 路线规划
+    // 【修复路线规划核心BUG】
     document.getElementById("calcBtn").addEventListener("click", function () {
       const lng = parseFloat(document.getElementById("lngInp").value);
       const lat = parseFloat(document.getElementById("latInp").value);
@@ -160,8 +159,11 @@
 
       const endPos = new AMap.LngLat(lng, lat);
 
+      // 销毁上一次步行实例（关键！）
+      if(walkingInstance) {
+        walkingInstance.clear();
+      }
       if (endMarker) map.remove(endMarker);
-      map.clearMap('polyline');
 
       endMarker = new AMap.Marker({
         position: endPos,
@@ -170,12 +172,18 @@
       });
 
       AMap.plugin("AMap.Walking", function () {
-        const walking = new AMap.Walking({
+        walkingInstance = new AMap.Walking({
           map: map,
-          panel: "panel",
-          autoFitView: true
+          panel: "panel"
         });
-        walking.search(currentPos, endPos);
+
+        walkingInstance.search(currentPos, endPos, function(status){
+          if(status !== 'complete'){
+            alert("路线规划失败：距离过远或无步行道路");
+          }else{
+            map.setFitView();
+          }
+        });
       });
     });
   </script>
