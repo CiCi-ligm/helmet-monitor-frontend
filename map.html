@@ -38,7 +38,7 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
     .input-box input {
-      width: 48%;
+      width: 100%;
       padding: 8px;
       font-size: 14px;
       border: 1px solid #ccc;
@@ -88,8 +88,7 @@
   <div id="container"></div>
 
   <div class="input-box">
-    <input id="lngInp" placeholder="目的地 经度" />
-    <input id="latInp" placeholder="目的地 纬度" />
+    <input id="addressInp" placeholder="输入目的地地名，例如：宜宾市二中" />
     <button id="calcBtn">开始规划路线</button>
   </div>
 
@@ -117,7 +116,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
-    // 【定位逻辑完全不动，和你原来一模一样】
+    // 定位逻辑完全保留不变
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -143,48 +142,59 @@
       });
     });
 
-    // 【修复路线规划核心BUG】
+    // 点击按钮：地名 -> 转经纬度 -> 规划路线
     document.getElementById("calcBtn").addEventListener("click", function () {
-      const lng = parseFloat(document.getElementById("lngInp").value);
-      const lat = parseFloat(document.getElementById("latInp").value);
-
+      const address = document.getElementById("addressInp").value.trim();
+      if (!address) {
+        alert("请输入目的地地名");
+        return;
+      }
       if (!currentPos) {
         alert("还未获取到当前定位，请稍等！");
         return;
       }
-      if (isNaN(lng) || isNaN(lat)) {
-        alert("请输入正确的经纬度");
-        return;
-      }
 
-      const endPos = new AMap.LngLat(lng, lat);
+      // 加载地理编码插件
+      AMap.plugin('AMap.Geocoder', function(){
+        const geocoder = new AMap.Geocoder();
+        // 地名转经纬度
+        geocoder.getLocation(address, function(status, result){
+          if(status === 'complete' && result.geocodes.length > 0){
+            const endPos = result.geocodes[0].location;
+            
+            // 清除旧路线、旧终点
+            if(walkingInstance) {
+              walkingInstance.clear();
+            }
+            if (endMarker) map.remove(endMarker);
 
-      // 销毁上一次步行实例（关键！）
-      if(walkingInstance) {
-        walkingInstance.clear();
-      }
-      if (endMarker) map.remove(endMarker);
+            // 创建终点标记
+            endMarker = new AMap.Marker({
+              position: endPos,
+              map: map,
+              label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
+            });
 
-      endMarker = new AMap.Marker({
-        position: endPos,
-        map: map,
-        label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
-      });
+            // 步行规划
+            AMap.plugin("AMap.Walking", function () {
+              walkingInstance = new AMap.Walking({
+                map: map,
+                panel: "panel"
+              });
+              walkingInstance.search(currentPos, endPos, function(stat){
+                if(stat !== 'complete'){
+                  alert("路线规划失败：距离过远或无步行道路");
+                }else{
+                  map.setFitView();
+                }
+              });
+            });
 
-      AMap.plugin("AMap.Walking", function () {
-        walkingInstance = new AMap.Walking({
-          map: map,
-          panel: "panel"
-        });
-
-        walkingInstance.search(currentPos, endPos, function(status){
-          if(status !== 'complete'){
-            alert("路线规划失败：距离过远或无步行道路");
-          }else{
-            map.setFitView();
+          } else {
+            alert("地名解析失败，请换一个更详细的地址");
           }
-        });
-      });
+        })
+      })
     });
   </script>
 </body>
