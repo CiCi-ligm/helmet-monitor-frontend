@@ -56,10 +56,10 @@
       font-size: 15px;
     }
 
-    /* 联想列表：关键！放在输入框下面，不被键盘挡住 */
+    /* 联想列表：固定在输入框下方，键盘永远挡不住 */
     #suggest-list {
       position: fixed;
-      top: 100px; /* 固定在输入框下方，键盘不会挡住 */
+      top: 100px;
       left: 8px;
       right: 8px;
       z-index: 9999;
@@ -126,7 +126,6 @@
     <button id="calcBtn">开始规划路线</button>
   </div>
 
-  <!-- 联想列表：固定在输入框下方，手机敲字也能看到 -->
   <div id="suggest-list"></div>
 
   <div id="loadingTip">正在获取定位...</div>
@@ -138,7 +137,6 @@
     let endMarker = null;
     let currentPos = null;
     let walkingInstance = null;
-    let autoComplete = null;
 
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
@@ -158,7 +156,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
-    // 定位（不变）
+    // 定位逻辑（完全不动）
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -182,46 +180,58 @@
       });
     });
 
-    // 【核心：联想提示修复】
-    AMap.plugin('AMap.Autocomplete', function () {
-      autoComplete = new AMap.Autocomplete({
-        input: 'addressInp',
-        city: '宜宾' // 锁定宜宾，结果更准
-      });
-
-      // 监听输入，渲染联想列表
-      AMap.event.addListener(autoComplete, "complete", function (e) {
-        suggestList.innerHTML = '';
-        const tips = e.tips || [];
-        if (tips.length === 0) {
-          suggestList.style.display = 'none';
-          return;
-        }
-        tips.forEach(tip => {
-          const item = document.createElement('div');
-          item.className = 'item';
-          item.innerHTML = `
-            <div class="name">${tip.name}</div>
-            <div class="addr">${tip.address || ''}</div>
-          `;
-          // 点击联想项：自动填地址+规划路线
-          item.addEventListener('click', function () {
-            addressInp.value = tip.name;
-            suggestList.style.display = 'none';
-            doSearch(tip.location);
+    // 【关键：手动监听输入，主动请求联想】
+    let timer = null;
+    addressInp.addEventListener('input', function() {
+      const keyword = this.value.trim();
+      if (!keyword) {
+        suggestList.style.display = 'none';
+        return;
+      }
+      // 防抖，避免频繁请求
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // 加载联想插件
+        AMap.plugin('AMap.Autocomplete', function () {
+          const autoComplete = new AMap.Autocomplete({ city: '宜宾' });
+          autoComplete.search(keyword, function(status, result) {
+            if (status === 'complete' && result.tips) {
+              suggestList.innerHTML = '';
+              const tips = result.tips.filter(t => t.location); // 过滤无效项
+              if (tips.length === 0) {
+                suggestList.style.display = 'none';
+                return;
+              }
+              tips.forEach(tip => {
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.innerHTML = `
+                  <div class="name">${tip.name}</div>
+                  <div class="addr">${tip.address || ''}</div>
+                `;
+                // 点击直接规划
+                item.addEventListener('click', function () {
+                  addressInp.value = tip.name;
+                  suggestList.style.display = 'none';
+                  doSearch(tip.location);
+                });
+                suggestList.appendChild(item);
+              });
+              suggestList.style.display = 'block';
+            } else {
+              suggestList.style.display = 'none';
+            }
           });
-          suggestList.appendChild(item);
         });
-        suggestList.style.display = 'block';
-      });
-
-      // 输入框失去焦点，延迟关闭列表
-      addressInp.addEventListener('blur', () => {
-        setTimeout(() => suggestList.style.display = 'none', 200);
-      });
+      }, 300);
     });
 
-    // 按钮点击兜底解析
+    // 失去焦点延迟关闭
+    addressInp.addEventListener('blur', () => {
+      setTimeout(() => suggestList.style.display = 'none', 200);
+    });
+
+    // 按钮兜底解析
     document.getElementById("calcBtn").addEventListener("click", function () {
       const address = addressInp.value.trim();
       if (!address) {
@@ -244,20 +254,17 @@
       });
     });
 
-    // 【共用规划函数】
+    // 共用规划函数
     function doSearch(endPos) {
-      // 清旧路线/标记
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
 
-      // 新终点
       endMarker = new AMap.Marker({
         position: endPos,
         map: map,
         label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
       });
 
-      // 步行规划
       AMap.plugin("AMap.Walking", function () {
         walkingInstance = new AMap.Walking({ map: map, panel: "panel" });
         walkingInstance.search(currentPos, endPos, function (stat) {
