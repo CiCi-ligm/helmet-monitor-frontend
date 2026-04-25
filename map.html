@@ -56,17 +56,17 @@
       font-size: 15px;
     }
 
-    /* 联想列表 */
+    /* 联想列表：关键！放在输入框下面，不被键盘挡住 */
     #suggest-list {
       position: fixed;
-      top: 50px;
+      top: 100px; /* 固定在输入框下方，键盘不会挡住 */
       left: 8px;
       right: 8px;
       z-index: 9999;
       background: #fff;
       border-radius: 6px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      max-height: 200px;
+      max-height: 180px;
       overflow-y: auto;
       display: none;
     }
@@ -78,9 +78,6 @@
     }
     #suggest-list .item:last-child {
       border-bottom: none;
-    }
-    #suggest-list .item:hover {
-      background: #f5fafe;
     }
     #suggest-list .name {
       font-weight: bold;
@@ -94,7 +91,7 @@
 
     #loadingTip {
       position: fixed;
-      top: 110px;
+      top: 180px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
@@ -129,7 +126,7 @@
     <button id="calcBtn">开始规划路线</button>
   </div>
 
-  <!-- 联想列表 -->
+  <!-- 联想列表：固定在输入框下方，手机敲字也能看到 -->
   <div id="suggest-list"></div>
 
   <div id="loadingTip">正在获取定位...</div>
@@ -185,14 +182,14 @@
       });
     });
 
-    // 【核心：联想提示】
+    // 【核心：联想提示修复】
     AMap.plugin('AMap.Autocomplete', function () {
       autoComplete = new AMap.Autocomplete({
         input: 'addressInp',
-        city: '宜宾' // 默认限定宜宾，更准
+        city: '宜宾' // 锁定宜宾，结果更准
       });
 
-      // 监听输入变化，渲染下拉列表
+      // 监听输入，渲染联想列表
       AMap.event.addListener(autoComplete, "complete", function (e) {
         suggestList.innerHTML = '';
         const tips = e.tips || [];
@@ -207,11 +204,10 @@
             <div class="name">${tip.name}</div>
             <div class="addr">${tip.address || ''}</div>
           `;
-          // 点击联想项 → 填地址并自动规划
+          // 点击联想项：自动填地址+规划路线
           item.addEventListener('click', function () {
-            addressInp.value = tip.name + (tip.address ? '（' + tip.address + '）' : '');
+            addressInp.value = tip.name;
             suggestList.style.display = 'none';
-            // 自动触发规划
             doSearch(tip.location);
           });
           suggestList.appendChild(item);
@@ -219,17 +215,13 @@
         suggestList.style.display = 'block';
       });
 
-      // 失去焦点延迟关闭（防闪）
+      // 输入框失去焦点，延迟关闭列表
       addressInp.addEventListener('blur', () => {
         setTimeout(() => suggestList.style.display = 'none', 200);
       });
-      // 获得焦点重新显示
-      addressInp.addEventListener('focus', () => {
-        if (suggestList.innerHTML) suggestList.style.display = 'block';
-      });
     });
 
-    // 按钮点击：直接解析+规划
+    // 按钮点击兜底解析
     document.getElementById("calcBtn").addEventListener("click", function () {
       const address = addressInp.value.trim();
       if (!address) {
@@ -240,7 +232,6 @@
         alert("定位未就绪，请稍等");
         return;
       }
-      // 用Geocoder兜底解析
       AMap.plugin('AMap.Geocoder', function () {
         const geocoder = new AMap.Geocoder({ city: '宜宾' });
         geocoder.getLocation(address, function (status, result) {
