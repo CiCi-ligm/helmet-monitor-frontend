@@ -27,6 +27,7 @@
       height: 100vh;
     }
 
+    /* 顶部输入区 */
     .input-box {
       position: fixed;
       top: 0;
@@ -53,6 +54,42 @@
       border: none;
       border-radius: 6px;
       font-size: 15px;
+    }
+
+    /* 联想列表 */
+    #suggest-list {
+      position: fixed;
+      top: 50px;
+      left: 8px;
+      right: 8px;
+      z-index: 9999;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    #suggest-list .item {
+      padding: 10px;
+      font-size: 14px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    #suggest-list .item:last-child {
+      border-bottom: none;
+    }
+    #suggest-list .item:hover {
+      background: #f5fafe;
+    }
+    #suggest-list .name {
+      font-weight: bold;
+      color: #333;
+    }
+    #suggest-list .addr {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
     }
 
     #loadingTip {
@@ -88,9 +125,12 @@
   <div id="container"></div>
 
   <div class="input-box">
-    <input id="addressInp" placeholder="输入目的地地名，例如：宜宾市二中" />
+    <input id="addressInp" placeholder="输入目的地，例如：零食有鸣、宜宾市二中" />
     <button id="calcBtn">开始规划路线</button>
   </div>
+
+  <!-- 联想列表 -->
+  <div id="suggest-list"></div>
 
   <div id="loadingTip">正在获取定位...</div>
   <div id="panel"></div>
@@ -101,14 +141,19 @@
     let endMarker = null;
     let currentPos = null;
     let walkingInstance = null;
+    let autoComplete = null;
 
     const loadingTip = document.getElementById('loadingTip');
+    const addressInp = document.getElementById('addressInp');
+    const suggestList = document.getElementById('suggest-list');
 
+    // 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
       viewMode: "3D"
     });
 
+    // 默认起点（宜宾附近）
     currentPos = new AMap.LngLat(104.63, 28.77);
     startMarker = new AMap.Marker({
       position: currentPos,
@@ -116,7 +161,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
-    // 定位逻辑完全保留不变
+    // 定位（不变）
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -127,75 +172,112 @@
       });
 
       geo.getCurrentPosition(function (status, res) {
-        console.log("定位状态：", status, res);
         if (status === "complete") {
           currentPos = res.position;
           map.setCenter(currentPos);
           startMarker.setPosition(currentPos);
           startMarker.setLabel({ content: "头盔当前位置", offset: new AMap.Pixel(0, -30) });
           loadingTip.textContent = "定位成功！";
-          setTimeout(() => loadingTip.style.display = 'none', 1000);
         } else {
-          loadingTip.textContent = "定位失败，请刷新重试";
-          setTimeout(() => loadingTip.style.display = 'none', 2000);
+          loadingTip.textContent = "定位失败，使用模拟起点";
         }
+        setTimeout(() => loadingTip.style.display = 'none', 1500);
       });
     });
 
-    // 点击按钮：地名 -> 转经纬度 -> 规划路线
+    // 【核心：联想提示】
+    AMap.plugin('AMap.Autocomplete', function () {
+      autoComplete = new AMap.Autocomplete({
+        input: 'addressInp',
+        city: '宜宾' // 默认限定宜宾，更准
+      });
+
+      // 监听输入变化，渲染下拉列表
+      AMap.event.addListener(autoComplete, "complete", function (e) {
+        suggestList.innerHTML = '';
+        const tips = e.tips || [];
+        if (tips.length === 0) {
+          suggestList.style.display = 'none';
+          return;
+        }
+        tips.forEach(tip => {
+          const item = document.createElement('div');
+          item.className = 'item';
+          item.innerHTML = `
+            <div class="name">${tip.name}</div>
+            <div class="addr">${tip.address || ''}</div>
+          `;
+          // 点击联想项 → 填地址并自动规划
+          item.addEventListener('click', function () {
+            addressInp.value = tip.name + (tip.address ? '（' + tip.address + '）' : '');
+            suggestList.style.display = 'none';
+            // 自动触发规划
+            doSearch(tip.location);
+          });
+          suggestList.appendChild(item);
+        });
+        suggestList.style.display = 'block';
+      });
+
+      // 失去焦点延迟关闭（防闪）
+      addressInp.addEventListener('blur', () => {
+        setTimeout(() => suggestList.style.display = 'none', 200);
+      });
+      // 获得焦点重新显示
+      addressInp.addEventListener('focus', () => {
+        if (suggestList.innerHTML) suggestList.style.display = 'block';
+      });
+    });
+
+    // 按钮点击：直接解析+规划
     document.getElementById("calcBtn").addEventListener("click", function () {
-      const address = document.getElementById("addressInp").value.trim();
+      const address = addressInp.value.trim();
       if (!address) {
-        alert("请输入目的地地名");
+        alert("请输入目的地");
         return;
       }
       if (!currentPos) {
-        alert("还未获取到当前定位，请稍等！");
+        alert("定位未就绪，请稍等");
         return;
       }
-
-      // 加载地理编码插件
-      AMap.plugin('AMap.Geocoder', function(){
-        const geocoder = new AMap.Geocoder();
-        // 地名转经纬度
-        geocoder.getLocation(address, function(status, result){
-          if(status === 'complete' && result.geocodes.length > 0){
-            const endPos = result.geocodes[0].location;
-            
-            // 清除旧路线、旧终点
-            if(walkingInstance) {
-              walkingInstance.clear();
-            }
-            if (endMarker) map.remove(endMarker);
-
-            // 创建终点标记
-            endMarker = new AMap.Marker({
-              position: endPos,
-              map: map,
-              label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
-            });
-
-            // 步行规划
-            AMap.plugin("AMap.Walking", function () {
-              walkingInstance = new AMap.Walking({
-                map: map,
-                panel: "panel"
-              });
-              walkingInstance.search(currentPos, endPos, function(stat){
-                if(stat !== 'complete'){
-                  alert("路线规划失败：距离过远或无步行道路");
-                }else{
-                  map.setFitView();
-                }
-              });
-            });
-
+      // 用Geocoder兜底解析
+      AMap.plugin('AMap.Geocoder', function () {
+        const geocoder = new AMap.Geocoder({ city: '宜宾' });
+        geocoder.getLocation(address, function (status, result) {
+          if (status === 'complete' && result.geocodes.length > 0) {
+            doSearch(result.geocodes[0].location);
           } else {
-            alert("地名解析失败，请换一个更详细的地址");
+            alert("未找到该地点，请换个名称试试");
           }
-        })
-      })
+        });
+      });
     });
+
+    // 【共用规划函数】
+    function doSearch(endPos) {
+      // 清旧路线/标记
+      if (walkingInstance) walkingInstance.clear();
+      if (endMarker) map.remove(endMarker);
+
+      // 新终点
+      endMarker = new AMap.Marker({
+        position: endPos,
+        map: map,
+        label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
+      });
+
+      // 步行规划
+      AMap.plugin("AMap.Walking", function () {
+        walkingInstance = new AMap.Walking({ map: map, panel: "panel" });
+        walkingInstance.search(currentPos, endPos, function (stat) {
+          if (stat !== 'complete') {
+            alert("路线规划失败：距离过远或无步行道路");
+          } else {
+            map.setFitView();
+          }
+        });
+      });
+    }
   </script>
 </body>
 </html>
