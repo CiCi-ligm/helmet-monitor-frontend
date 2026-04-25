@@ -3,99 +3,193 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>头盔地图导航</title>
-  <!-- 安全密钥必须放在最前面 -->
+  <title>头盔实时导航</title>
+  <!-- 1. 安全密钥必须前置，否则高德API不工作 -->
   <script>
     window._AMapSecurityConfig = {
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     }
   </script>
-  <!-- 引入高德API -->
+  <!-- 引入高德JSAPI -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
   <style>
-    html,body,#container {
-      margin: 0;
-      padding: 0;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #container {
       width: 100%;
       height: 100vh;
       overflow: hidden;
     }
-    /* 导航面板样式，避免被挡住 */
+    /* 目的地输入框（固定在顶部） */
+    #destInputWrap {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 999;
+      display: flex;
+      gap: 8px;
+    }
+    #destLng, #destLat {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 14px;
+    }
+    #goBtn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #007AFF;
+      color: #fff;
+      font-size: 14px;
+    }
+    /* 导航面板（固定在底部） */
     #panel {
       position: fixed;
       bottom: 15px;
       left: 10px;
+      right: 10px;
       background: #fff;
-      padding: 10px;
-      z-index: 999;
-      max-width: 280px;
+      padding: 12px;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       font-size: 12px;
+      max-height: 180px;
+      overflow-y: auto;
     }
   </style>
 </head>
 <body>
+  <!-- 地图容器 -->
   <div id="container"></div>
+
+  <!-- 2. 用户输入目的地经纬度的控件 -->
+  <div id="destInputWrap">
+    <input id="destLng" placeholder="目的地经度" type="number" step="0.000001">
+    <input id="destLat" placeholder="目的地纬度" type="number" step="0.000001">
+    <button id="goBtn">开始导航</button>
+  </div>
+
+  <!-- 导航步骤面板 -->
   <div id="panel"></div>
 
   <script>
+    // 全局变量：地图、定位标记、路线
+    let map, helmetMarker, walkingRoute;
+    let currentHelmetLngLat = null; // 头盔实时位置（初始为null）
+    let targetLngLat = null; // 目的地位置
+
     // 初始化地图
-    const map = new AMap.Map('container', {
+    map = new AMap.Map('container', {
       zoom: 15,
-      center: [116.397428, 39.90923],
+      center: [116.397428, 39.90923], // 默认北京天安门
       viewMode: '3D'
     });
 
-    // 1. 定义起点和终点坐标（你可以改成头盔真实GPS）
-    const startPoint = new AMap.LngLat(116.397428, 39.90923); // 天安门附近
-    const endPoint = new AMap.LngLat(116.410703, 39.903752);  // 你截图里的目的地
-
-    // 2. 添加起点标记（带永久文字）
-    new AMap.Marker({
-      position: startPoint,
-      map: map,
-      label: {
-        content: "头盔当前位置",
-        offset: new AMap.Pixel(0, -30)
-      },
-      icon: new AMap.Icon({
-        size: new AMap.Size(25, 34),
-        image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_start.png"
-      })
-    });
-
-    // 3. 添加终点标记（带永久文字）
-    new AMap.Marker({
-      position: endPoint,
-      map: map,
-      label: {
-        content: "目的地",
-        offset: new AMap.Pixel(0, -30)
-      },
-      icon: new AMap.Icon({
-        size: new AMap.Size(25, 34),
-        image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_end.png"
-      })
-    });
-
-    // 4. 步行路径规划
-    AMap.plugin('AMap.Walking', function () {
-      const walking = new AMap.Walking({
-        map: map,
-        panel: 'panel',
-        autoFitView: true // 自动调整视野，让整条路线都可见
+    // ===================== 第一步：接收头盔/手机实时定位 =====================
+    AMap.plugin('AMap.Geolocation', function () {
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        zoomToAccuracy: false, // 不自动缩放，避免和路线规划冲突
+        showMarker: false, // 不用自带的定位标记，我们自己画
+        showCircle: false
       });
-      
-      // 执行路线查询
-      walking.search(startPoint, endPoint, function(status, result) {
+
+      // 持续获取位置（手机实时GPS）
+      geolocation.watchPosition((status, result) => {
         if (status === 'complete') {
-          console.log('路线规划成功', result);
-          // 自动适配地图视野
-          map.setFitView();
+          // 更新当前位置
+          currentHelmetLngLat = result.position;
+          console.log("头盔实时位置更新：", currentHelmetLngLat);
+
+          // 更新或创建头盔标记
+          if (!helmetMarker) {
+            helmetMarker = new AMap.Marker({
+              position: currentHelmetLngLat,
+              map: map,
+              icon: new AMap.Icon({
+                size: new AMap.Size(30, 30),
+                image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_start.png"
+              }),
+              label: {
+                content: "头盔当前位置",
+                offset: new AMap.Pixel(0, -35)
+              }
+            });
+          } else {
+            helmetMarker.setPosition(currentHelmetLngLat);
+          }
+
+          // 地图跟随头盔位置移动
+          map.setCenter(currentHelmetLngLat);
         } else {
-          console.error('路线规划失败', result);
+          console.error("定位失败：", result);
         }
+      });
+    });
+
+    // ===================== 第二步：接收用户输入的目的地经纬度 =====================
+    const goBtn = document.getElementById('goBtn');
+    const destLngInput = document.getElementById('destLng');
+    const destLatInput = document.getElementById('destLat');
+
+    goBtn.addEventListener('click', () => {
+      const lng = parseFloat(destLngInput.value);
+      const lat = parseFloat(destLatInput.value);
+
+      // 校验输入
+      if (isNaN(lng) || isNaN(lat)) {
+        alert("请输入有效的经纬度！");
+        return;
+      }
+      if (!currentHelmetLngLat) {
+        alert("还没获取到头盔位置，请稍等！");
+        return;
+      }
+
+      targetLngLat = new AMap.LngLat(lng, lat);
+      console.log("目的地设置为：", targetLngLat);
+
+      // 先清除旧的路线和终点标记
+      if (walkingRoute) map.remove(walkingRoute);
+      if (window.endMarker) map.remove(window.endMarker);
+
+      // 创建终点标记
+      window.endMarker = new AMap.Marker({
+        position: targetLngLat,
+        map: map,
+        icon: new AMap.Icon({
+          size: new AMap.Size(30, 30),
+          image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_end.png"
+        }),
+        label: {
+          content: "目的地",
+          offset: new AMap.Pixel(0, -35)
+        }
+      });
+
+      // ===================== 第三步：路径规划并画路线 =====================
+      AMap.plugin('AMap.Walking', function () {
+        const walking = new AMap.Walking({
+          map: map,
+          panel: 'panel',
+          autoFitView: true
+        });
+
+        // 规划从头盔当前位置到目的地的路线
+        walking.search(currentHelmetLngLat, targetLngLat, (status, result) => {
+          if (status === 'complete') {
+            console.log("路线规划成功：", result);
+            // 保存路线实例，方便后续清除
+            walkingRoute = walking.getRoute();
+          } else {
+            alert("路线规划失败，请检查经纬度！");
+            console.error("规划失败：", result);
+          }
+        });
       });
     });
   </script>
