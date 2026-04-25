@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>头盔监控地图</title>
+  <title>头盔地图导航</title>
+  <!-- 安全密钥必须放在最前面 -->
   <script>
     window._AMapSecurityConfig = {
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     }
   </script>
+  <!-- 引入高德API -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145"></script>
   <style>
     html,body,#container {
@@ -18,6 +20,7 @@
       height: 100vh;
       overflow: hidden;
     }
+    /* 导航面板样式，避免被挡住 */
     #panel {
       position: fixed;
       bottom: 15px;
@@ -28,6 +31,7 @@
       max-width: 280px;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 12px;
     }
   </style>
 </head>
@@ -36,48 +40,64 @@
   <div id="panel"></div>
 
   <script>
+    // 初始化地图
     const map = new AMap.Map('container', {
       zoom: 15,
       center: [116.397428, 39.90923],
       viewMode: '3D'
     });
 
-    // 直接写死坐标，绕过手机定位拦截
-    const startPoint = new AMap.LngLat(116.397428, 39.90923);
-    const endPoint = new AMap.LngLat(116.410703, 39.903752);
+    // 1. 定义起点和终点坐标（你可以改成头盔真实GPS）
+    const startPoint = new AMap.LngLat(116.397428, 39.90923); // 天安门附近
+    const endPoint = new AMap.LngLat(116.410703, 39.903752);  // 你截图里的目的地
 
-    // 起点标记 永久文字
+    // 2. 添加起点标记（带永久文字）
     new AMap.Marker({
       position: startPoint,
       map: map,
       label: {
         content: "头盔当前位置",
         offset: new AMap.Pixel(0, -30)
-      }
+      },
+      icon: new AMap.Icon({
+        size: new AMap.Size(25, 34),
+        image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_start.png"
+      })
     });
 
-    // 终点标记 永久文字
+    // 3. 添加终点标记（带永久文字）
     new AMap.Marker({
       position: endPoint,
       map: map,
       label: {
         content: "目的地",
         offset: new AMap.Pixel(0, -30)
-      }
+      },
+      icon: new AMap.Icon({
+        size: new AMap.Size(25, 34),
+        image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_end.png"
+      })
     });
 
-    // 步行路线规划 直接渲染
+    // 4. 步行路径规划
     AMap.plugin('AMap.Walking', function () {
       const walking = new AMap.Walking({
         map: map,
-        panel: 'panel'
+        panel: 'panel',
+        autoFitView: true // 自动调整视野，让整条路线都可见
       });
-      walking.search(startPoint, endPoint, function(status){
-        if(status === 'complete'){
+      
+      // 执行路线查询
+      walking.search(startPoint, endPoint, function(status, result) {
+        if (status === 'complete') {
+          console.log('路线规划成功', result);
+          // 自动适配地图视野
           map.setFitView();
+        } else {
+          console.error('路线规划失败', result);
         }
-      })
-    })
+      });
+    });
   </script>
 </body>
 </html>
