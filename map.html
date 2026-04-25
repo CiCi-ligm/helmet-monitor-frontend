@@ -2,7 +2,6 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <!-- 强制移动端完美适配，禁止缩放 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>头盔导航-移动端</title>
 
@@ -28,7 +27,7 @@
       height: 100vh;
     }
 
-    /* ========== 手机顶部输入栏：绝对置顶，手机一定看得见 ========== */
+    /* 手机顶部输入栏：绝对置顶，不被遮挡 */
     .input-box {
       position: fixed;
       top: 10px;
@@ -58,7 +57,21 @@
       font-size: 15px;
     }
 
-    /* ========== 底部导航面板：手机底部不遮挡 ========== */
+    /* 定位加载提示 */
+    #loadingTip {
+      position: fixed;
+      top: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+
+    /* 底部导航面板：手机底部不遮挡 */
     #panel {
       position: fixed;
       bottom: 10px;
@@ -85,6 +98,9 @@
     <button id="calcBtn">开始规划路线</button>
   </div>
 
+  <!-- 定位加载提示 -->
+  <div id="loadingTip">正在获取定位...</div>
+
   <!-- 底部导航面板 -->
   <div id="panel"></div>
 
@@ -93,14 +109,28 @@
     let startMarker = null;
     let endMarker = null;
     let currentPos = null;
+    const loadingTip = document.getElementById('loadingTip');
 
-    // 1. 初始化地图
+    // 1. 初始化地图，先设置一个默认中心点
     map = new AMap.Map("container", {
       zoom: 15,
-      viewMode: "3D"
+      viewMode: "3D",
+      center: [116.397428, 39.90923] // 默认天安门
     });
 
-    // 2. 获取手机真实GPS定位（关键）
+    // 2. 先给一个默认的模拟起点，就算定位失败也能跑
+    const defaultStartPos = new AMap.LngLat(116.397428, 39.90923);
+    startMarker = new AMap.Marker({
+      position: defaultStartPos,
+      map: map,
+      label: {
+        content: "模拟起点（定位中...）",
+        offset: new AMap.Pixel(0, -30)
+      }
+    });
+    currentPos = defaultStartPos;
+
+    // 3. 尝试获取手机真实GPS定位（兜底方案）
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -112,29 +142,24 @@
 
       geo.getCurrentPosition(function (status, res) {
         console.log("定位状态：", status, res);
-
         if (status === "complete") {
-          // 拿到手机真实经纬度
+          // 拿到手机真实经纬度，更新标记和中心点
           currentPos = res.position;
           map.setCenter(currentPos);
-
-          // 创建起点标记（当前手机位置 = 头盔位置）
-          startMarker = new AMap.Marker({
-            position: currentPos,
-            map: map,
-            label: {
-              content: "头盔当前位置",
-              offset: new AMap.Pixel(0, -30)
-            }
-          });
-
+          startMarker.setPosition(currentPos);
+          startMarker.setLabel({ content: "头盔当前位置", offset: new AMap.Pixel(0, -30) });
+          loadingTip.textContent = "定位成功！";
+          setTimeout(() => loadingTip.style.display = 'none', 1000);
         } else {
-          alert("手机定位失败，请开启GPS并允许定位权限！");
+          // 定位失败，用默认点
+          loadingTip.textContent = "定位失败，使用模拟起点";
+          setTimeout(() => loadingTip.style.display = 'none', 2000);
+          console.error("定位失败：", res);
         }
       });
     });
 
-    // 3. 路线规划逻辑
+    // 4. 路线规划逻辑
     document.getElementById("calcBtn").addEventListener("click", function () {
       const lng = parseFloat(document.getElementById("lngInp").value);
       const lat = parseFloat(document.getElementById("latInp").value);
@@ -150,8 +175,9 @@
 
       const endPos = new AMap.LngLat(lng, lat);
 
-      // 清空旧终点
+      // 清空旧终点和路线
       if (endMarker) map.remove(endMarker);
+      map.clearMap('polyline'); // 清除之前的路线
 
       // 新建终点标记
       endMarker = new AMap.Marker({
@@ -167,7 +193,8 @@
       AMap.plugin("AMap.Walking", function () {
         const walking = new AMap.Walking({
           map: map,
-          panel: "panel"
+          panel: "panel",
+          autoFitView: true
         });
         walking.search(currentPos, endPos);
       });
