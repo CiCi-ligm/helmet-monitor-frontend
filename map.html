@@ -10,7 +10,6 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <!-- 仿照官方Demo：直接引入并预加载 AutoComplete 插件 -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete"></script>
 
   <style>
@@ -28,7 +27,6 @@
       height: 100vh;
     }
 
-    /* 顶部输入区 */
     .input-box {
       position: fixed;
       top: 0;
@@ -85,26 +83,25 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
 
-    /* 纯视觉CSS，不影响任何业务逻辑 */
-    .amap-sug-result{
-        z-index: 99999;
-    }
+    /* 【新增：不影响功能的美化样式】 */
     .amap-sug-result .amap-sug-item {
-        position: relative;
-        padding-left: 24px;
+      position: relative;
+      padding-left: 26px; /* 给图标留位置 */
     }
+    /* 左侧定位图标 */
     .amap-sug-item::before {
-        content: "📍";
-        position: absolute;
-        left: 6px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 12px;
+      content: "📍";
+      position: absolute;
+      left: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
     }
+    /* 关键词高亮 */
     .amap-sug-item em {
-        color: #1677ff;
-        font-weight: bold;
-        font-style: normal;
+      color: #1677ff;
+      font-weight: bold;
+      font-style: normal;
     }
   </style>
 </head>
@@ -129,19 +126,23 @@
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
 
-    // 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
       viewMode: "3D"
     });
 
-    // 仿照官方 Demo 初始化自动联想
     var autoComplete = new AMap.AutoComplete({
       input: "addressInp",
       city: "宜宾"
     });
 
-    // 默认起点（宜宾附近）
+    // 点击联想项自动规划路线
+    AMap.event.addListener(autoComplete, "select", function(e){
+      if(e.poi && e.poi.location){
+        doSearch(e.poi.location);
+      }
+    });
+
     currentPos = new AMap.LngLat(104.63, 28.77);
     startMarker = new AMap.Marker({
       position: currentPos,
@@ -149,7 +150,6 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
-    // 定位逻辑（完全不动）
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -173,7 +173,6 @@
       });
     });
 
-    // 按钮兜底解析
     document.getElementById("calcBtn").addEventListener("click", function () {
       const address = addressInp.value.trim();
       if (!address) {
@@ -196,7 +195,6 @@
       });
     });
 
-    // 共用规划函数
     function doSearch(endPos) {
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
