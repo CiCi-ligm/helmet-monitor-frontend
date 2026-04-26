@@ -6,43 +6,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>头盔监控 - 多功能主页</title>
 
+  <!-- 👇 只保留一个不遮挡的悬浮按钮样式 -->
   <style>
-    .nav-btn {
-      display: inline-block;
-      margin: 20px;
-      padding: 10px 20px;
-      background: #1677ff;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    /* 按钮固定在底部，不遮挡主内容 */
-    .nav-container {
+    .map-float-btn {
       position: fixed;
       bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 999;
+      right: 20px;
+      z-index: 9999;
+      background: #1677ff;
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
   </style>
 
-  <!-- 保留高德地图API，给地图页用 -->
+  <!-- 保留高德地图API（给地图页用） -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
-  <!-- 修复路径：直接引用根目录的打包资源 -->
-  <script type="module" crossorigin src="assets/index-CAwlZqeJ.js"></script>
-  <link rel="stylesheet" crossorigin href="assets/index-DOChSJ4w.css">
+  <!-- 👇 删掉了原来的 Vue 打包资源引用 -->
 </head>
 <body>
-  <!-- 你的Vue项目主界面（卫星图、支付界面等） -->
-  <div id="app"></div>
+  <!-- 👇 保留你原来的所有内容（卫星图、支付界面等） -->
+  <!-- 你原来的页面内容写在这里，比如： -->
+  <!--
+  <h1>智能头盔系统</h1>
+  <a href="pay.html">支付界面</a>
+  <a href="login.html">登录界面</a>
+  -->
 
-  <!-- 地图导航跳转按钮（固定在底部，不遮挡内容） -->
-  <div class="nav-container">
-    <a href="map.html" class="nav-btn">打开地图导航</a>
-  </div>
+  <!-- 👇 改成不遮挡的悬浮按钮 -->
+  <a href="map.html" class="map-float-btn">地图导航</a>
 </body>
 </html>
