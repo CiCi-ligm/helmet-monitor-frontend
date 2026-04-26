@@ -84,6 +84,28 @@
       font-size: 13px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
+
+    /* 纯视觉CSS，不影响任何业务逻辑 */
+    .amap-sug-result{
+        z-index: 99999;
+    }
+    .amap-sug-result .amap-sug-item {
+        position: relative;
+        padding-left: 24px;
+    }
+    .amap-sug-item::before {
+        content: "📍";
+        position: absolute;
+        left: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+    }
+    .amap-sug-item em {
+        color: #1677ff;
+        font-weight: bold;
+        font-style: normal;
+    }
   </style>
 </head>
 <body>
