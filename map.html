@@ -59,13 +59,13 @@
       background: #666;
     }
 
-    /* 卫星切换按钮 */
+    /* 卫星切换按钮样式 */
     .map-type-btn {
       position: fixed;
       top: 90px;
       right: 10px;
       z-index: 9999;
-      padding: 6px 10px;
+      padding: 8px 12px;
       background: #fff;
       border: 1px solid #ccc;
       border-radius: 4px;
@@ -144,7 +144,6 @@
     <button id="clearBtn" class="clear">清空</button>
   </div>
 
-  <!-- 卫星/普通地图切换按钮 -->
   <button class="map-type-btn" id="switchMapBtn">切换卫星图</button>
 
   <div id="custom-suggest-list"></div>
@@ -160,8 +159,9 @@
     let ridingInstance = null;
     let targetLocation = null;
 
-    // 标记当前是否为卫星图
     let isSatellite = false;
+    // 声明卫星图层
+    let satelliteLayer = null;
 
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
@@ -177,20 +177,24 @@
       viewMode: "3D"
     });
 
-    // 卫星图 / 普通地图 切换逻辑
+    // 初始化卫星图层
+    satelliteLayer = new AMap.TileLayer.Satellite();
+
+    // 真正可用的切换逻辑
     switchMapBtn.addEventListener('click', function(){
       if(!isSatellite){
-        // 切换成卫星图
-        map.setMapType('satellite');
+        // 开启卫星图
+        map.add(satelliteLayer);
         switchMapBtn.innerText = '切换普通地图';
         isSatellite = true;
       }else{
-        // 切回普通2D地图
-        map.setMapType('normal');
+        // 关闭卫星图，切回普通
+        map.remove(satelliteLayer);
         switchMapBtn.innerText = '切换卫星图';
         isSatellite = false;
       }
     });
+
 
     // 联想
     let autoComplete = new AMap.AutoComplete({ city: "宜宾" });
