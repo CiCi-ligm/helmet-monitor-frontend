@@ -1,81 +1,63 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>头盔监控 - 多功能主页</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能头盔系统</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
     body {
-      background: #f5f7fa;
+      font-family: sans-serif;
+      margin: 0;
       padding: 20px;
-      padding-bottom: 100px;
+      background: #f0f2f5;
     }
     h1 {
       text-align: center;
       color: #333;
-      margin: 20px 0;
     }
-    .nav-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 15px;
-      max-width: 600px;
-      margin: 0 auto;
+    .link-list {
+      max-width: 400px;
+      margin: 30px auto;
     }
-    .nav-item {
+    .link-item {
+      display: block;
+      padding: 15px;
+      margin: 10px 0;
       background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      text-align: center;
+      border-radius: 8px;
       text-decoration: none;
       color: #333;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      transition: all 0.2s;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .nav-item:hover {
+    .link-item:hover {
       background: #1677ff;
       color: #fff;
     }
-    /* 地图导航悬浮按钮 */
-    .map-float-btn {
+    .map-btn {
       position: fixed;
       bottom: 20px;
       right: 20px;
-      z-index: 9999;
       background: #1677ff;
       color: #fff;
-      padding: 12px 18px;
+      padding: 12px 16px;
       border-radius: 8px;
       text-decoration: none;
-      font-size: 14px;
-      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.3);
     }
   </style>
-
-  <!-- 保留高德地图API（给map.html用） -->
-  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 </head>
 <body>
   <h1>🏍️ 智能头盔系统</h1>
 
-  <div class="nav-grid">
-    <a href="login.html" class="nav-item">用户登录</a>
-    <a href="pay.html" class="nav-item">支付界面</a>
-    <a href="record.html" class="nav-item">骑行记录</a>
-    <a href="profile.html" class="nav-item">个人中心</a>
-    <a href="blind.html" class="nav-item">盲用辅助</a>
-    <a href="nav.html" class="nav-item">导航模块</a>
+  <div class="link-list">
+    <a href="login.html" class="link-item">登录页面</a>
+    <a href="pay.html" class="link-item">支付界面</a>
+    <a href="record.html" class="link-item">骑行记录</a>
+    <a href="profile.html" class="link-item">个人中心</a>
+    <a href="blind.html" class="link-item">盲用辅助</a>
+    <a href="nav.html" class="link-item">导航模块</a>
   </div>
 
-  <!-- 地图导航悬浮按钮 -->
-  <a href="map.html" class="map-float-btn">🗺️ 地图导航</a>
+  <a href="map.html" class="map-btn">地图导航</a>
 </body>
 </html>
