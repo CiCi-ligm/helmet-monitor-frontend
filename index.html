@@ -6,8 +6,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>头盔监控 - 多功能主页</title>
 
-  <!-- 👇 只保留一个不遮挡的悬浮按钮样式 -->
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background: #f5f7fa;
+      padding: 20px;
+      padding-bottom: 100px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin: 20px 0;
+    }
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .nav-item {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      text-decoration: none;
+      color: #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.2s;
+    }
+    .nav-item:hover {
+      background: #1677ff;
+      color: #fff;
+    }
+    /* 地图导航悬浮按钮 */
     .map-float-btn {
       position: fixed;
       bottom: 20px;
@@ -15,29 +52,30 @@
       z-index: 9999;
       background: #1677ff;
       color: #fff;
-      padding: 10px 15px;
+      padding: 12px 18px;
       border-radius: 8px;
       text-decoration: none;
       font-size: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.3);
     }
   </style>
 
-  <!-- 保留高德地图API（给地图页用） -->
+  <!-- 保留高德地图API（给map.html用） -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-
-  <!-- 👇 删掉了原来的 Vue 打包资源引用 -->
 </head>
 <body>
-  <!-- 👇 保留你原来的所有内容（卫星图、支付界面等） -->
-  <!-- 你原来的页面内容写在这里，比如： -->
-  <!--
-  <h1>智能头盔系统</h1>
-  <a href="pay.html">支付界面</a>
-  <a href="login.html">登录界面</a>
-  -->
+  <h1>🏍️ 智能头盔系统</h1>
 
-  <!-- 👇 改成不遮挡的悬浮按钮 -->
-  <a href="map.html" class="map-float-btn">地图导航</a>
+  <div class="nav-grid">
+    <a href="login.html" class="nav-item">用户登录</a>
+    <a href="pay.html" class="nav-item">支付界面</a>
+    <a href="record.html" class="nav-item">骑行记录</a>
+    <a href="profile.html" class="nav-item">个人中心</a>
+    <a href="blind.html" class="nav-item">盲用辅助</a>
+    <a href="nav.html" class="nav-item">导航模块</a>
+  </div>
+
+  <!-- 地图导航悬浮按钮 -->
+  <a href="map.html" class="map-float-btn">🗺️ 地图导航</a>
 </body>
 </html>
