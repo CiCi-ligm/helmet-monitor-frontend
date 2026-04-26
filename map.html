@@ -1,289 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>头盔导航-移动端</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能头盔导航</title>
 
-  <script>
-    window._AMapSecurityConfig = {
-      securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
-    };
-  </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geocoder"></script>
-
+  <!-- 悬浮按钮样式，不影响主界面 -->
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
-    #container {
-      width: 100%;
-      height: 100vh;
-    }
-
-    .input-box {
+    /* 悬浮按钮：固定在右下角，不会遮挡你的主界面 */
+    .map-float-btn {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      bottom: 20px;
+      right: 20px;
       z-index: 9999;
-      background: #fff;
-      padding: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .input-box input {
-      width: 100%;
-      padding: 8px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-    .input-box button {
-      width: 100%;
-      padding: 10px;
+      width: 60px;
+      height: 60px;
       background: #1677ff;
+      border-radius: 50%;
       color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 15px;
-    }
-
-    /* 自定义联想列表（100%可控） */
-    #custom-suggest-list {
-      position: fixed;
-      top: 90px;
-      left: 8px;
-      right: 8px;
-      z-index: 9999;
-      background: #fff;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      max-height: 200px;
-      overflow-y: auto;
-      display: none;
-    }
-    #custom-suggest-list .item {
-      padding: 10px 10px 10px 30px;
-      font-size: 14px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      position: relative;
-    }
-    #custom-suggest-list .item:last-child {
-      border-bottom: none;
-    }
-    /* 左侧定位图标 */
-    #custom-suggest-list .item::before {
-      content: "📍";
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-    }
-    /* 关键词高亮 */
-    #custom-suggest-list .item .highlight {
-      color: #1677ff;
-      font-weight: bold;
-    }
-
-    #loadingTip {
-      position: fixed;
-      top: 300px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 14px;
-    }
-
-    #panel {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      right: 10px;
-      z-index: 9999;
-      background: #fff;
-      padding: 10px;
-      border-radius: 10px;
-      max-height: 160px;
-      overflow-y: auto;
-      font-size: 13px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      text-decoration: none;
     }
   </style>
+
+  <!-- 保留高德地图API（给地图页用） -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+
+  <!-- 你的Vue项目打包资源（路径已修复） -->
+  <script type="module" crossorigin src="assets/index-CAwlZqeJ.js"></script>
+  <link rel="stylesheet" crossorigin href="assets/index-DOChSJ4w.css">
 </head>
 <body>
-  <div id="container"></div>
+  <!-- 你的Vue项目主界面（卫星图、支付界面等） -->
+  <div id="app"></div>
 
-  <div class="input-box">
-    <input id="addressInp" placeholder="输入目的地，例如：零食有鸣、宜宾市二中" />
-    <button id="calcBtn">开始规划路线</button>
-  </div>
-
-  <!-- 自定义联想列表，完全可控 -->
-  <div id="custom-suggest-list"></div>
-
-  <div id="loadingTip">正在获取定位...</div>
-  <div id="panel"></div>
-
-  <script>
-    let map;
-    let startMarker = null;
-    let endMarker = null;
-    let currentPos = null;
-    let walkingInstance = null;
-    let autoComplete;
-
-    const loadingTip = document.getElementById('loadingTip');
-    const addressInp = document.getElementById('addressInp');
-    const customSuggestList = document.getElementById('custom-suggest-list');
-
-    // 初始化地图
-    map = new AMap.Map("container", {
-      zoom: 15,
-      viewMode: "3D"
-    });
-
-    // 初始化自动联想（只用来拿数据，不用自带下拉）
-    autoComplete = new AMap.AutoComplete({
-      city: "宜宾"
-    });
-
-    // 默认起点（宜宾附近）
-    currentPos = new AMap.LngLat(104.63, 28.77);
-    startMarker = new AMap.Marker({
-      position: currentPos,
-      map: map,
-      label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
-    });
-
-    // 定位逻辑（完全不动）
-    AMap.plugin("AMap.Geolocation", function () {
-      const geo = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 15000,
-        convert: true,
-        showMarker: false,
-        showCircle: false
-      });
-
-      geo.getCurrentPosition(function (status, res) {
-        if (status === "complete") {
-          currentPos = res.position;
-          map.setCenter(currentPos);
-          startMarker.setPosition(currentPos);
-          startMarker.setLabel({ content: "头盔当前位置", offset: new AMap.Pixel(0, -30) });
-          loadingTip.textContent = "定位成功！";
-        } else {
-          loadingTip.textContent = "定位失败，使用模拟起点";
-        }
-        setTimeout(() => loadingTip.style.display = 'none', 1500);
-      });
-    });
-
-    // 防抖
-    let timer = null;
-    addressInp.addEventListener('input', function() {
-      const keyword = this.value.trim();
-      if (!keyword) {
-        customSuggestList.style.display = 'none';
-        return;
-      }
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        // 调用高德接口获取联想数据
-        autoComplete.search(keyword, function(status, result) {
-          if (status === 'complete' && result.tips && result.tips.length > 0) {
-            // 清空列表
-            customSuggestList.innerHTML = '';
-            // 遍历结果，手动渲染并高亮关键词
-            result.tips.forEach(tip => {
-              if (!tip.location) return;
-              // 高亮关键词：用正则替换
-              const name = tip.name;
-              const regex = new RegExp(`(${keyword})`, 'gi');
-              const highlightedName = name.replace(regex, '<span class="highlight">$1</span>');
-
-              const item = document.createElement('div');
-              item.className = 'item';
-              item.innerHTML = highlightedName;
-              // 点击事件：直接规划路线
-              item.addEventListener('click', function() {
-                addressInp.value = tip.name;
-                customSuggestList.style.display = 'none';
-                doSearch(tip.location);
-              });
-              customSuggestList.appendChild(item);
-            });
-            customSuggestList.style.display = 'block';
-          } else {
-            customSuggestList.style.display = 'none';
-          }
-        });
-      }, 300);
-    });
-
-    // 失去焦点隐藏列表
-    addressInp.addEventListener('blur', () => {
-      setTimeout(() => customSuggestList.style.display = 'none', 200);
-    });
-
-    // 按钮兜底解析
-    document.getElementById("calcBtn").addEventListener("click", function () {
-      const address = addressInp.value.trim();
-      if (!address) {
-        alert("请输入目的地");
-        return;
-      }
-      if (!currentPos) {
-        alert("定位未就绪，请稍等");
-        return;
-      }
-      AMap.plugin('AMap.Geocoder', function () {
-        const geocoder = new AMap.Geocoder({ city: '宜宾' });
-        geocoder.getLocation(address, function (status, result) {
-          if (status === 'complete' && result.geocodes.length > 0) {
-            doSearch(result.geocodes[0].location);
-          } else {
-            alert("未找到该地点，请换个名称试试");
-          }
-        });
-      });
-    });
-
-    // 共用规划函数
-    function doSearch(endPos) {
-      if (walkingInstance) walkingInstance.clear();
-      if (endMarker) map.remove(endMarker);
-
-      endMarker = new AMap.Marker({
-        position: endPos,
-        map: map,
-        label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
-      });
-
-      AMap.plugin("AMap.Walking", function () {
-        walkingInstance = new AMap.Walking({ map: map, panel: "panel" });
-        walkingInstance.search(currentPos, endPos, function (stat) {
-          if (stat !== 'complete') {
-            alert("路线规划失败：距离过远或无步行道路");
-          } else {
-            map.setFitView();
-          }
-        });
-      });
-    }
-  </script>
+  <!-- 悬浮地图导航按钮：不遮挡主界面 -->
+  <a href="map.html" class="map-float-btn">
+    地图<br>导航
+  </a>
 </body>
 </html>
