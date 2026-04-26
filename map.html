@@ -10,7 +10,7 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geocoder"></script>
 
   <style>
     * {
@@ -55,9 +55,48 @@
       font-size: 15px;
     }
 
+    /* 自定义联想列表（100%可控） */
+    #custom-suggest-list {
+      position: fixed;
+      top: 90px;
+      left: 8px;
+      right: 8px;
+      z-index: 9999;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    #custom-suggest-list .item {
+      padding: 10px 10px 10px 30px;
+      font-size: 14px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      position: relative;
+    }
+    #custom-suggest-list .item:last-child {
+      border-bottom: none;
+    }
+    /* 左侧定位图标 */
+    #custom-suggest-list .item::before {
+      content: "📍";
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+    }
+    /* 关键词高亮 */
+    #custom-suggest-list .item .highlight {
+      color: #1677ff;
+      font-weight: bold;
+    }
+
     #loadingTip {
       position: fixed;
-      top: 180px;
+      top: 300px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
@@ -82,27 +121,6 @@
       font-size: 13px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
-
-    /* 【新增：不影响功能的美化样式】 */
-    .amap-sug-result .amap-sug-item {
-      position: relative;
-      padding-left: 26px; /* 给图标留位置 */
-    }
-    /* 左侧定位图标 */
-    .amap-sug-item::before {
-      content: "📍";
-      position: absolute;
-      left: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-    }
-    /* 关键词高亮 */
-    .amap-sug-item em {
-      color: #1677ff;
-      font-weight: bold;
-      font-style: normal;
-    }
   </style>
 </head>
 <body>
@@ -113,6 +131,9 @@
     <button id="calcBtn">开始规划路线</button>
   </div>
 
+  <!-- 自定义联想列表，完全可控 -->
+  <div id="custom-suggest-list"></div>
+
   <div id="loadingTip">正在获取定位...</div>
   <div id="panel"></div>
 
@@ -122,27 +143,24 @@
     let endMarker = null;
     let currentPos = null;
     let walkingInstance = null;
+    let autoComplete;
 
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
+    const customSuggestList = document.getElementById('custom-suggest-list');
 
+    // 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
       viewMode: "3D"
     });
 
-    var autoComplete = new AMap.AutoComplete({
-      input: "addressInp",
+    // 初始化自动联想（只用来拿数据，不用自带下拉）
+    autoComplete = new AMap.AutoComplete({
       city: "宜宾"
     });
 
-    // 点击联想项自动规划路线
-    AMap.event.addListener(autoComplete, "select", function(e){
-      if(e.poi && e.poi.location){
-        doSearch(e.poi.location);
-      }
-    });
-
+    // 默认起点（宜宾附近）
     currentPos = new AMap.LngLat(104.63, 28.77);
     startMarker = new AMap.Marker({
       position: currentPos,
@@ -150,6 +168,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
+    // 定位逻辑（完全不动）
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -173,6 +192,54 @@
       });
     });
 
+    // 防抖
+    let timer = null;
+    addressInp.addEventListener('input', function() {
+      const keyword = this.value.trim();
+      if (!keyword) {
+        customSuggestList.style.display = 'none';
+        return;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // 调用高德接口获取联想数据
+        autoComplete.search(keyword, function(status, result) {
+          if (status === 'complete' && result.tips && result.tips.length > 0) {
+            // 清空列表
+            customSuggestList.innerHTML = '';
+            // 遍历结果，手动渲染并高亮关键词
+            result.tips.forEach(tip => {
+              if (!tip.location) return;
+              // 高亮关键词：用正则替换
+              const name = tip.name;
+              const regex = new RegExp(`(${keyword})`, 'gi');
+              const highlightedName = name.replace(regex, '<span class="highlight">$1</span>');
+
+              const item = document.createElement('div');
+              item.className = 'item';
+              item.innerHTML = highlightedName;
+              // 点击事件：直接规划路线
+              item.addEventListener('click', function() {
+                addressInp.value = tip.name;
+                customSuggestList.style.display = 'none';
+                doSearch(tip.location);
+              });
+              customSuggestList.appendChild(item);
+            });
+            customSuggestList.style.display = 'block';
+          } else {
+            customSuggestList.style.display = 'none';
+          }
+        });
+      }, 300);
+    });
+
+    // 失去焦点隐藏列表
+    addressInp.addEventListener('blur', () => {
+      setTimeout(() => customSuggestList.style.display = 'none', 200);
+    });
+
+    // 按钮兜底解析
     document.getElementById("calcBtn").addEventListener("click", function () {
       const address = addressInp.value.trim();
       if (!address) {
@@ -195,6 +262,7 @@
       });
     });
 
+    // 共用规划函数
     function doSearch(endPos) {
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
