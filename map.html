@@ -59,17 +59,26 @@
       background: #666;
     }
 
-    /* 卫星切换按钮样式 */
+    /* 美化后的卫星切换按钮 */
     .map-type-btn {
       position: fixed;
       top: 90px;
-      right: 10px;
+      right: 12px;
       z-index: 9999;
-      padding: 8px 12px;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.95);
+      border: none;
+      border-radius: 30px;
       font-size: 13px;
+      color: #333;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .map-type-btn:hover {
+      background: #1677ff;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(22, 119, 255, 0.3);
     }
 
     #custom-suggest-list {
