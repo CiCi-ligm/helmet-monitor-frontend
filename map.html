@@ -10,6 +10,7 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
+  <!-- 仿照官方Demo：直接引入并预加载 AutoComplete 插件 -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete"></script>
 
   <style>
@@ -27,6 +28,7 @@
       height: 100vh;
     }
 
+    /* 顶部输入区 */
     .input-box {
       position: fixed;
       top: 0;
@@ -111,19 +113,13 @@
       viewMode: "3D"
     });
 
-    // 原生联想，不加任何干扰样式
+    // 仿照官方 Demo 初始化自动联想
     var autoComplete = new AMap.AutoComplete({
       input: "addressInp",
       city: "宜宾"
     });
 
-    // 选中联想项规划
-    AMap.event.addListener(autoComplete, "select", function(e){
-      if(e.poi && e.poi.location){
-        doSearch(e.poi.location);
-      }
-    });
-
+    // 默认起点（宜宾附近）
     currentPos = new AMap.LngLat(104.63, 28.77);
     startMarker = new AMap.Marker({
       position: currentPos,
@@ -131,7 +127,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
-    // 定位逻辑完全还原，不做任何修改
+    // 定位逻辑（完全不动）
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -155,6 +151,7 @@
       });
     });
 
+    // 按钮兜底解析
     document.getElementById("calcBtn").addEventListener("click", function () {
       const address = addressInp.value.trim();
       if (!address) {
@@ -177,6 +174,7 @@
       });
     });
 
+    // 共用规划函数
     function doSearch(endPos) {
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
