@@ -10,7 +10,6 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <!-- 一次性预加载所有需要的插件：AutoComplete + Geolocation + Walking + Riding -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <style>
@@ -28,7 +27,6 @@
       height: 100vh;
     }
 
-    /* 顶部输入区 */
     .input-box {
       position: fixed;
       top: 0;
@@ -48,25 +46,38 @@
       margin-bottom: 8px;
     }
     .input-box button {
-      width: 32%;
+      width: 31%;
       padding: 8px;
       background: #1677ff;
       color: #fff;
       border: none;
       border-radius: 6px;
       font-size: 14px;
+      margin-right: 1%;
     }
     .input-box button.clear {
       background: #666;
     }
 
-    /* 自定义联想列表（100%可控，带图标+高亮） */
+    /* 卫星切换按钮 */
+    .map-type-btn {
+      position: fixed;
+      top: 90px;
+      right: 10px;
+      z-index: 9999;
+      padding: 6px 10px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
     #custom-suggest-list {
       position: fixed;
       top: 90px;
       left: 8px;
       right: 8px;
-      z-index: 9999;
+      z-index: 9998;
       background: #fff;
       border-radius: 6px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -81,10 +92,6 @@
       cursor: pointer;
       position: relative;
     }
-    #custom-suggest-list .item:last-child {
-      border-bottom: none;
-    }
-    /* 左侧定位图标 */
     #custom-suggest-list .item::before {
       content: "📍";
       position: absolute;
@@ -93,7 +100,6 @@
       transform: translateY(-50%);
       font-size: 14px;
     }
-    /* 关键词高亮 */
     #custom-suggest-list .item .highlight {
       color: #1677ff;
       font-weight: bold;
@@ -138,9 +144,10 @@
     <button id="clearBtn" class="clear">清空</button>
   </div>
 
-  <!-- 自定义联想列表 -->
-  <div id="custom-suggest-list"></div>
+  <!-- 卫星/普通地图切换按钮 -->
+  <button class="map-type-btn" id="switchMapBtn">切换卫星图</button>
 
+  <div id="custom-suggest-list"></div>
   <div id="loadingTip">正在获取定位...</div>
   <div id="panel"></div>
 
@@ -151,7 +158,10 @@
     let currentPos = null;
     let walkingInstance = null;
     let ridingInstance = null;
-    let targetLocation = null; // 保存用户选择的目的地
+    let targetLocation = null;
+
+    // 标记当前是否为卫星图
+    let isSatellite = false;
 
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
@@ -159,14 +169,30 @@
     const walkBtn = document.getElementById('walkBtn');
     const rideBtn = document.getElementById('rideBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const switchMapBtn = document.getElementById('switchMapBtn');
 
-    // 1. 初始化地图
+    // 初始化地图
     map = new AMap.Map("container", {
       zoom: 15,
       viewMode: "3D"
     });
 
-    // 2. 初始化联想
+    // 卫星图 / 普通地图 切换逻辑
+    switchMapBtn.addEventListener('click', function(){
+      if(!isSatellite){
+        // 切换成卫星图
+        map.setMapType('satellite');
+        switchMapBtn.innerText = '切换普通地图';
+        isSatellite = true;
+      }else{
+        // 切回普通2D地图
+        map.setMapType('normal');
+        switchMapBtn.innerText = '切换卫星图';
+        isSatellite = false;
+      }
+    });
+
+    // 联想
     let autoComplete = new AMap.AutoComplete({ city: "宜宾" });
     let timer = null;
     addressInp.addEventListener('input', function() {
@@ -182,7 +208,6 @@
             customSuggestList.innerHTML = '';
             result.tips.forEach(tip => {
               if (!tip.location) return;
-              // 高亮关键词
               const name = tip.name;
               const regex = new RegExp(`(${keyword})`, 'gi');
               const highlightedName = name.replace(regex, '<span class="highlight">$1</span>');
@@ -192,7 +217,7 @@
               item.innerHTML = highlightedName;
               item.addEventListener('click', function() {
                 addressInp.value = tip.name;
-                targetLocation = tip.location; // 保存目的地
+                targetLocation = tip.location;
                 customSuggestList.style.display = 'none';
               });
               customSuggestList.appendChild(item);
@@ -208,7 +233,7 @@
       setTimeout(() => customSuggestList.style.display = 'none', 200);
     });
 
-    // 3. 定位
+    // 定位
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
@@ -235,75 +260,43 @@
       });
     });
 
-    // 4. 步行导航
+    // 步行
     walkBtn.addEventListener('click', function() {
-      if (!currentPos) {
-        alert("定位未就绪，请稍等");
-        return;
-      }
-      if (!targetLocation) {
-        alert("请先在地址栏选择目的地");
-        return;
-      }
+      if (!currentPos) { alert("定位未就绪，请稍等"); return; }
+      if (!targetLocation) { alert("请先选择目的地"); return; }
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
 
-      endMarker = new AMap.Marker({
-        position: targetLocation,
-        map: map,
-        label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
-      });
+      endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地", offset: new AMap.Pixel(0, -30) }});
 
       AMap.plugin("AMap.Walking", function () {
-        walkingInstance = new AMap.Walking({
-          map: map,
-          panel: "panel"
-        });
+        walkingInstance = new AMap.Walking({ map: map, panel: "panel" });
         walkingInstance.search(currentPos, targetLocation, function(status) {
-          if (status !== 'complete') {
-            alert("步行路线规划失败");
-          } else {
-            map.setFitView();
-          }
+          if (status !== 'complete') alert("步行路线规划失败");
+          else map.setFitView();
         });
       });
     });
 
-    // 5. 骑行导航
+    // 骑行
     rideBtn.addEventListener('click', function() {
-      if (!currentPos) {
-        alert("定位未就绪，请稍等");
-        return;
-      }
-      if (!targetLocation) {
-        alert("请先在地址栏选择目的地");
-        return;
-      }
+      if (!currentPos) { alert("定位未就绪，请稍等"); return; }
+      if (!targetLocation) { alert("请先选择目的地"); return; }
       if (ridingInstance) ridingInstance.clear();
       if (endMarker) map.remove(endMarker);
 
-      endMarker = new AMap.Marker({
-        position: targetLocation,
-        map: map,
-        label: { content: "目的地", offset: new AMap.Pixel(0, -30) }
-      });
+      endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地", offset: new AMap.Pixel(0, -30) }});
 
       AMap.plugin("AMap.Riding", function () {
-        ridingInstance = new AMap.Riding({
-          map: map,
-          panel: "panel"
-        });
+        ridingInstance = new AMap.Riding({ map: map, panel: "panel" });
         ridingInstance.search(currentPos, targetLocation, function(status) {
-          if (status !== 'complete') {
-            alert("骑行路线规划失败");
-          } else {
-            map.setFitView();
-          }
+          if (status !== 'complete') alert("骑行路线规划失败");
+          else map.setFitView();
         });
       });
     });
 
-    // 6. 清空按钮
+    // 清空
     clearBtn.addEventListener('click', function() {
       addressInp.value = '';
       targetLocation = null;
@@ -311,7 +304,6 @@
       if (walkingInstance) walkingInstance.clear();
       if (ridingInstance) ridingInstance.clear();
       if (endMarker) map.remove(endMarker);
-      map.setCenter(currentPos);
     });
   </script>
 </body>
