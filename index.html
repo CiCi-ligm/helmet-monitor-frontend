@@ -1,17 +1,34 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/helmet-monitor-frontend/map/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>gaode-map</title>
-   <a href="map.html">打开地图导航</a>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/helmet-monitor-frontend/map/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>头盔监控 - 多功能主页</title>
 
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-    <script type="module" crossorigin src="/helmet-monitor-frontend/map/assets/index-CAwlZqeJ.js"></script>
-    <link rel="stylesheet" crossorigin href="/helmet-monitor-frontend/map/assets/index-DOChSJ4w.css">
-  </head>
-  <body>
-    <div id="app"></div>
-  </body>
+  <!-- 页面内部跳转：跳到我们做好的 map.html 地图页 -->
+  <style>
+    .nav-btn {
+      display: inline-block;
+      margin: 20px;
+      padding: 10px 20px;
+      background: #1677ff;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+  </style>
+
+  <!-- 保留你原有打包资源 -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <script type="module" crossorigin src="/helmet-monitor-frontend/map/assets/index-CAwlZqeJ.js"></script>
+  <link rel="stylesheet" crossorigin href="/helmet-monitor-frontend/map/assets/index-DOChSJ4w.css">
+</head>
+<body>
+  <!-- 原有Vue/主页功能入口（卫星图、支付界面都在这里） -->
+  <div id="app"></div>
+
+  <!-- 单独的地图导航跳转按钮 -->
+  <a href="map.html" class="nav-btn">打开地图导航</a>
+</body>
 </html>
