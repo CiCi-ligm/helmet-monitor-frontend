@@ -82,26 +82,6 @@
       font-size: 13px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
-
-    /* 强覆盖高德原生样式 ！important 拉满 */
-    .amap-sug-result .amap-sug-item {
-      padding-left: 26px !important;
-      position: relative !important;
-    }
-    .amap-sug-result .amap-sug-item:before {
-      content: "📍" !important;
-      position: absolute !important;
-      left: 6px !important;
-      top: 50% !important;
-      transform: translateY(-50%) !important;
-      font-size: 14px !important;
-    }
-    /* 关键词高亮 */
-    .amap-sug-result em {
-      color: #1677ff !important;
-      font-weight: bold !important;
-      font-style: normal !important;
-    }
   </style>
 </head>
 <body>
@@ -131,12 +111,13 @@
       viewMode: "3D"
     });
 
+    // 原生联想，不加任何干扰样式
     var autoComplete = new AMap.AutoComplete({
       input: "addressInp",
       city: "宜宾"
     });
 
-    // 选中联想项自动规划
+    // 选中联想项规划
     AMap.event.addListener(autoComplete, "select", function(e){
       if(e.poi && e.poi.location){
         doSearch(e.poi.location);
@@ -150,6 +131,7 @@
       label: { content: "定位中...", offset: new AMap.Pixel(0, -30) }
     });
 
+    // 定位逻辑完全还原，不做任何修改
     AMap.plugin("AMap.Geolocation", function () {
       const geo = new AMap.Geolocation({
         enableHighAccuracy: true,
