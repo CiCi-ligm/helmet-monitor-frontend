@@ -168,6 +168,12 @@
     let isSatellite = false;
     let satelliteLayer = null;
 
+    // 语音导航相关
+    let navSteps = [];
+    let currentStepIndex = 0;
+    let isNavigating = false;
+    const ARRIVE_DIST = 15; // 距离拐点15米自动下一段
+
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
     const customSuggestList = document.getElementById('custom-suggest-list');
@@ -176,9 +182,7 @@
     const clearBtn = document.getElementById('clearBtn');
     const switchMapBtn = document.getElementById('switchMapBtn');
 
-    // ==============================================
-    // 【OneNet 配置 你给的信息我已经填好了】
-    // ==============================================
+    // OneNet配置
     const DEVICE_ID    = "2578558519";
     const API_KEY      = "aVY2ZzVJcGxGUE5vTFBXNkR2d0dIMWMyb1VWdldxTmY=";
     const API_URL      = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints?datastream_id=lat,lng&limit=1`;
@@ -200,8 +204,55 @@
       }
     });
 
+    // 语音播报
+    function voiceSpeak(text) {
+      window.speechSynthesis.cancel();
+      let msg = new SpeechSynthesisUtterance(text);
+      msg.lang = "zh-CN";
+      msg.rate = 1;
+      speechSynthesis.speak(msg);
+    }
+
+    // 两点距离 米
+    function getDistance(p1, p2) {
+      return Math.round(p1.distance(p2));
+    }
+
+    // 实时检测是否到达当前拐点，自动下一段
+    function checkNavStep() {
+      if(!isNavigating || !currentPos || navSteps.length === 0) return;
+      if(currentStepIndex >= navSteps.length) {
+        voiceSpeak("已到达目的地，导航结束");
+        isNavigating = false;
+        return;
+      }
+      let stepEnd = navSteps[currentStepIndex].end;
+      let dist = getDistance(currentPos, stepEnd);
+      if(dist < ARRIVE_DIST) {
+        currentStepIndex ++;
+        if(currentStepIndex < navSteps.length) {
+          voiceSpeak(navSteps[currentStepIndex].instruction);
+        } else {
+          voiceSpeak("已到达目的地，导航结束");
+          isNavigating = false;
+        }
+      }
+    }
+
+    // 解析路线步骤
+    function parseRouteSteps(path) {
+      let steps = [];
+      path.steps.forEach(s=>{
+        steps.push({
+          instruction: s.instruction,
+          end: new AMap.LngLat(s.path[s.path.length-1][0], s.path[s.path[s.path.length-1][1]])
+        });
+      });
+      return steps;
+    }
+
     // ==============================================
-    // 【核心：从OneNet实时获取硬件GPS】
+    // OneNet 获取GPS
     // ==============================================
     function getGPSFromCloud() {
       fetch(API_URL, {
@@ -212,8 +263,6 @@
         try {
           let lat = data.data.datastreams[0].datapoints[0].value;
           let lng = data.data.datastreams[1].datapoints[0].value;
-
-          // GPS(WGS84) 转 高德坐标(GCJ02)
           let gcj = wgs84togcj02(lng, lat);
           let amapLng = gcj[0];
           let amapLat = gcj[1];
@@ -225,28 +274,22 @@
           startMarker = new AMap.Marker({
             position: currentPos,
             map: map,
-            icon: new AMap.Icon({
-              size: new AMap.Pixel(32, 32),
-              image: "https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png"
-            }),
             label: { content: "头盔实时位置", offset: new AMap.Pixel(0, -30) }
           });
+          loadingTip.style.display = "none";
 
-          loadingTip.innerText = "GPS已同步";
-          setTimeout(() => loadingTip.style.display = "none", 1000);
+          // 导航中实时检测拐点
+          checkNavStep();
         } catch (e) {
           loadingTip.innerText = "等待GPS数据...";
         }
       });
     }
 
-    // 每2秒刷新一次GPS位置
     setInterval(getGPSFromCloud, 2000);
     getGPSFromCloud();
 
-    // ==============================================
-    // 【坐标纠偏算法】
-    // ==============================================
+    // 坐标纠偏 WGS84 -> GCJ02
     const PI = 3.1415926535897932384626;
     const a = 6378245.0;
     const ee = 0.00669342162296594323;
@@ -318,12 +361,27 @@
     walkBtn.addEventListener('click', () => {
       if (!currentPos) { alert("头盔GPS未就绪"); return; }
       if (!targetLocation) { alert("请选择目的地"); return; }
+
+      // 重置导航状态
+      isNavigating = true;
+      currentStepIndex = 0;
+      navSteps = [];
+
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
       endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地" } });
+
       AMap.plugin("AMap.Walking", () => {
         walkingInstance = new AMap.Walking({ map, panel: "panel" });
-        walkingInstance.search(currentPos, targetLocation);
+        walkingInstance.search(currentPos, targetLocation, (status, res) => {
+          if(status === 'complete'){
+            let path = res.routes[0].paths[0];
+            navSteps = parseRouteSteps(path);
+            if(navSteps.length > 0){
+              voiceSpeak("开始步行导航，" + navSteps[0].instruction);
+            }
+          }
+        });
       });
     });
 
@@ -331,12 +389,26 @@
     rideBtn.addEventListener('click', () => {
       if (!currentPos) { alert("头盔GPS未就绪"); return; }
       if (!targetLocation) { alert("请选择目的地"); return; }
+
+      isNavigating = true;
+      currentStepIndex = 0;
+      navSteps = [];
+
       if (ridingInstance) ridingInstance.clear();
       if (endMarker) map.remove(endMarker);
       endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地" } });
+
       AMap.plugin("AMap.Riding", () => {
         ridingInstance = new AMap.Riding({ map, panel: "panel" });
-        ridingInstance.search(currentPos, targetLocation);
+        ridingInstance.search(currentPos, targetLocation, (status, res) => {
+          if(status === 'complete'){
+            let path = res.routes[0].paths[0];
+            navSteps = parseRouteSteps(path);
+            if(navSteps.length > 0){
+              voiceSpeak("开始骑行导航，" + navSteps[0].instruction);
+            }
+          }
+        });
       });
     });
 
@@ -344,6 +416,10 @@
     clearBtn.addEventListener('click', () => {
       addressInp.value = '';
       targetLocation = null;
+      isNavigating = false;
+      navSteps = [];
+      currentStepIndex = 0;
+      speechSynthesis.cancel();
       customSuggestList.style.display = 'none';
       if (walkingInstance) walkingInstance.clear();
       if (ridingInstance) ridingInstance.clear();
