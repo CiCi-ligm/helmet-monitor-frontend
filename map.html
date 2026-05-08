@@ -182,9 +182,10 @@
     const clearBtn = document.getElementById('clearBtn');
     const switchMapBtn = document.getElementById('switchMapBtn');
 
-    // OneNet配置
-    const DEVICE_ID    = "2578558519";
-    const API_KEY      = "aVY2ZzVJcGxGUE5vTFBXNkR2d0dIMWMyb1VWdldxTmY=";
+    // ========== 已替换为你新的三个参数 ==========
+    const PRODUCT_ID   = "G2ddPjoILg";
+    const DEVICE_ID    = "2587890563";
+    const API_KEY      = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
     const API_URL      = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints?datastream_id=lat,lng&limit=1`;
 
     // 初始化地图
@@ -251,9 +252,7 @@
       return steps;
     }
 
-    // ==============================================
     // OneNet 获取GPS
-    // ==============================================
     function getGPSFromCloud() {
       fetch(API_URL, {
         headers: { "api-key": API_KEY }
