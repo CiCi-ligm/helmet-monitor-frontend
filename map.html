@@ -172,7 +172,7 @@
     let navSteps = [];
     let currentStepIndex = 0;
     let isNavigating = false;
-    const ARRIVE_DIST = 15; // 距离拐点15米自动下一段
+    const ARRIVE_DIST = 15;
 
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
@@ -182,17 +182,15 @@
     const clearBtn = document.getElementById('clearBtn');
     const switchMapBtn = document.getElementById('switchMapBtn');
 
-    // ========== 已替换为你新的三个参数 ==========
-    const PRODUCT_ID   = "G2ddPjoILg";
+    // 你的OneNet参数
     const DEVICE_ID    = "2587890563";
     const API_KEY      = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
-    const API_URL      = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints?datastream_id=lat,lng&limit=1`;
+    const API_URL      = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints`;
 
     // 初始化地图
     map = new AMap.Map("container", { zoom: 16, viewMode: "3D" });
     satelliteLayer = new AMap.TileLayer.Satellite();
 
-    // 切换卫星图
     switchMapBtn.addEventListener('click', function(){
       if(!isSatellite){
         map.add(satelliteLayer);
@@ -214,12 +212,10 @@
       speechSynthesis.speak(msg);
     }
 
-    // 两点距离 米
     function getDistance(p1, p2) {
       return Math.round(p1.distance(p2));
     }
 
-    // 实时检测是否到达当前拐点，自动下一段
     function checkNavStep() {
       if(!isNavigating || !currentPos || navSteps.length === 0) return;
       if(currentStepIndex >= navSteps.length) {
@@ -240,7 +236,6 @@
       }
     }
 
-    // 解析路线步骤
     function parseRouteSteps(path) {
       let steps = [];
       path.steps.forEach(s=>{
@@ -252,43 +247,67 @@
       return steps;
     }
 
-    // OneNet 获取GPS
+    // ==============================================
+    // 【关键修改：匹配你物模型的标识符 latitude / longitude】
+    // ==============================================
     function getGPSFromCloud() {
       fetch(API_URL, {
         headers: { "api-key": API_KEY }
       })
       .then(res => res.json())
       .then(data => {
-        try {
-          let lat = data.data.datastreams[0].datapoints[0].value;
-          let lng = data.data.datastreams[1].datapoints[0].value;
-          let gcj = wgs84togcj02(lng, lat);
-          let amapLng = gcj[0];
-          let amapLat = gcj[1];
+        console.log("云端原始数据：",data);
 
-          currentPos = new AMap.LngLat(amapLng, amapLat);
-          map.setCenter(currentPos);
-
-          if (startMarker) map.remove(startMarker);
-          startMarker = new AMap.Marker({
-            position: currentPos,
-            map: map,
-            label: { content: "头盔实时位置", offset: new AMap.Pixel(0, -30) }
+        let lng = null, lat = null;
+        if(data.data && data.data.datastreams){
+          data.data.datastreams.forEach(stream=>{
+            // 经度标识符：longitude
+            if(stream.id === "longitude"){
+              lng = stream.datapoints[0].value;
+            }
+            // 纬度标识符：latitude
+            if(stream.id === "latitude"){
+              lat = stream.datapoints[0].value;
+            }
           });
-          loadingTip.style.display = "none";
-
-          // 导航中实时检测拐点
-          checkNavStep();
-        } catch (e) {
-          loadingTip.innerText = "等待GPS数据...";
         }
+
+        console.log("解析得到经度lng：",lng);
+        console.log("解析得到纬度lat：",lat);
+
+        if(!lng || !lat){
+          loadingTip.innerText = "GPS字段为空，等待上传...";
+          return;
+        }
+
+        // 坐标纠偏
+        let gcj = wgs84togcj02(Number(lng), Number(lat));
+        let amapLng = gcj[0];
+        let amapLat = gcj[1];
+
+        currentPos = new AMap.LngLat(amapLng, amapLat);
+        map.setCenter(currentPos);
+
+        if (startMarker) map.remove(startMarker);
+        startMarker = new AMap.Marker({
+          position: currentPos,
+          map: map,
+          label: { content: "头盔实时位置", offset: new AMap.Pixel(0, -30) }
+        });
+        loadingTip.innerText = "GPS定位成功";
+
+        checkNavStep();
+      })
+      .catch(err=>{
+        console.log("请求报错：",err);
+        loadingTip.innerText = "云端请求异常/跨域";
       });
     }
 
     setInterval(getGPSFromCloud, 2000);
     getGPSFromCloud();
 
-    // 坐标纠偏 WGS84 -> GCJ02
+    // 坐标纠偏算法
     const PI = 3.1415926535897932384626;
     const a = 6378245.0;
     const ee = 0.00669342162296594323;
@@ -361,7 +380,6 @@
       if (!currentPos) { alert("头盔GPS未就绪"); return; }
       if (!targetLocation) { alert("请选择目的地"); return; }
 
-      // 重置导航状态
       isNavigating = true;
       currentStepIndex = 0;
       navSteps = [];
