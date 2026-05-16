@@ -185,10 +185,10 @@
     // 你的OneNet参数
     const DEVICE_ID    = "2587890563";
     const API_KEY      = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
-    // 跨域代理地址
-    const PROXY_URL    = "https://api.allorigins.win/raw?url=";
-    const API_URL      = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints`;
-    const PROXIED_API_URL = PROXY_URL + encodeURIComponent(API_URL);
+    
+    // ========== 这里已经换成你当前的ngrok代理地址，彻底解决跨域 ==========
+    const NGROK_HOST   = "https://subsystem-resilient-cannon.ngrok-free.dev";
+    const API_URL      = `${NGROK_HOST}/api/onenet/devices/${DEVICE_ID}/datapoints`;
 
     // 初始化地图
     map = new AMap.Map("container", { zoom: 16, viewMode: "3D" });
@@ -244,17 +244,15 @@
       path.steps.forEach(s=>{
         steps.push({
           instruction: s.instruction,
-          end: new AMap.LngLat(s.path[s.path.length-1][0], s.path[s.path[s.path.length-1][1]])
+          end: new AMap.LngLat(s.path[s.path.length-1][0], s.path[s.path.length-1][1]])
         });
       });
       return steps;
     }
 
-    // ==============================================
-    // 【关键修改：使用代理绕过跨域】
-    // ==============================================
+    // 从ngrok代理获取GPS数据
     function getGPSFromCloud() {
-      fetch(PROXIED_API_URL, {
+      fetch(API_URL, {
         headers: { "api-key": API_KEY }
       })
       .then(res => res.json())
@@ -300,7 +298,7 @@
       })
       .catch(err=>{
         console.log("请求报错：",err);
-        loadingTip.innerText = "云端请求异常/跨域";
+        loadingTip.innerText = "ngrok代理请求异常";
       });
     }
 
