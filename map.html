@@ -185,7 +185,10 @@
     // 你的OneNet参数
     const DEVICE_ID    = "2587890563";
     const API_KEY      = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
+    // 跨域代理地址
+    const PROXY_URL    = "https://api.allorigins.win/raw?url=";
     const API_URL      = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints`;
+    const PROXIED_API_URL = PROXY_URL + encodeURIComponent(API_URL);
 
     // 初始化地图
     map = new AMap.Map("container", { zoom: 16, viewMode: "3D" });
@@ -248,10 +251,10 @@
     }
 
     // ==============================================
-    // 【关键修改：匹配你物模型的标识符 latitude / longitude】
+    // 【关键修改：使用代理绕过跨域】
     // ==============================================
     function getGPSFromCloud() {
-      fetch(API_URL, {
+      fetch(PROXIED_API_URL, {
         headers: { "api-key": API_KEY }
       })
       .then(res => res.json())
@@ -261,11 +264,9 @@
         let lng = null, lat = null;
         if(data.data && data.data.datastreams){
           data.data.datastreams.forEach(stream=>{
-            // 经度标识符：longitude
             if(stream.id === "longitude"){
               lng = stream.datapoints[0].value;
             }
-            // 纬度标识符：latitude
             if(stream.id === "latitude"){
               lat = stream.datapoints[0].value;
             }
@@ -280,7 +281,6 @@
           return;
         }
 
-        // 坐标纠偏
         let gcj = wgs84togcj02(Number(lng), Number(lat));
         let amapLng = gcj[0];
         let amapLat = gcj[1];
