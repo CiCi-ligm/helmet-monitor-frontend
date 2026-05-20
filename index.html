@@ -13,145 +13,30 @@
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
-    #container {
-      width: 100%;
-      height: 100vh;
-    }
-
-    .input-box {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 9999;
-      background: #fff;
-      padding: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .input-box input {
-      width: 100%;
-      padding: 8px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-    .input-box button {
-      width: 31%;
-      padding: 8px;
-      background: #1677ff;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      margin-right: 1%;
-    }
-    .input-box button.clear {
-      background: #666;
-    }
-
-    .map-type-btn {
-      position: fixed;
-      top: 90px;
-      right: 12px;
-      z-index: 9999;
-      padding: 10px 18px;
-      background: rgba(255, 255, 255, 0.95);
-      border: none;
-      border-radius: 30px;
-      font-size: 13px;
-      color: #333;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
-      cursor: pointer;
-      transition: all 0.25s ease;
-    }
-    .map-type-btn:hover {
-      background: #1677ff;
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(22, 119, 255, 0.3);
-    }
-
-    #custom-suggest-list {
-      position: fixed;
-      top: 90px;
-      left: 8px;
-      right: 8px;
-      z-index: 9998;
-      background: #fff;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      max-height: 200px;
-      overflow-y: auto;
-      display: none;
-    }
-    #custom-suggest-list .item {
-      padding: 10px 10px 10px 30px;
-      font-size: 14px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      position: relative;
-    }
-    #custom-suggest-list .item::before {
-      content: "📍";
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-    }
-    #custom-suggest-list .item .highlight {
-      color: #1677ff;
-      font-weight: bold;
-    }
-
-    #loadingTip {
-      position: fixed;
-      top: 300px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 14px;
-    }
-
-    #panel {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      right: 10px;
-      z-index: 9999;
-      background: #fff;
-      padding: 10px;
-      border-radius: 10px;
-      max-height: 160px;
-      overflow-y: auto;
-      font-size: 13px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    #container { width: 100%; height: 100vh; }
+    .input-box { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #fff; padding: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+    .input-box input { width: 100%; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 8px; }
+    .input-box button { width: 31%; padding: 8px; background: #1677ff; color: #fff; border: none; border-radius: 6px; font-size: 14px; margin-right: 1%; }
+    .input-box button.clear { background: #666; }
+    .map-type-btn { position: fixed; top: 90px; right: 12px; z-index: 9999; padding: 10px 18px; background: rgba(255,255,255,0.95); border: none; border-radius: 30px; font-size: 13px; color: #333; box-shadow: 0 3px 10px rgba(0,0,0,0.12); cursor: pointer; }
+    #custom-suggest-list { position: fixed; top: 90px; left: 8px; right: 8px; z-index: 9998; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; display: none; }
+    #custom-suggest-list .item { padding: 10px 10px 10px 30px; font-size: 14px; border-bottom: 1px solid #eee; cursor: pointer; position: relative; }
+    #custom-suggest-list .item::before { content: "📍"; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+    .highlight { color: #1677ff; font-weight: bold; }
+    #loadingTip { position: fixed; top: 300px; left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(0,0,0,0.7); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; }
+    #panel { position: fixed; bottom: 10px; left: 10px; right: 10px; z-index: 9999; background: #fff; padding: 10px; border-radius: 10px; max-height: 160px; overflow-y: auto; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
   </style>
 </head>
 <body>
   <div id="container"></div>
-
   <div class="input-box">
-    <input id="addressInp" placeholder="输入目的地，例如：零食有鸣、宜宾市二中" />
+    <input id="addressInp" placeholder="输入目的地" />
     <button id="walkBtn">步行导航</button>
     <button id="rideBtn">骑行导航</button>
     <button id="clearBtn" class="clear">清空</button>
   </div>
-
   <button class="map-type-btn" id="switchMapBtn">切换卫星图</button>
   <div id="custom-suggest-list"></div>
   <div id="loadingTip">正在获取硬件GPS位置...</div>
@@ -168,7 +53,6 @@
     let isSatellite = false;
     let satelliteLayer = null;
 
-    // 语音导航相关
     let navSteps = [];
     let currentStepIndex = 0;
     let isNavigating = false;
@@ -182,13 +66,12 @@
     const clearBtn = document.getElementById('clearBtn');
     const switchMapBtn = document.getElementById('switchMapBtn');
 
-    // 你的OneNet参数
-    const DEVICE_ID    = "2587890563";
-    const API_KEY      = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
-    
-    // ========== 这里换成你当前的ngrok地址 ==========
-    const NGROK_HOST   = "https://subsystem-resilient-cannon.ngrok-free.dev";
-    const API_URL      = `${NGROK_HOST}/api/onenet/devices/${DEVICE_ID}/datapoints`;
+    // 你的配置
+    const DEVICE_ID = "2587890563";
+    const API_KEY = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
+    // 这里换成你当前的 ngrok 地址
+    const NGROK_HOST = "https://subsystem-resilient-cannon.ngrok-free.dev";
+    const API_URL = `${NGROK_HOST}/api/onenet/devices/${DEVICE_ID}/datapoints`;
 
     // 初始化地图
     map = new AMap.Map("container", { zoom: 16, viewMode: "3D" });
@@ -215,12 +98,15 @@
       speechSynthesis.speak(msg);
     }
 
+    // 计算两点距离
     function getDistance(p1, p2) {
+      if(!p1 || !p2) return 9999;
       return Math.round(p1.distance(p2));
     }
 
+    // 导航步骤处理
     function checkNavStep() {
-      if(!isNavigating || !currentPos || navSteps.length === 0) return;
+      if(!isNavigating || !currentPos || !navSteps || navSteps.length === 0) return;
       if(currentStepIndex >= navSteps.length) {
         voiceSpeak("已到达目的地，导航结束");
         isNavigating = false;
@@ -239,26 +125,29 @@
       }
     }
 
+    // 解析导航路径
     function parseRouteSteps(path) {
       let steps = [];
+      if(!path || !path.steps) return steps;
       path.steps.forEach(s=>{
+        if(!s.path || s.path.length === 0) return;
+        let lastPoint = s.path[s.path.length-1];
         steps.push({
-          instruction: s.instruction,
-          end: new AMap.LngLat(s.path[s.path.length-1][0], s.path[s.path.length-1][1])
+          instruction: s.instruction || "",
+          end: new AMap.LngLat(lastPoint[0], lastPoint[1])
         });
       });
       return steps;
     }
 
-    // 从ngrok代理获取GPS数据
+    // 获取GPS数据（核心函数）
     function getGPSFromCloud() {
       fetch(API_URL, {
         headers: { "api-key": API_KEY }
       })
       .then(res => res.json())
       .then(data => {
-        console.log("云端原始数据：",data);
-
+        console.log("云端原始数据：", data);
         let lng = null, lat = null;
         if(data.data && data.data.datastreams){
           data.data.datastreams.forEach(stream=>{
@@ -270,22 +159,18 @@
             }
           });
         }
-
-        console.log("解析得到经度lng：",lng);
-        console.log("解析得到纬度lat：",lat);
-
+        console.log("解析得到经度：", lng, "纬度：", lat);
         if(!lng || !lat){
           loadingTip.innerText = "GPS字段为空，等待上传...";
           return;
         }
-
+        // 坐标纠偏
         let gcj = wgs84togcj02(Number(lng), Number(lat));
         let amapLng = gcj[0];
         let amapLat = gcj[1];
-
+        // 更新地图位置
         currentPos = new AMap.LngLat(amapLng, amapLat);
         map.setCenter(currentPos);
-
         if (startMarker) map.remove(startMarker);
         startMarker = new AMap.Marker({
           position: currentPos,
@@ -293,15 +178,15 @@
           label: { content: "头盔实时位置", offset: new AMap.Pixel(0, -30) }
         });
         loadingTip.innerText = "GPS定位成功";
-
         checkNavStep();
       })
       .catch(err=>{
-        console.log("请求报错：",err);
+        console.log("请求报错：", err);
         loadingTip.innerText = "ngrok代理请求异常";
       });
     }
 
+    // 定时刷新GPS
     setInterval(getGPSFromCloud, 2000);
     getGPSFromCloud();
 
@@ -377,15 +262,12 @@
     walkBtn.addEventListener('click', () => {
       if (!currentPos) { alert("头盔GPS未就绪"); return; }
       if (!targetLocation) { alert("请选择目的地"); return; }
-
       isNavigating = true;
       currentStepIndex = 0;
       navSteps = [];
-
       if (walkingInstance) walkingInstance.clear();
       if (endMarker) map.remove(endMarker);
       endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地" } });
-
       AMap.plugin("AMap.Walking", () => {
         walkingInstance = new AMap.Walking({ map, panel: "panel" });
         walkingInstance.search(currentPos, targetLocation, (status, res) => {
@@ -404,15 +286,12 @@
     rideBtn.addEventListener('click', () => {
       if (!currentPos) { alert("头盔GPS未就绪"); return; }
       if (!targetLocation) { alert("请选择目的地"); return; }
-
       isNavigating = true;
       currentStepIndex = 0;
       navSteps = [];
-
       if (ridingInstance) ridingInstance.clear();
       if (endMarker) map.remove(endMarker);
       endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地" } });
-
       AMap.plugin("AMap.Riding", () => {
         ridingInstance = new AMap.Riding({ map, panel: "panel" });
         ridingInstance.search(currentPos, targetLocation, (status, res) => {
