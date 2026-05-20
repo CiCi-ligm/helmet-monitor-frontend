@@ -137,7 +137,7 @@
       return steps;
     }
 
-    // 获取GPS数据 直连OneNet 无需本地Ngrok代理
+    // 获取GPS数据（适配OneNet平台字段名：经度/纬度）
     function getGPSFromCloud() {
       const originUrl = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints`;
       const proxyApi = `https://corsproxy.io/?${encodeURIComponent(originUrl)}`;
@@ -158,17 +158,18 @@
         let lng = null, lat = null;
         if(data.data && data.data.datastreams){
           data.data.datastreams.forEach(stream=>{
-            if(stream.id === "longitude"){
+            // 适配你的OneNet字段名：经度/纬度
+            if(stream.id === "经度"){
               lng = stream.datapoints[0].value;
             }
-            if(stream.id === "latitude"){
+            if(stream.id === "纬度"){
               lat = stream.datapoints[0].value;
             }
           });
         }
         console.log("解析得到经度：", lng, "纬度：", lat);
-        if(!lng || !lat){
-          loadingTip.innerText = "GPS字段为空，等待硬件上传数据...";
+        if(!lng || !lat || lat > 90 || lat < -90){
+          loadingTip.innerText = "GPS数据异常或为空，等待硬件上传数据...";
           return;
         }
         // 坐标纠偏
