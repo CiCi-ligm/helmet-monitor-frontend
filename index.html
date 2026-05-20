@@ -66,12 +66,9 @@
     const clearBtn = document.getElementById('clearBtn');
     const switchMapBtn = document.getElementById('switchMapBtn');
 
-    // 你的配置
+    // 设备配置信息
     const DEVICE_ID = "2587890563";
     const API_KEY = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
-    // 这里换成你当前的 ngrok 地址
-    const NGROK_HOST = "https://subsystem-resilient-cannon.ngrok-free.dev";
-    const API_URL = `${NGROK_HOST}/api/onenet/devices/${DEVICE_ID}/datapoints`;
 
     // 初始化地图
     map = new AMap.Map("container", { zoom: 16, viewMode: "3D" });
@@ -140,14 +137,24 @@
       return steps;
     }
 
-    // 获取GPS数据（核心函数）
+    // 获取GPS数据 直连OneNet 无需本地Ngrok代理
     function getGPSFromCloud() {
-      fetch(API_URL, {
-        headers: { "api-key": API_KEY }
+      const originUrl = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints`;
+      const proxyApi = `https://corsproxy.io/?${encodeURIComponent(originUrl)}`;
+
+      fetch(proxyApi, {
+        method: "GET",
+        headers: {
+          "api-key": API_KEY,
+          "Accept": "application/json"
+        }
       })
-      .then(res => res.json())
+      .then(res => {
+        if(!res.ok) throw new Error("平台请求失败");
+        return res.json();
+      })
       .then(data => {
-        console.log("云端原始数据：", data);
+        console.log("云端原始GPS数据：", data);
         let lng = null, lat = null;
         if(data.data && data.data.datastreams){
           data.data.datastreams.forEach(stream=>{
@@ -161,14 +168,14 @@
         }
         console.log("解析得到经度：", lng, "纬度：", lat);
         if(!lng || !lat){
-          loadingTip.innerText = "GPS字段为空，等待上传...";
+          loadingTip.innerText = "GPS字段为空，等待硬件上传数据...";
           return;
         }
         // 坐标纠偏
         let gcj = wgs84togcj02(Number(lng), Number(lat));
         let amapLng = gcj[0];
         let amapLat = gcj[1];
-        // 更新地图位置
+        // 更新地图实时位置
         currentPos = new AMap.LngLat(amapLng, amapLat);
         map.setCenter(currentPos);
         if (startMarker) map.remove(startMarker);
@@ -177,12 +184,12 @@
           map: map,
           label: { content: "头盔实时位置", offset: new AMap.Pixel(0, -30) }
         });
-        loadingTip.innerText = "GPS定位成功";
+        loadingTip.innerText = "GPS定位成功，实时导航中";
         checkNavStep();
       })
       .catch(err=>{
-        console.log("请求报错：", err);
-        loadingTip.innerText = "ngrok代理请求异常";
+        console.log("GPS请求报错：", err);
+        loadingTip.innerText = "获取硬件GPS数据异常";
       });
     }
 
