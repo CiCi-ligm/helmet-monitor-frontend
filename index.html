@@ -1,63 +1,50 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>智能头盔系统</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f0f2f5;
-    }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    .link-list {
-      max-width: 400px;
-      margin: 30px auto;
-    }
-    .link-item {
-      display: block;
-      padding: 15px;
-      margin: 10px 0;
-      background: #fff;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #333;
-      text-align: center;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .link-item:hover {
-      background: #1677ff;
-      color: #fff;
-    }
-    .map-btn {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #1677ff;
-      color: #fff;
-      padding: 12px 16px;
-      border-radius: 8px;
-      text-decoration: none;
-    }
-  </style>
-</head>
-<body>
-  <h1>🏍️ 智能头盔系统</h1>
+const express = require('express');
+const request = require('request');
+const cors = require('cors');
 
-  <div class="link-list">
-    <a href="login.html" class="link-item">登录页面</a>
-    <a href="pay.html" class="link-item">支付界面</a>
-    <a href="record.html" class="link-item">骑行记录</a>
-    <a href="profile.html" class="link-item">个人中心</a>
-    <a href="blind.html" class="link-item">盲用辅助</a>
-    <a href="nav.html" class="link-item">导航模块</a>
-  </div>
+const app = express();
+const port = 3000;
 
-  <a href="map.html" class="map-btn">地图导航</a>
-</body>
-</html>
+// 允许所有跨域请求，彻底解决 CORS 问题
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "OPTIONS"],
+  allowedHeaders: ["api-key", "Content-Type"]
+}));
+
+// 处理预检请求
+app.options('*', (req, res) => {
+  res.sendStatus(200);
+});
+
+// 代理 OneNet 请求
+app.get('/api/onenet/devices/:deviceId/datapoints', (req, res) => {
+  const { deviceId } = req.params;
+  const apiKey = req.headers['api-key'];
+
+  if (!apiKey) {
+    return res.status(400).json({ error: 'Missing api-key header' });
+  }
+
+  const oneNetUrl = `https://api.heclouds.com/devices/${deviceId}/datapoints`;
+
+  // 转发请求到 OneNet
+  request({
+    url: oneNetUrl,
+    headers: {
+      'api-key': apiKey
+    },
+    method: 'GET'
+  }, (error, response, body) => {
+    if (error) {
+      console.error('OneNet request error:', error);
+      return res.status(502).json({ error: 'Bad Gateway' });
+    }
+    // 把 OneNet 的响应原样返回给前端
+    res.status(response.statusCode).send(body);
+  });
+});
+
+app.listen(port, () => {
+  console.log(`Proxy server running at http://localhost:${port}`);
+});
