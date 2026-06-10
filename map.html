@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>地图导航</title>
+  <title>🏍️ 智能头盔导航</title>
 
+  <!-- 高德地图安全配置（必须放在JSAPI之前） -->
   <script>
     window._AMapSecurityConfig = {
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
@@ -17,16 +18,19 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      font-family: Arial, "Microsoft Yahei";
     }
     html, body {
       height: 100%;
       overflow: hidden;
+      background: #f6f7f9;
     }
     #container {
       width: 100%;
       height: 100vh;
     }
 
+    /* 顶部输入控制区 */
     .input-box {
       position: fixed;
       top: 0;
@@ -34,98 +38,145 @@
       right: 0;
       z-index: 9999;
       background: #fff;
-      padding: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
     }
     .input-box input {
-      width: 100%;
-      padding: 8px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      margin-bottom: 8px;
+      width: 83%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      outline: none;
+      float: left;
+      margin-right: 2%;
     }
-    .input-box button {
-      width: 31%;
-      padding: 8px;
+    .input-box input:focus {
+      border-color: #1677ff;
+      box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+    }
+    #voiceBtn {
+      width: 15%;
+      padding: 12px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #voiceBtn:hover {
+      background: #059669;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      clear: both;
+    }
+    .btn-group button {
+      flex: 1;
+      padding: 10px;
       background: #1677ff;
       color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      margin-right: 1%;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .input-box button.clear {
-      background: #666;
+    .btn-group button:hover {
+      background: #0d5bd6;
+    }
+    .btn-group button.gray {
+      background: #6b7280;
+    }
+    .btn-group button.gray:hover {
+      background: #4b5563;
     }
 
-    .map-type-btn {
+    /* 浮动按钮 */
+    .float-btn {
       position: fixed;
-      top: 90px;
-      right: 12px;
       z-index: 9999;
-      padding: 10px 18px;
+      padding: 12px 18px;
       background: rgba(255, 255, 255, 0.95);
       border: none;
-      border-radius: 30px;
-      font-size: 13px;
+      border-radius: 24px;
+      font-size: 14px;
       color: #333;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
       cursor: pointer;
       transition: all 0.25s ease;
     }
-    .map-type-btn:hover {
-      background: #1677ff;
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(22, 119, 255, 0.3);
+    .float-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+    #switchMapBtn {
+      top: 130px;
+      right: 12px;
+    }
+    #locateBtn {
+      top: 180px;
+      right: 12px;
     }
 
+    /* 联想搜索列表 */
     #custom-suggest-list {
       position: fixed;
-      top: 90px;
-      left: 8px;
-      right: 8px;
+      top: 120px;
+      left: 12px;
+      right: 12px;
       z-index: 9998;
       background: #fff;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      max-height: 200px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      max-height: 240px;
       overflow-y: auto;
       display: none;
     }
     #custom-suggest-list .item {
-      padding: 10px 10px 10px 30px;
-      font-size: 14px;
-      border-bottom: 1px solid #eee;
+      padding: 12px 12px 12px 36px;
+      font-size: 15px;
+      border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
       position: relative;
     }
     #custom-suggest-list .item::before {
       content: "📍";
       position: absolute;
-      left: 8px;
+      left: 10px;
       top: 50%;
       transform: translateY(-50%);
-      font-size: 14px;
+      font-size: 16px;
     }
     #custom-suggest-list .item .highlight {
       color: #1677ff;
       font-weight: bold;
     }
-
-    #loadingTip {
-      position: fixed;
-      top: 300px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 14px;
+    #custom-suggest-list .item:last-child {
+      border-bottom: none;
     }
 
+    /* 加载提示 */
+    #loadingTip {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    /* 导航详情面板 */
     #panel {
       position: fixed;
       bottom: 10px;
@@ -133,12 +184,35 @@
       right: 10px;
       z-index: 9999;
       background: #fff;
-      padding: 10px;
-      border-radius: 10px;
-      max-height: 160px;
+      padding: 12px;
+      border-radius: 12px;
+      max-height: 180px;
       overflow-y: auto;
-      font-size: 13px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      font-size: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      display: none;
+    }
+    #panel .nav-summary {
+      font-weight: 600;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    #panel .nav-step {
+      margin-bottom: 6px;
+      padding-left: 20px;
+      position: relative;
+    }
+    #panel .nav-step::before {
+      content: "•";
+      position: absolute;
+      left: 8px;
+      color: #1677ff;
+      font-weight: bold;
+    }
+    #panel .nav-step.current {
+      color: #1677ff;
+      font-weight: 500;
     }
   </style>
 </head>
@@ -146,18 +220,23 @@
   <div id="container"></div>
 
   <div class="input-box">
-    <input id="addressInp" placeholder="输入目的地，例如：零食有鸣、宜宾市二中" />
-    <button id="walkBtn">步行导航</button>
-    <button id="rideBtn">骑行导航</button>
-    <button id="clearBtn" class="clear">清空</button>
+    <input id="addressInp" placeholder="输入目的地，或者点击右边麦克风说话" />
+    <button id="voiceBtn">🎤</button>
+    <div class="btn-group">
+      <button id="walkBtn">🚶 步行</button>
+      <button id="rideBtn">🚲 骑行</button>
+      <button id="clearBtn" class="gray">清空</button>
+    </div>
   </div>
 
-  <button class="map-type-btn" id="switchMapBtn">切换卫星图</button>
+  <button class="float-btn" id="switchMapBtn">切换卫星图</button>
+  <button class="float-btn" id="locateBtn">📍 定位</button>
   <div id="custom-suggest-list"></div>
-  <div id="loadingTip">正在获取硬件GPS位置...</div>
+  <div id="loadingTip">正在连接头盔GPS...</div>
   <div id="panel"></div>
 
   <script>
+    // ====================== 全局变量 ======================
     let map;
     let startMarker = null;
     let endMarker = null;
@@ -167,13 +246,16 @@
     let targetLocation = null;
     let isSatellite = false;
     let satelliteLayer = null;
+    let gpsTimer = null;
 
-    // 语音导航相关
+    // 导航相关
     let navSteps = [];
     let currentStepIndex = 0;
     let isNavigating = false;
-    const ARRIVE_DIST = 15;
+    const ARRIVE_DIST = 20;
+    const GPS_INTERVAL = 2000;
 
+    // DOM元素
     const loadingTip = document.getElementById('loadingTip');
     const addressInp = document.getElementById('addressInp');
     const customSuggestList = document.getElementById('custom-suggest-list');
@@ -181,132 +263,139 @@
     const rideBtn = document.getElementById('rideBtn');
     const clearBtn = document.getElementById('clearBtn');
     const switchMapBtn = document.getElementById('switchMapBtn');
+    const locateBtn = document.getElementById('locateBtn');
+    const panel = document.getElementById('panel');
 
-    // 你的OneNet参数
-    const DEVICE_ID    = "2587890563";
-    const API_KEY      = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
-    
-    // ========== 这里已经换成你当前的ngrok代理地址，彻底解决跨域 ==========
-    const NGROK_HOST   = "https://subsystem-resilient-cannon.ngrok-free.dev";
-    const API_URL      = `${NGROK_HOST}/api/onenet/devices/${DEVICE_ID}/datapoints`;
+    // ====================== 你的设备参数（已填好，无需修改） ======================
+    const DEVICE_ID = "2587890563";
+    const ONENET_API_KEY = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
+    const ONENET_API = `https://api.heclouds.com/devices/${DEVICE_ID}/datapoints`;
 
-    // 初始化地图
-    map = new AMap.Map("container", { zoom: 16, viewMode: "3D" });
-    satelliteLayer = new AMap.TileLayer.Satellite();
+    // ====================== 【必须替换】大模型配置 ======================
+    // 申请地址：https://www.volcengine.com/product/doubao
+    const DOUBAO_API_KEY = "你的豆包API_KEY";
+    const DOUBAO_SECRET_KEY = "你的豆包SECRET_KEY";
+    let doubaoToken = null;
+    const startTime = Date.now(); // 记录骑行开始时间
 
-    switchMapBtn.addEventListener('click', function(){
-      if(!isSatellite){
-        map.add(satelliteLayer);
-        switchMapBtn.innerText = '切换普通地图';
-        isSatellite = true;
-      }else{
-        map.remove(satelliteLayer);
-        switchMapBtn.innerText = '切换卫星图';
-        isSatellite = false;
-      }
-    });
+    // ====================== 初始化地图 ======================
+    function initMap() {
+      map = new AMap.Map("container", {
+        zoom: 17,
+        viewMode: "3D",
+        resizeEnable: true,
+        center: [104.5647, 28.7658] // 默认宜宾中心点
+      });
+      satelliteLayer = new AMap.TileLayer.Satellite();
 
-    // 语音播报
-    function voiceSpeak(text) {
-      window.speechSynthesis.cancel();
-      let msg = new SpeechSynthesisUtterance(text);
-      msg.lang = "zh-CN";
-      msg.rate = 1;
-      speechSynthesis.speak(msg);
+      bindEvents();
+      startGPSTimer();
+      initAutoComplete();
+      // 启动大模型骑行状态分析（满足上行交互要求）
+      setInterval(analyzeRidingData, 30000);
     }
 
-    function getDistance(p1, p2) {
-      return Math.round(p1.distance(p2));
-    }
-
-    function checkNavStep() {
-      if(!isNavigating || !currentPos || navSteps.length === 0) return;
-      if(currentStepIndex >= navSteps.length) {
-        voiceSpeak("已到达目的地，导航结束");
-        isNavigating = false;
-        return;
-      }
-      let stepEnd = navSteps[currentStepIndex].end;
-      let dist = getDistance(currentPos, stepEnd);
-      if(dist < ARRIVE_DIST) {
-        currentStepIndex ++;
-        if(currentStepIndex < navSteps.length) {
-          voiceSpeak(navSteps[currentStepIndex].instruction);
-        } else {
-          voiceSpeak("已到达目的地，导航结束");
-          isNavigating = false;
+    // ====================== 事件绑定 ======================
+    function bindEvents() {
+      switchMapBtn.addEventListener('click', function(){
+        if(!isSatellite){
+          map.add(satelliteLayer);
+          switchMapBtn.innerText = '切换普通地图';
+          isSatellite = true;
+        }else{
+          map.remove(satelliteLayer);
+          switchMapBtn.innerText = '切换卫星图';
+          isSatellite = false;
         }
-      }
-    }
+      });
 
-    function parseRouteSteps(path) {
-      let steps = [];
-      path.steps.forEach(s=>{
-        steps.push({
-          instruction: s.instruction,
-          // 修复了括号问题！
-          end: new AMap.LngLat(s.path[s.path.length-1][0], s.path[s.path.length-1][1])
+      locateBtn.addEventListener('click', function(){
+        loadingTip.innerText = "正在获取手机GPS位置...";
+        const geolocation = new AMap.Geolocation({
+          enableHighAccuracy: true,
+          timeout: 10000
+        });
+        geolocation.getCurrentPosition((status, result) => {
+          if(status === "complete" && result.position) {
+            currentPos = result.position;
+            updateMarkerAndCenter();
+            loadingTip.innerText = "手机GPS定位成功";
+            setTimeout(() => loadingTip.style.display = 'none', 2000);
+          } else {
+            loadingTip.innerText = "手机定位失败，等待头盔GPS";
+          }
         });
       });
-      return steps;
+
+      walkBtn.addEventListener('click', () => startNavigation('walking'));
+      rideBtn.addEventListener('click', () => startNavigation('riding'));
+      clearBtn.addEventListener('click', clearAll);
     }
 
-    // 从ngrok代理获取GPS数据
-    function getGPSFromCloud() {
-      fetch(API_URL, {
-        headers: { "api-key": API_KEY }
-      })
-      .then(res => res.json())
-      .then(data => {
-        console.log("云端原始数据：",data);
+    // ====================== GPS 相关 ======================
+    function startGPSTimer() {
+      getGPSFromCloud();
+      gpsTimer = setInterval(getGPSFromCloud, GPS_INTERVAL);
+    }
 
+    function getGPSFromCloud() {
+      fetch(ONENET_API, {
+        headers: { "api-key": ONENET_API_KEY }
+      })
+      .then(res => {
+        if(!res.ok) throw new Error(`HTTP错误: ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
         let lng = null, lat = null;
         if(data.data && data.data.datastreams){
           data.data.datastreams.forEach(stream=>{
-            if(stream.id === "longitude"){
-              lng = stream.datapoints[0].value;
-            }
-            if(stream.id === "latitude"){
-              lat = stream.datapoints[0].value;
-            }
+            // 自动兼容中英文数据流ID
+            if(stream.id === "longitude" || stream.id === "经度") lng = stream.datapoints[0].value;
+            if(stream.id === "latitude" || stream.id === "纬度") lat = stream.datapoints[0].value;
           });
         }
 
-        console.log("解析得到经度lng：",lng);
-        console.log("解析得到纬度lat：",lat);
-
         if(!lng || !lat){
-          loadingTip.innerText = "GPS字段为空，等待上传...";
+          loadingTip.innerText = "头盔GPS无数据，等待上传...";
           return;
         }
 
-        let gcj = wgs84togcj02(Number(lng), Number(lat));
-        let amapLng = gcj[0];
-        let amapLat = gcj[1];
-
-        currentPos = new AMap.LngLat(amapLng, amapLat);
-        map.setCenter(currentPos);
-
-        if (startMarker) map.remove(startMarker);
-        startMarker = new AMap.Marker({
-          position: currentPos,
-          map: map,
-          label: { content: "头盔实时位置", offset: new AMap.Pixel(0, -30) }
-        });
-        loadingTip.innerText = "GPS定位成功";
-
+        // WGS84转高德GCJ02坐标
+        const gcj = wgs84togcj02(Number(lng), Number(lat));
+        currentPos = new AMap.LngLat(gcj[0], gcj[1]);
+        updateMarkerAndCenter();
+        loadingTip.style.display = 'none';
         checkNavStep();
       })
       .catch(err=>{
-        console.log("请求报错：",err);
-        loadingTip.innerText = "ngrok代理请求异常";
+        console.error("GPS请求失败:", err);
+        loadingTip.innerText = "头盔连接失败，请检查网络";
       });
     }
 
-    setInterval(getGPSFromCloud, 2000);
-    getGPSFromCloud();
+    function updateMarkerAndCenter() {
+      if (startMarker) map.remove(startMarker);
+      startMarker = new AMap.Marker({
+        position: currentPos,
+        map: map,
+        label: { 
+          content: "头盔位置", 
+          offset: new AMap.Pixel(0, -35),
+          style: {
+            fontSize: '12px',
+            backgroundColor: 'rgba(22, 119, 255, 0.9)',
+            color: '#fff',
+            padding: '3px 8px',
+            borderRadius: '4px'
+          }
+        }
+      });
+      // 导航中不自动跳转中心，避免干扰
+      if(!isNavigating) map.setCenter(currentPos);
+    }
 
-    // 坐标纠偏算法
+    // ====================== 坐标纠偏算法 ======================
     const PI = 3.1415926535897932384626;
     const a = 6378245.0;
     const ee = 0.00669342162296594323;
@@ -320,9 +409,7 @@
       let sqrtmagic = Math.sqrt(magic);
       dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * PI);
       dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * PI);
-      let mglat = lat + dlat;
-      let mglng = lng + dlng;
-      return [mglng, mglat];
+      return [lng + dlng, lat + dlat];
     }
     function transformlat(lng, lat) {
       let ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
@@ -334,7 +421,7 @@
     function transformlng(lng, lat) {
       let ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
       ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
-      ret += (20.0 * Math.sin(lng * PI) + 40.0 * Math.sin(lng / 3.0 * PI)) * 2.0 / 3.0;
+      ret += (20.0 * Math.sin(lat * PI) + 40.0 * Math.sin(lat / 3.0 * PI)) * 2.0 / 3.0;
       ret += (150.0 * Math.sin(lng / 12.0 * PI) + 300.0 * Math.sin(lng / 30.0 * PI)) * 2.0 / 3.0;
       return ret;
     }
@@ -342,105 +429,368 @@
       return (lng < 72.004 || lng > 137.8347) || (lat < 0.8293 || lat > 55.8271);
     }
 
-    // 联想搜索
-    let autoComplete = new AMap.AutoComplete({ city: "宜宾" });
-    let timer = null;
-    addressInp.addEventListener('input', function() {
-      const keyword = this.value.trim();
-      if (!keyword) { customSuggestList.style.display = 'none'; return; }
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        autoComplete.search(keyword, (status, result) => {
-          if (status === 'complete' && result.tips) {
-            customSuggestList.innerHTML = '';
-            result.tips.forEach(tip => {
-              if (!tip.location) return;
-              const item = document.createElement('div');
-              item.className = 'item';
-              item.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
-              item.onclick = () => {
-                addressInp.value = tip.name;
-                targetLocation = tip.location;
-                customSuggestList.style.display = 'none';
-              };
-              customSuggestList.appendChild(item);
+    // ====================== 联想搜索 ======================
+    function initAutoComplete() {
+      const autoComplete = new AMap.AutoComplete({ city: "宜宾" });
+      let timer = null;
+
+      addressInp.addEventListener('input', function() {
+        const keyword = this.value.trim();
+        if (!keyword) { customSuggestList.style.display = 'none'; return; }
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          autoComplete.search(keyword, (status, result) => {
+            if (status === 'complete' && result.tips) {
+              customSuggestList.innerHTML = '';
+              result.tips.forEach(tip => {
+                if (!tip.location) return;
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
+                item.onclick = () => {
+                  addressInp.value = tip.name;
+                  targetLocation = tip.location;
+                  customSuggestList.style.display = 'none';
+                };
+                customSuggestList.appendChild(item);
+              });
+              customSuggestList.style.display = 'block';
+            }
+          });
+        }, 300);
+      });
+
+      addressInp.addEventListener('blur', () => {
+        setTimeout(() => customSuggestList.style.display = 'none', 200);
+      });
+    }
+
+    // ====================== 导航核心逻辑 ======================
+    function startNavigation(type) {
+      if (!currentPos) { 
+        alert("⚠️ 头盔GPS未就绪，请稍等或点击右上角【定位】使用手机GPS"); 
+        return; 
+      }
+      if (!targetLocation) { 
+        alert("⚠️ 请先输入并选择目的地"); 
+        return; 
+      }
+
+      // 重置导航状态
+      isNavigating = true;
+      currentStepIndex = 0;
+      navSteps = [];
+      window.speechSynthesis.cancel();
+
+      // 清除旧路线和标记
+      clearRoute();
+      panel.style.display = 'block';
+
+      // 添加目的地标记
+      endMarker = new AMap.Marker({
+        position: targetLocation,
+        map: map,
+        label: { 
+          content: "目的地", 
+          offset: new AMap.Pixel(0, -35),
+          style: {
+            fontSize: '12px',
+            backgroundColor: 'rgba(239, 68, 68, 0.9)',
+            color: '#fff',
+            padding: '3px 8px',
+            borderRadius: '4px'
+          }
+        }
+      });
+
+      // 规划路线
+      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding';
+      const modeText = type === 'walking' ? '步行' : '骑行';
+
+      AMap.plugin(plugin, () => {
+        const instance = type === 'walking' 
+          ? new AMap.Walking({ map, hideMarkers: true })
+          : new AMap.Riding({ map, hideMarkers: true });
+
+        type === 'walking' ? walkingInstance = instance : ridingInstance = instance;
+
+        instance.search(currentPos, targetLocation, (status, res) => {
+          if(status === 'complete' && res.routes && res.routes.length > 0){
+            const route = res.routes[0];
+            const path = route.paths[0];
+            navSteps = parseRouteSteps(path);
+
+            // 显示导航摘要
+            panel.innerHTML = `
+              <div class="nav-summary">
+                🎯 ${addressInp.value} | ${modeText} | ${(path.distance/1000).toFixed(1)}km | 约${path.duration/60|0}分钟
+              </div>
+            `;
+
+            // 显示导航步骤
+            navSteps.forEach((step, index) => {
+              const div = document.createElement('div');
+              div.className = `nav-step ${index === 0 ? 'current' : ''}`;
+              div.innerText = step.instruction;
+              panel.appendChild(div);
             });
-            customSuggestList.style.display = 'block';
-          }
-        });
-      }, 300);
-    });
-    addressInp.addEventListener('blur', () => {
-      setTimeout(() => customSuggestList.style.display = 'none', 200);
-    });
 
-    // 步行导航
-    walkBtn.addEventListener('click', () => {
-      if (!currentPos) { alert("头盔GPS未就绪"); return; }
-      if (!targetLocation) { alert("请选择目的地"); return; }
-
-      isNavigating = true;
-      currentStepIndex = 0;
-      navSteps = [];
-
-      if (walkingInstance) walkingInstance.clear();
-      if (endMarker) map.remove(endMarker);
-      endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地" } });
-
-      AMap.plugin("AMap.Walking", () => {
-        walkingInstance = new AMap.Walking({ map, panel: "panel" });
-        walkingInstance.search(currentPos, targetLocation, (status, res) => {
-          if(status === 'complete'){
-            let path = res.routes[0].paths[0];
-            navSteps = parseRouteSteps(path);
+            // 开始导航
             if(navSteps.length > 0){
-              voiceSpeak("开始步行导航，" + navSteps[0].instruction);
+              voiceSpeak(`开始${modeText}导航，${navSteps[0].instruction}`);
             }
+          } else {
+            alert("❌ 路线规划失败，请换个目的地试试");
+            isNavigating = false;
           }
         });
       });
-    });
+    }
 
-    // 骑行导航
-    rideBtn.addEventListener('click', () => {
-      if (!currentPos) { alert("头盔GPS未就绪"); return; }
-      if (!targetLocation) { alert("请选择目的地"); return; }
-
-      isNavigating = true;
-      currentStepIndex = 0;
-      navSteps = [];
-
-      if (ridingInstance) ridingInstance.clear();
-      if (endMarker) map.remove(endMarker);
-      endMarker = new AMap.Marker({ position: targetLocation, map: map, label: { content: "目的地" } });
-
-      AMap.plugin("AMap.Riding", () => {
-        ridingInstance = new AMap.Riding({ map, panel: "panel" });
-        ridingInstance.search(currentPos, targetLocation, (status, res) => {
-          if(status === 'complete'){
-            let path = res.routes[0].paths[0];
-            navSteps = parseRouteSteps(path);
-            if(navSteps.length > 0){
-              voiceSpeak("开始骑行导航，" + navSteps[0].instruction);
-            }
-          }
+    function parseRouteSteps(path) {
+      const steps = [];
+      path.steps.forEach(s=>{
+        if(!s.instruction || s.instruction.trim() === '') return;
+        steps.push({
+          instruction: s.instruction.replace(/<[^>]+>/g, ''), // 去除HTML标签
+          end: new AMap.LngLat(s.path[s.path.length-1][0], s.path[s.path.length-1][1])
         });
       });
-    });
+      return steps;
+    }
 
-    // 清空
-    clearBtn.addEventListener('click', () => {
-      addressInp.value = '';
-      targetLocation = null;
+    function checkNavStep() {
+      if(!isNavigating || !currentPos || navSteps.length === 0) return;
+      
+      // 到达终点
+      if(currentStepIndex >= navSteps.length) {
+        voiceSpeak("已到达目的地，导航结束");
+        endNavigation();
+        return;
+      }
+
+      const stepEnd = navSteps[currentStepIndex].end;
+      const dist = Math.round(currentPos.distance(stepEnd));
+
+      // 到达当前步骤
+      if(dist < ARRIVE_DIST) {
+        currentStepIndex ++;
+        // 更新面板高亮
+        const stepElements = panel.querySelectorAll('.nav-step');
+        stepElements.forEach((el, idx) => {
+          el.classList.toggle('current', idx === currentStepIndex);
+        });
+        // 播报下一步
+        if(currentStepIndex < navSteps.length) {
+          voiceSpeak(navSteps[currentStepIndex].instruction);
+        } else {
+          voiceSpeak("已到达目的地，导航结束");
+          endNavigation();
+        }
+      }
+    }
+
+    function endNavigation() {
       isNavigating = false;
       navSteps = [];
       currentStepIndex = 0;
-      speechSynthesis.cancel();
-      customSuggestList.style.display = 'none';
+      window.speechSynthesis.cancel();
+    }
+
+    // ====================== 【满足大赛要求】大模型双向交互 ======================
+    // 1. 获取大模型访问令牌
+    async function getDoubaoToken() {
+      if (doubaoToken) return doubaoToken;
+      try {
+        const res = await fetch(`https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${DOUBAO_API_KEY}&client_secret=${DOUBAO_SECRET_KEY}`);
+        const data = await res.json();
+        doubaoToken = data.access_token;
+        return doubaoToken;
+      } catch (e) {
+        console.log("大模型令牌获取失败:", e);
+        return null;
+      }
+    }
+
+    // 2. 解析用户语音指令（支持导航+设备控制）
+    async function parseVoiceCommand(text) {
+      const token = await getDoubaoToken();
+      if (!token) return { action: "error", text: "网络有点慢，再说一遍吧" };
+
+      const systemPrompt = `
+      你是智能骑行头盔的专属助手，只处理以下3类指令，严格输出JSON格式，不要加任何多余文字：
+      1. 导航指令：{"action":"nav","dest":"目的地","mode":"ride/walk"}（默认mode=ride）
+      2. 控制指令：{"action":"control","cmd":"light_on/light_off/alarm"}（开灯/关灯/报警）
+      3. 其他指令：{"action":"reply","text":"你的回答"}
+      4. 听不懂：{"action":"error","text":"我没听懂，请再说一遍"}
+      `;
+
+      try {
+        const res = await fetch(`https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-lite-8k?access_token=${token}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: text }
+            ],
+            temperature: 0.1
+          })
+        });
+        const data = await res.json();
+        return JSON.parse(data.result);
+      } catch (e) {
+        console.log("大模型解析失败:", e);
+        return { action: "error", text: "我没听懂，请再说一遍" };
+      }
+    }
+
+    // 3. 上行交互：设备上传感知数据给大模型分析（每30秒一次）
+    async function analyzeRidingData() {
+      if (!currentPos) return;
+      const token = await getDoubaoToken();
+      if (!token) return;
+
+      // 打包头盔上传的感知数据（后续可扩展加速度、心率、温度等）
+      const sensorData = {
+        经度: currentPos.lng.toFixed(6),
+        纬度: currentPos.lat.toFixed(6),
+        骑行时长: Math.floor((Date.now() - startTime) / 60000) + "分钟",
+        当前速度: "22km/h", // 后续从OneNet读取真实速度
+        所在城市: "宜宾市"
+      };
+
+      const systemPrompt = `
+      根据骑行数据生成1句不超过15字的安全提示：
+      - 正常：骑行安全，注意路况
+      - 超过30分钟：已骑行半小时，休息一下
+      - 速度>30km/h：速度过快，请减速
+      只输出提示文字，不要加其他内容
+      `;
+
+      try {
+        const res = await fetch(`https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-lite-8k?access_token=${token}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: JSON.stringify(sensorData) }
+            ],
+            temperature: 0.3
+          })
+        });
+        const data = await res.json();
+        const tip = data.result.trim();
+        voiceSpeak(tip);
+        console.log("大模型安全提示:", tip);
+      } catch (e) {
+        console.log("大模型分析失败:", e);
+      }
+    }
+
+    // 4. 下行交互：大模型下发指令给头盔设备
+    async function sendCommandToDevice(cmd) {
+      try {
+        await fetch(`https://api.heclouds.com/cmds?device_id=${DEVICE_ID}`, {
+          method: "POST",
+          headers: { "api-key": ONENET_API_KEY },
+          body: cmd
+        });
+        console.log("指令已下发到头盔:", cmd);
+      } catch (e) {
+        console.log("指令下发失败:", e);
+      }
+    }
+
+    // 5. 浏览器语音识别
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "zh-CN";
+    recognition.interimResults = false;
+
+    document.getElementById('voiceBtn').addEventListener('click', () => {
+      loadingTip.innerText = "正在听你说话...";
+      recognition.start();
+    });
+
+    recognition.onresult = async (event) => {
+      const voiceText = event.results[0][0].transcript;
+      loadingTip.innerText = `你说：${voiceText}`;
+      
+      const result = await parseVoiceCommand(voiceText);
+      console.log("大模型解析结果:", result);
+
+      if (result.action === "nav") {
+        addressInp.value = result.dest;
+        // 自动搜索目的地
+        const autoComplete = new AMap.AutoComplete({ city: "宜宾" });
+        autoComplete.search(result.dest, (status, res) => {
+          if (status === 'complete' && res.tips && res.tips.length > 0) {
+            targetLocation = res.tips[0].location;
+            // 自动开始导航
+            result.mode === "walk" ? walkBtn.click() : rideBtn.click();
+            loadingTip.innerText = "导航已开始";
+          } else {
+            loadingTip.innerText = "找不到这个地方";
+          }
+        });
+      } else if (result.action === "control") {
+        await sendCommandToDevice(result.cmd);
+        const cmdText = {
+          light_on: "已打开警示灯",
+          light_off: "已关闭警示灯",
+          alarm: "已触发报警"
+        }[result.cmd] || "指令已执行";
+        voiceSpeak(cmdText);
+        setTimeout(() => loadingTip.style.display = 'none', 2000);
+      } else if (result.action === "reply") {
+        voiceSpeak(result.text);
+        setTimeout(() => loadingTip.style.display = 'none', 2000);
+      } else {
+        voiceSpeak(result.text);
+        setTimeout(() => loadingTip.style.display = 'none', 2000);
+      }
+    };
+
+    recognition.onerror = () => {
+      loadingTip.innerText = "没听清，请再说一遍";
+      setTimeout(() => loadingTip.style.display = 'none', 2000);
+    };
+
+    // ====================== 工具函数 ======================
+    function voiceSpeak(text) {
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = "zh-CN";
+      msg.rate = 1.1; // 语速稍快，适合导航
+      speechSynthesis.speak(msg);
+    }
+
+    function clearRoute() {
       if (walkingInstance) walkingInstance.clear();
       if (ridingInstance) ridingInstance.clear();
       if (endMarker) map.remove(endMarker);
-    });
+      panel.innerHTML = '';
+      panel.style.display = 'none';
+    }
+
+    function clearAll() {
+      addressInp.value = '';
+      targetLocation = null;
+      endNavigation();
+      clearRoute();
+      customSuggestList.style.display = 'none';
+    }
+
+    // ====================== 页面初始化 ======================
+    window.onload = initMap;
+
+    // 页面卸载清理资源
+    window.onbeforeunload = function() {
+      if(gpsTimer) clearInterval(gpsTimer);
+      window.speechSynthesis.cancel();
+    };
   </script>
 </body>
 </html>
