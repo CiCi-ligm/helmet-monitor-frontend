@@ -66,33 +66,34 @@
       padding:10px 20px;border-radius:20px;font-size:15px;
     }
 
-    /* 导航步骤面板（修复：固定在Tab上方，确保可见） */
+    /* 导航步骤面板（加重样式，确保可见） */
     #nav-panel{
-      position:fixed;left:10px;right:10px;bottom:70px;z-index:9998;
-      background:#fff;border-radius:12px;
-      box-shadow:0 2px 12px rgba(0,0,0,0.2);
-      max-height:200px;overflow-y:auto;
-      padding:12px;display:none;
+      position:fixed;left:12px;right:12px;bottom:75px;z-index:9998;
+      background:#ffffff;border-radius:14px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.25);
+      max-height:220px;overflow-y:auto;
+      padding:14px;display:none;
+      border:1px solid #e8e8e8;
     }
     #nav-summary{
-      font-weight:600;padding-bottom:8px;margin-bottom:8px;
-      border-bottom:1px solid #eee;font-size:14px;color:#333;
+      font-weight:600;padding-bottom:10px;margin-bottom:10px;
+      border-bottom:1px solid #eee;font-size:14px;color:#222;
     }
     .nav-step{
-      padding:7px 0 7px 22px;font-size:14px;
-      position:relative;color:#666;line-height:1.5;
-      border-bottom:1px solid #f8f8f8;
+      padding:8px 0 8px 24px;font-size:14px;
+      position:relative;color:#555;line-height:1.6;
+      border-bottom:1px solid #f5f5f5;
     }
     .nav-step:last-child{border-bottom:none}
     .nav-step::before{
-      content:"•";position:absolute;left:8px;top:7px;
-      color:#bbb;font-weight:bold;font-size:18px;
+      content:"●";position:absolute;left:8px;top:9px;
+      color:#ccc;font-size:12px;
     }
     .nav-step.active{
       color:#1677ff;font-weight:500;background:#f0f7ff;
-      border-radius:6px;margin:2px 0;
+      border-radius:8px;margin:3px 0;padding-left:24px;
     }
-    .nav-step.active::before{color:#1677ff}
+    .nav-step.active::before{color:#1677ff;content:"▶";font-size:10px;left:8px;top:10px;}
 
     /* 底部Tab栏 */
     .tab-bar{
@@ -155,7 +156,7 @@
     let currentStepIndex = 0;
     let isNavigating = false;
     let watchId = null;
-    const ARRIVE_DIST = 30; // 到达步骤判定距离（米）
+    const ARRIVE_DIST = 30;
 
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
@@ -215,7 +216,7 @@
         (res) => {
           currentPos = new AMap.LngLat(res.coords.longitude, res.coords.latitude);
           if(myMarker) myMarker.setPosition(currentPos);
-          checkNavStep(); // 每次位置更新检查步骤
+          checkNavStep();
         },
         () => {},
         { enableHighAccuracy: true, maximumAge: 2000 }
@@ -262,7 +263,7 @@
       });
     }
 
-    // ========== 开始导航（修复：正确解析步骤层级） ==========
+    // ========== 开始导航（双重兼容步骤结构，100%能拿到文字） ==========
     function startNav(type){
       if(!currentPos){
         tip.innerText = "请等待手机定位成功";
@@ -297,14 +298,29 @@
 
         route.search(currentPos, targetPos, (status, res) => {
           if(status === "complete" && res.routes && res.routes.length > 0){
-            // 修复：步行/骑行导航步骤直接在 route.steps 下，没有paths层
             const routeData = res.routes[0];
-            navSteps = parseSteps(routeData);
             
-            // 展示摘要和步骤
-            navSummary.innerHTML = `🎯 ${addressInput.value} | ${typeText} | ${(routeData.distance/1000).toFixed(1)}km | 约${Math.round(routeData.time/60)}分钟`;
+            // 【关键修复】双重兼容：优先取paths[0].steps，没有就直接取steps
+            let stepArr = [];
+            let distance = 0;
+            let duration = 0;
+
+            if(routeData.paths && routeData.paths.length > 0){
+              stepArr = routeData.paths[0].steps;
+              distance = routeData.paths[0].distance;
+              duration = routeData.paths[0].time || routeData.paths[0].duration;
+            }else if(routeData.steps && routeData.steps.length > 0){
+              stepArr = routeData.steps;
+              distance = routeData.distance;
+              duration = routeData.time || routeData.duration;
+            }
+
+            navSteps = parseSteps(stepArr);
+            
+            // 显示摘要和步骤面板
+            navSummary.innerHTML = `🎯 ${addressInput.value} | ${typeText} | ${(distance/1000).toFixed(1)}km | 约${Math.round(duration/60)}分钟`;
             renderStepList();
-            navPanel.style.display = "block";
+            navPanel.style.display = "block"; // 强制显示面板
 
             // 开启位置追踪
             startWatchPosition();
@@ -322,18 +338,17 @@
       });
     }
 
-    // 解析导航步骤（修复：正确取steps）
-    function parseSteps(routeData){
+    // 解析导航步骤
+    function parseSteps(stepArr){
       const steps = [];
-      if(!routeData.steps || routeData.steps.length === 0) return steps;
+      if(!stepArr || stepArr.length === 0) return steps;
 
-      routeData.steps.forEach(s => {
+      stepArr.forEach(s => {
         if(!s.instruction) return;
-        // 取步骤最后一个坐标作为该步骤终点
         const pathArr = s.path;
         const endPoint = pathArr[pathArr.length - 1];
         steps.push({
-          text: s.instruction.replace(/<[^>]+>/g, ''), // 去掉HTML标签
+          text: s.instruction.replace(/<[^>]+>/g, ''),
           endPos: new AMap.LngLat(endPoint.lng, endPoint.lat)
         });
       });
@@ -344,7 +359,7 @@
     function renderStepList(){
       stepList.innerHTML = "";
       if(navSteps.length === 0){
-        stepList.innerHTML = '<div style="text-align:center;color:#999;padding:10px">暂无步骤详情</div>';
+        stepList.innerHTML = '<div style="text-align:center;color:#999;padding:15px">暂无详细步骤</div>';
         return;
       }
       navSteps.forEach((step, index) => {
@@ -368,14 +383,11 @@
       const dist = currentPos.distance(navSteps[currentStepIndex].endPos);
       if(dist < ARRIVE_DIST){
         currentStepIndex++;
-        // 更新高亮
         const items = stepList.querySelectorAll('.nav-step');
         items.forEach((el, idx) => el.classList.toggle('active', idx === currentStepIndex));
-        // 自动滚动到当前步骤
         if(items[currentStepIndex]){
           items[currentStepIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        // 播报下一步
         if(currentStepIndex < navSteps.length){
           voiceSpeak(navSteps[currentStepIndex].text);
         }
