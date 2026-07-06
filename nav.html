@@ -1,161 +1,266 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>导航</title>
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
-        html,body{height:100%;background:#f6f7f9}
-        .page-content{padding-bottom:60px;height:100%;display:flex;flex-direction:column}
-        .header{padding:15px 20px;font-size:20px;font-weight:600;color:#2563eb;background:#fff;border-bottom:1px solid #eee}
-        .main{flex:1;padding:15px;overflow-y:auto}
-        .input-bar{display:flex;gap:10px;margin-bottom:12px}
-        input{flex:1;height:44px;padding:0 14px;border:1px solid #ddd;border-radius:8px;font-size:15px}
-        .btn-group{display:flex;gap:10px;margin-bottom:12px}
-        button{height:44px;padding:0 16px;border:none;border-radius:8px;background:#2563eb;color:white;font-size:15px;cursor:pointer}
-        button.gray{background:#6b7280}
-        #map{width:100%;height:400px;border-radius:12px;border:1px solid #e0e0e0}
-        #info{padding:14px;background:#f3f4f6;border-radius:8px;font-size:14px;margin-top:10px}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>导航</title>
 
-        /* 底部Tab导航栏 */
-        .tab-bar{
-            position:fixed;bottom:0;left:0;right:0;height:60px;
-            background:#fff;border-top:1px solid #eee;
-            display:flex;justify-content:space-around;align-items:center;
-            z-index:999;
-        }
-        .tab-item{
-            display:flex;flex-direction:column;align-items:center;
-            font-size:12px;color:#666;text-decoration:none;gap:4px;
-        }
-        .tab-item.active{color:#2563eb}
-        .tab-item .icon{font-size:22px}
-    </style>
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking"></script>
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
+    };
+  </script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+
+  <style>
+    * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
+    html,body{height:100%;overflow:hidden;padding-bottom:60px}
+    #container{width:100%;height:100vh}
+
+    /* 顶部控制区 */
+    .input-box{
+      position:fixed;top:0;left:0;right:0;z-index:9999;
+      background:#fff;padding:12px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.15);
+    }
+    .input-box input{
+      width:100%;padding:10px 12px;font-size:16px;
+      border:1px solid #ccc;border-radius:6px;
+      margin-bottom:10px;outline:none;
+    }
+    .input-box input:focus{border-color:#1677ff}
+    .btn-group{display:flex;gap:2%}
+    .btn-group button{
+      width:32%;padding:10px;background:#1677ff;color:#fff;
+      border:none;border-radius:6px;font-size:16px;cursor:pointer;
+    }
+    .btn-group button.gray{background:#666}
+
+    /* 卫星图切换按钮 */
+    #switchMapBtn{
+      position:fixed;top:130px;right:12px;z-index:9999;
+      padding:10px 16px;background:rgba(255,255,255,0.95);
+      border:none;border-radius:20px;font-size:14px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;
+    }
+
+    /* 联想下拉列表 */
+    #suggest-list{
+      position:fixed;top:110px;left:12px;right:12px;z-index:9998;
+      background:#fff;border-radius:8px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.15);
+      max-height:260px;overflow-y:auto;display:none;
+    }
+    #suggest-list .item{
+      padding:12px 14px;font-size:15px;
+      border-bottom:1px solid #f0f0f0;cursor:pointer;
+    }
+    #suggest-list .item:last-child{border-bottom:none}
+    #suggest-list .highlight{color:#1677ff;font-weight:bold}
+
+    /* 定位提示 */
+    #tip{
+      position:fixed;top:50%;left:50%;
+      transform:translate(-50%,-50%);z-index:9999;
+      background:rgba(0,0,0,0.7);color:#fff;
+      padding:10px 20px;border-radius:20px;font-size:15px;
+    }
+
+    /* 底部Tab栏 */
+    .tab-bar{
+      position:fixed;bottom:0;left:0;right:0;height:60px;
+      background:#fff;border-top:1px solid #eee;
+      display:flex;justify-content:space-around;align-items:center;
+      z-index:9999;
+    }
+    .tab-item{
+      display:flex;flex-direction:column;align-items:center;
+      font-size:12px;color:#666;text-decoration:none;gap:4px;
+    }
+    .tab-item.active{color:#2563eb}
+    .tab-item .icon{font-size:22px}
+  </style>
 </head>
 <body>
-    <div class="page-content">
-        <div class="header">🚴 智能头盔导航</div>
-        <div class="main">
-            <div class="input-bar">
-                <input id="to" placeholder="输入目的地：学校、家、医院...">
-            </div>
-            <div class="btn-group">
-                <button onclick="getPos()">定位我的位置</button>
-                <button onclick="goNav()">开始导航</button>
-                <button class="gray" onclick="clearMap()">清空</button>
-            </div>
-            <div id="map"></div>
-            <div id="info">欢迎使用智能头盔导航系统</div>
-        </div>
+  <div id="container"></div>
+
+  <div class="input-box">
+    <input id="addressInput" placeholder="输入目的地" />
+    <div class="btn-group">
+      <button onclick="startNav('walking')">步行导航</button>
+      <button onclick="startNav('riding')">骑行导航</button>
+      <button class="gray" onclick="clearAll()">清空</button>
     </div>
+  </div>
 
-    <!-- 底部Tab栏 -->
-    <div class="tab-bar">
-        <a href="nav.html" class="tab-item active">
-            <span class="icon">🗺️</span>
-            <span>导航</span>
-        </a>
-        <a href="blind.html" class="tab-item">
-            <span class="icon">⛑️</span>
-            <span>头盔</span>
-        </a>
-        <a href="record.html" class="tab-item">
-            <span class="icon">📋</span>
-            <span>记录</span>
-        </a>
-        <a href="profile.html" class="tab-item">
-            <span class="icon">👤</span>
-            <span>我的</span>
-        </a>
-    </div>
+  <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
+  <div id="suggest-list"></div>
+  <div id="tip">正在获取手机GPS位置...</div>
 
-<script>
-let map, marker, currentLng, currentLat;
+  <!-- 底部Tab栏 -->
+  <div class="tab-bar">
+    <a href="nav.html" class="tab-item active">
+      <span class="icon">🗺️</span><span>导航</span>
+    </a>
+    <a href="blind.html" class="tab-item">
+      <span class="icon">⛑️</span><span>头盔</span>
+    </a>
+    <a href="record.html" class="tab-item">
+      <span class="icon">📋</span><span>记录</span>
+    </a>
+    <a href="profile.html" class="tab-item">
+      <span class="icon">👤</span><span>我的</span>
+    </a>
+  </div>
 
-window.onload = function(){
-    map = new AMap.Map("map", { 
-        zoom: 16, 
+  <script>
+    let map, myMarker, currentPos, targetPos;
+    let walkingRoute, ridingRoute;
+    let isSatellite = false, satelliteLayer = null;
+
+    const tip = document.getElementById('tip');
+    const addressInput = document.getElementById('addressInput');
+    const suggestList = document.getElementById('suggest-list');
+
+    // 初始化 + 自动手机定位
+    window.onload = function(){
+      // 登录校验
+      if(localStorage.getItem('isLogin') !== '1'){
+        location.href = 'login.html';
+        return;
+      }
+
+      map = new AMap.Map("container", {
+        zoom: 16,
         resizeEnable: true,
         center: [104.5647, 28.7658]
-    });
-};
+      });
+      satelliteLayer = new AMap.TileLayer.Satellite();
 
-// 手机浏览器定位（唯一位置来源，不读硬件GPS）
-function getPos(){
-    const info = document.getElementById("info");
-    info.innerHTML = "⏳ 正在获取你的位置...";
+      initAutoComplete();
+      getMyLocation(); // 自动手机定位
+    };
 
-    let geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true, 
+    // 纯手机浏览器定位
+    function getMyLocation(){
+      tip.innerText = "正在获取手机GPS位置...";
+      tip.style.display = "block";
+
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
         timeout: 10000
-    });
+      });
 
-    geolocation.getCurrentPosition((status, result) => {
-        if(status === "complete" && result && result.position) {
-            currentLng = result.position.lng;
-            currentLat = result.position.lat;
-            
-            if(marker) marker.remove();
-            
-            marker = new AMap.Marker({
-                position: new AMap.LngLat(currentLng, currentLat),
-                title: "你的位置",
-                icon: new AMap.Icon({
-                    size: new AMap.Size(30, 30),
-                    imageSize: new AMap.Size(30, 30),
-                    image: "//a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png"
-                })
-            });
-            marker.setMap(map);
-            map.setCenter([currentLng, currentLat]);
-            
-            info.innerHTML = `✅ 已定位<br>📍 ${result.formattedAddress || "未知地址"}`;
-        } else {
-            info.innerHTML = "❌ 定位失败：请打开定位权限或检查网络";
+      geolocation.getCurrentPosition((status, result) => {
+        if(status === "complete" && result.position){
+          currentPos = result.position;
+          if(myMarker) myMarker.setMap(null);
+          myMarker = new AMap.Marker({ position: currentPos });
+          myMarker.setMap(map);
+          map.setCenter(currentPos);
+          tip.innerText = "定位成功";
+          setTimeout(()=>tip.style.display = "none", 1500);
+        }else{
+          tip.innerText = "定位失败，请开启手机定位权限";
         }
-    });
-}
-
-// 开始步行导航
-function goNav() {
-    if (!currentLng || !currentLat) {
-        document.getElementById("info").innerHTML = "⚠️ 请先点击【定位我的位置】";
-        return;
+      });
     }
-    
-    let to = document.getElementById("to").value.trim();
-    if (!to) {
-        document.getElementById("info").innerHTML = "⚠️ 请输入目的地";
-        return;
-    }
-    
-    document.getElementById("info").innerHTML = `⏳ 正在规划步行路线到：${to}`;
 
-    AMap.plugin(["AMap.Walking"], function() {
-        let walking = new AMap.Walking({
-            map: map,
-            autoFitView: true
-        });
+    // 地址联想 + 关键词高亮
+    function initAutoComplete(){
+      const autoComplete = new AMap.AutoComplete({ city: "宜宾" });
+      let timer = null;
 
-        walking.search(
-            [currentLng, currentLat],
-            [to, "宜宾市"]
-        , function(status, result) {
-            if (status === "complete" && result && result.info === "OK") {
-                document.getElementById("info").innerHTML = `✅ 步行路线已生成<br>🎯 目的地：${to}<br>📏 距离：${result.route.distance/1000} km`;
-            } else {
-                document.getElementById("info").innerHTML = "❌ 找不到路线，请换个关键词试试";
+      addressInput.addEventListener('input', function(){
+        const keyword = this.value.trim();
+        if(!keyword){ suggestList.style.display = "none"; return; }
+
+        clearTimeout(timer);
+        timer = setTimeout(()=>{
+          autoComplete.search(keyword, (status, res) => {
+            if(status === "complete" && res.tips && res.tips.length > 0){
+              suggestList.innerHTML = "";
+              res.tips.forEach(tip => {
+                if(!tip.location) return;
+                const div = document.createElement('div');
+                div.className = "item";
+                div.innerHTML = tip.name.replace(
+                  new RegExp(`(${keyword})`, 'gi'),
+                  '<span class="highlight">$1</span>'
+                );
+                div.onclick = () => {
+                  addressInput.value = tip.name;
+                  targetPos = tip.location;
+                  suggestList.style.display = "none";
+                };
+                suggestList.appendChild(div);
+              });
+              suggestList.style.display = "block";
             }
-        });
-    });
-}
+          });
+        }, 300);
+      });
 
-function clearMap(){
-    map.clearMap();
-    document.getElementById("info").innerHTML = "🗑️ 已清空地图";
-}
-</script>
+      addressInput.addEventListener('blur', ()=>{
+        setTimeout(()=>suggestList.style.display = "none", 200);
+      });
+    }
+
+    // 开始导航
+    function startNav(type){
+      if(!currentPos){
+        tip.innerText = "请等待手机定位成功";
+        tip.style.display = "block";
+        setTimeout(()=>tip.style.display = "none", 2000);
+        return;
+      }
+      if(!targetPos){
+        tip.innerText = "请先选择目的地";
+        tip.style.display = "block";
+        setTimeout(()=>tip.style.display = "none", 2000);
+        return;
+      }
+
+      if(walkingRoute) walkingRoute.clear();
+      if(ridingRoute) ridingRoute.clear();
+
+      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding';
+      const typeText = type === 'walking' ? '步行' : '骑行';
+
+      AMap.plugin(plugin, ()=>{
+        const route = type === 'walking'
+          ? new AMap.Walking({ map, autoFitView: true })
+          : new AMap.Riding({ map, autoFitView: true });
+        type === 'walking' ? walkingRoute = route : ridingRoute = route;
+
+        route.search(currentPos, targetPos, (status, res) => {
+          tip.innerText = status === "complete" && res.routes ? `${typeText}路线规划成功` : "路线规划失败";
+          setTimeout(()=>tip.style.display = "none", 2000);
+        });
+      });
+    }
+
+    // 切换卫星图
+    function switchSatellite(){
+      if(!isSatellite){
+        map.add(satelliteLayer);
+        document.getElementById('switchMapBtn').innerText = "切换普通地图";
+        isSatellite = true;
+      }else{
+        map.remove(satelliteLayer);
+        document.getElementById('switchMapBtn').innerText = "切换卫星图";
+        isSatellite = false;
+      }
+    }
+
+    // 清空
+    function clearAll(){
+      addressInput.value = "";
+      targetPos = null;
+      if(walkingRoute) walkingRoute.clear();
+      if(ridingRoute) ridingRoute.clear();
+      suggestList.style.display = "none";
+    }
+  </script>
 </body>
 </html>
