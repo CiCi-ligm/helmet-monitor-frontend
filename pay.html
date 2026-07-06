@@ -34,24 +34,28 @@
             font-size:18px;font-weight:500;cursor:pointer;
         }
 
-        /* 二维码弹窗 */
-        .qr-mask{
+        /* 支付弹窗 */
+        .pay-mask{
             position:fixed;top:0;left:0;right:0;bottom:0;
             background:rgba(0,0,0,0.6);
             display:none;align-items:center;justify-content:center;
             z-index:99999;
         }
-        .qr-box{
+        .pay-box{
             background:#fff;border-radius:16px;
-            padding:25px;width:80%;max-width:320px;
+            padding:25px;width:85%;max-width:340px;
             text-align:center;
         }
-        .qr-title{font-size:18px;font-weight:600;margin-bottom:15px}
+        .pay-title{font-size:18px;font-weight:600;margin-bottom:6px}
+        .pay-amount{
+            font-size:36px;font-weight:700;color:#ef4444;
+            margin-bottom:15px;
+        }
         .qr-img{
             width:100%;border-radius:8px;
             border:1px solid #eee;
         }
-        .qr-tip{font-size:13px;color:#666;margin:12px 0 20px}
+        .pay-tip{font-size:13px;color:#666;margin:12px 0 20px}
         .close-btn{
             width:100%;height:44px;
             background:#f3f4f6;color:#333;
@@ -77,40 +81,43 @@
             <div class="card-title">月度会员</div>
             <div class="card-price">¥15.00</div>
             <div class="card-desc">有效期30天 | 解锁全部导航</div>
-            <button class="buy-btn" onclick="showQr('月度会员')">立即购买</button>
+            <button class="buy-btn" onclick="showPay('月度会员', 15, './wx_15.jpg')">立即购买</button>
         </div>
 
         <div class="vip-card">
             <div class="card-title">年度会员</div>
             <div class="card-price">¥98.00</div>
             <div class="card-desc">有效期365天 | 超值优惠</div>
-            <button class="buy-btn" onclick="showQr('年度会员')">立即购买</button>
+            <button class="buy-btn" onclick="showPay('年度会员', 98, './wx_98.jpg')">立即购买</button>
         </div>
     </div>
 
-    <!-- 二维码弹窗 -->
-    <div class="qr-mask" id="qrMask">
-        <div class="qr-box">
-            <div class="qr-title" id="qrTitle">扫码支付</div>
-            <img src="./wx.png.jpg" class="qr-img" alt="收款码">
-            <div class="qr-tip">长按识别二维码完成支付</div>
-            <button class="close-btn" onclick="closeQr()">关闭</button>
+    <!-- 支付弹窗 -->
+    <div class="pay-mask" id="payMask">
+        <div class="pay-box">
+            <div class="pay-title" id="payTitle">购买会员</div>
+            <div class="pay-amount" id="payAmount">¥0.00</div>
+            <img id="payQr" src="" class="qr-img" alt="微信收款码">
+            <div class="pay-tip">长按识别二维码，直接输入支付密码完成付款</div>
+            <button class="close-btn" onclick="closePay()">关闭</button>
         </div>
     </div>
 
 <script>
-function showQr(type){
-    document.getElementById('qrTitle').innerText = `购买${type}`;
-    document.getElementById('qrMask').style.display = 'flex';
+function showPay(name, price, imgSrc){
+    document.getElementById('payTitle').innerText = `购买${name}`;
+    document.getElementById('payAmount').innerText = `¥${price}.00`;
+    document.getElementById('payQr').src = imgSrc;
+    document.getElementById('payMask').style.display = 'flex';
 }
 
-function closeQr(){
-    document.getElementById('qrMask').style.display = 'none';
+function closePay(){
+    document.getElementById('payMask').style.display = 'none';
 }
 
-// 点击遮罩关闭
-document.getElementById('qrMask').addEventListener('click', function(e){
-    if(e.target === this) closeQr();
+// 点击遮罩关闭弹窗
+document.getElementById('payMask').addEventListener('click', function(e){
+    if(e.target === this) closePay();
 });
 </script>
 </body>
