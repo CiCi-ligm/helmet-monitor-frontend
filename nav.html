@@ -2,38 +2,74 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能头盔定位导航</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>导航</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
-        body{padding:20px;background:#f6f7f9}
-        .box{max-width:100%;margin:0 auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.05)}
-        .title{font-size:20px;margin-bottom:16px;font-weight:600}
-        #map{width:100%;height:500px;border-radius:12px;margin-bottom:16px;border:1px solid #e0e0e0}
+        html,body{height:100%;background:#f6f7f9}
+        .page-content{padding-bottom:60px;height:100%;display:flex;flex-direction:column}
+        .header{padding:15px 20px;font-size:20px;font-weight:600;color:#2563eb;background:#fff;border-bottom:1px solid #eee}
+        .main{flex:1;padding:15px;overflow-y:auto}
         .input-bar{display:flex;gap:10px;margin-bottom:12px}
         input{flex:1;height:44px;padding:0 14px;border:1px solid #ddd;border-radius:8px;font-size:15px}
-        .btn-group{display:flex;gap:10px;margin-bottom:16px}
-        button{height:44px;padding:0 16px;border:none;border-radius:8px;background:#2563eb;color:white;font-size:15px;cursor:pointer;transition:opacity 0.2s}
-        button:hover{opacity:0.9}
+        .btn-group{display:flex;gap:10px;margin-bottom:12px}
+        button{height:44px;padding:0 16px;border:none;border-radius:8px;background:#2563eb;color:white;font-size:15px;cursor:pointer}
         button.gray{background:#6b7280}
+        #map{width:100%;height:400px;border-radius:12px;border:1px solid #e0e0e0}
         #info{padding:14px;background:#f3f4f6;border-radius:8px;font-size:14px;margin-top:10px}
+
+        /* 底部Tab导航栏 */
+        .tab-bar{
+            position:fixed;bottom:0;left:0;right:0;height:60px;
+            background:#fff;border-top:1px solid #eee;
+            display:flex;justify-content:space-around;align-items:center;
+            z-index:999;
+        }
+        .tab-item{
+            display:flex;flex-direction:column;align-items:center;
+            font-size:12px;color:#666;text-decoration:none;gap:4px;
+        }
+        .tab-item.active{color:#2563eb}
+        .tab-item .icon{font-size:22px}
     </style>
-    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Driving,AMap.Walking"></script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.Geolocation,AMap.Walking"></script>
 </head>
 <body>
-<div class="box">
-    <div class="title">🏍️ 智能头盔实时导航</div>
-    <div class="input-bar">
-        <input id="to" placeholder="输入目的地：学校、家、医院...">
+    <div class="page-content">
+        <div class="header">🚴 智能头盔导航</div>
+        <div class="main">
+            <div class="input-bar">
+                <input id="to" placeholder="输入目的地：学校、家、医院...">
+            </div>
+            <div class="btn-group">
+                <button onclick="getPos()">定位我的位置</button>
+                <button onclick="goNav()">开始导航</button>
+                <button class="gray" onclick="clearMap()">清空</button>
+            </div>
+            <div id="map"></div>
+            <div id="info">欢迎使用智能头盔导航系统</div>
+        </div>
     </div>
-    <div class="btn-group">
-        <button onclick="getPos()">定位我的位置</button>
-        <button onclick="goNav()">开始导航</button>
-        <button class="gray" onclick="clearMap()">清空</button>
+
+    <!-- 底部Tab栏 -->
+    <div class="tab-bar">
+        <a href="nav.html" class="tab-item active">
+            <span class="icon">🗺️</span>
+            <span>导航</span>
+        </a>
+        <a href="blind.html" class="tab-item">
+            <span class="icon">⛑️</span>
+            <span>头盔</span>
+        </a>
+        <a href="record.html" class="tab-item">
+            <span class="icon">📋</span>
+            <span>记录</span>
+        </a>
+        <a href="profile.html" class="tab-item">
+            <span class="icon">👤</span>
+            <span>我的</span>
+        </a>
     </div>
-    <div id="map"></div>
-    <div id="info">欢迎使用智能头盔导航系统</div>
-</div>
 
 <script>
 let map, marker, currentLng, currentLat;
@@ -42,10 +78,11 @@ window.onload = function(){
     map = new AMap.Map("map", { 
         zoom: 16, 
         resizeEnable: true,
-        center: [106.5516, 29.5630]
+        center: [104.5647, 28.7658]
     });
 };
 
+// 手机浏览器定位（唯一位置来源，不读硬件GPS）
 function getPos(){
     const info = document.getElementById("info");
     info.innerHTML = "⏳ 正在获取你的位置...";
@@ -81,6 +118,7 @@ function getPos(){
     });
 }
 
+// 开始步行导航
 function goNav() {
     if (!currentLng || !currentLat) {
         document.getElementById("info").innerHTML = "⚠️ 请先点击【定位我的位置】";
@@ -103,7 +141,7 @@ function goNav() {
 
         walking.search(
             [currentLng, currentLat],
-            [to, "重庆市"]
+            [to, "宜宾市"]
         , function(status, result) {
             if (status === "complete" && result && result.info === "OK") {
                 document.getElementById("info").innerHTML = `✅ 步行路线已生成<br>🎯 目的地：${to}<br>📏 距离：${result.route.distance/1000} km`;
