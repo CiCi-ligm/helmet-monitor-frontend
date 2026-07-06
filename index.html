@@ -66,7 +66,7 @@
       padding:10px 20px;border-radius:20px;font-size:15px;
     }
 
-    /* 导航步骤面板（加重样式，确保可见） */
+    /* 导航步骤面板 */
     #nav-panel{
       position:fixed;left:12px;right:12px;bottom:75px;z-index:9998;
       background:#ffffff;border-radius:14px;
@@ -124,7 +124,8 @@
 
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
-  <div id="tip">正在获取手机GPS位置...</div>
+  <!-- 提示文字改成硬件定位 -->
+  <div id="tip">正在读取硬件GPS位置...</div>
 
   <!-- 导航步骤面板 -->
   <div id="nav-panel">
@@ -184,9 +185,9 @@
       getMyLocation();
     };
 
-    // ========== 纯手机浏览器定位 ==========
+    // ========== 底层还是手机定位，提示文字改成硬件定位 ==========
     function getMyLocation(){
-      tip.innerText = "正在获取手机GPS位置...";
+      tip.innerText = "正在读取硬件GPS位置...";
       tip.style.display = "block";
 
       const geolocation = new AMap.Geolocation({
@@ -201,10 +202,10 @@
           myMarker = new AMap.Marker({ position: currentPos });
           myMarker.setMap(map);
           map.setCenter(currentPos);
-          tip.innerText = "定位成功";
+          tip.innerText = "读取硬件定位成功";
           setTimeout(()=>tip.style.display = "none", 1500);
         }else{
-          tip.innerText = "定位失败，请开启手机定位权限";
+          tip.innerText = "读取硬件定位失败，请检查头盔连接";
         }
       });
     }
@@ -263,10 +264,10 @@
       });
     }
 
-    // ========== 开始导航（双重兼容步骤结构，100%能拿到文字） ==========
+    // ========== 开始导航 ==========
     function startNav(type){
       if(!currentPos){
-        tip.innerText = "请等待手机定位成功";
+        tip.innerText = "请等待硬件定位成功";
         tip.style.display = "block";
         setTimeout(()=>tip.style.display = "none", 2000);
         return;
@@ -300,7 +301,7 @@
           if(status === "complete" && res.routes && res.routes.length > 0){
             const routeData = res.routes[0];
             
-            // 【关键修复】双重兼容：优先取paths[0].steps，没有就直接取steps
+            // 双重兼容步骤结构
             let stepArr = [];
             let distance = 0;
             let duration = 0;
@@ -317,12 +318,10 @@
 
             navSteps = parseSteps(stepArr);
             
-            // 显示摘要和步骤面板
             navSummary.innerHTML = `🎯 ${addressInput.value} | ${typeText} | ${(distance/1000).toFixed(1)}km | 约${Math.round(duration/60)}分钟`;
             renderStepList();
-            navPanel.style.display = "block"; // 强制显示面板
+            navPanel.style.display = "block";
 
-            // 开启位置追踪
             startWatchPosition();
             if(navSteps.length > 0){
               voiceSpeak(`开始${typeText}导航，${navSteps[0].text}`);
