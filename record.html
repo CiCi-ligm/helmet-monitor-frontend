@@ -6,8 +6,7 @@
     <title>骑行记录</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
-        html,body{height:100%;background:#f6f7f9}
-        .page-content{padding-bottom:60px;min-height:100%}
+        html,body{background:#f6f7f9;min-height:100%;padding-bottom:60px}
         .header{padding:20px 15px;font-size:24px;font-weight:600;color:#2563eb;background:#f6f7f9}
         .record-list{padding:0 15px;display:flex;flex-direction:column;gap:10px}
         .record-item{
@@ -16,7 +15,7 @@
             box-shadow:0 2px 8px rgba(0,0,0,0.03);
         }
 
-        /* 底部Tab导航栏 */
+        /* 底部Tab栏 */
         .tab-bar{
             position:fixed;bottom:0;left:0;right:0;height:60px;
             background:#fff;border-top:1px solid #eee;
@@ -32,42 +31,22 @@
     </style>
 </head>
 <body>
-    <div class="page-content">
-        <div class="header">📋 骑行记录</div>
-        <div class="record-list">
-            <div class="record-item">
-                <span>🚴</span>
-                <span>2026-04-20 | 行程 8.2km | 用时 28分钟</span>
-            </div>
-            <div class="record-item">
-                <span>🚴</span>
-                <span>2026-04-19 | 行程 5.6km | 用时 20分钟</span>
-            </div>
-            <div class="record-item">
-                <span>🚴</span>
-                <span>2026-04-18 | 行程 12km | 用时 42分钟</span>
-            </div>
-        </div>
+    <div class="header">📋 骑行记录</div>
+    <div class="record-list">
+        <div class="record-item"><span>🚴</span><span>2026-06-20 | 行程 8.2km | 用时 28分钟</span></div>
+        <div class="record-item"><span>🚴</span><span>2026-06-15 | 行程 5.6km | 用时 20分钟</span></div>
+        <div class="record-item"><span>🚴</span><span>2026-06-08 | 行程 12km | 用时 42分钟</span></div>
+        <div class="record-item"><span>🚴</span><span>2026-05-28 | 行程 7.3km | 用时 25分钟</span></div>
+        <div class="record-item"><span>🚴</span><span>2026-05-10 | 行程 10.5km | 用时 36分钟</span></div>
+        <div class="record-item"><span>🚴</span><span>2026-04-22 | 行程 6.8km | 用时 22分钟</span></div>
     </div>
 
     <!-- 底部Tab栏 -->
     <div class="tab-bar">
-        <a href="nav.html" class="tab-item">
-            <span class="icon">🗺️</span>
-            <span>导航</span>
-        </a>
-        <a href="blind.html" class="tab-item">
-            <span class="icon">⛑️</span>
-            <span>头盔</span>
-        </a>
-        <a href="record.html" class="tab-item active">
-            <span class="icon">📋</span>
-            <span>记录</span>
-        </a>
-        <a href="profile.html" class="tab-item">
-            <span class="icon">👤</span>
-            <span>我的</span>
-        </a>
+        <a href="nav.html" class="tab-item"><span class="icon">🗺️</span><span>导航</span></a>
+        <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
+        <a href="record.html" class="tab-item active"><span class="icon">📋</span><span>记录</span></a>
+        <a href="profile.html" class="tab-item"><span class="icon">👤</span><span>我的</span></a>
     </div>
 </body>
 </html>
