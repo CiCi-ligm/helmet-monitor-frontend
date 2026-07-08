@@ -11,6 +11,8 @@
     };
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <!-- 新增：MQTT库，用于WebSocket连接OneNET云端 -->
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"></script>
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -124,7 +126,6 @@
 
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
-  <!-- 提示文字改成硬件定位 -->
   <div id="tip">正在读取硬件GPS位置...</div>
 
   <!-- 导航步骤面板 -->
@@ -156,8 +157,14 @@
     let navSteps = [];
     let currentStepIndex = 0;
     let isNavigating = false;
-    let watchId = null;
     const ARRIVE_DIST = 30;
+
+    // ====== 新增：OneNET云端配置（已填好你的信息） ======
+    let mqttClient = null;
+    const PRODUCT_ID = "G2ddPjoILg";
+    const DEVICE_NAME = "gps";
+    const DEVICE_SECRET = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
+    const BROKER_URL = "wss://mqtts.heclouds.com:8084/mqtt";
 
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
@@ -185,43 +192,93 @@
       getMyLocation();
     };
 
-    // ========== 底层还是手机定位，提示文字改成硬件定位 ==========
+    // ========== 修改：从云端读取硬件GPS位置，不再调用手机定位 ==========
     function getMyLocation(){
       tip.innerText = "正在读取硬件GPS位置...";
       tip.style.display = "block";
+      connectCloud(); // 连接云端，等待硬件位置上传
+    }
 
-      const geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 10000
+    // ========== 新增：连接OneNET云端，实时接收硬件GPS数据 ==========
+    function connectCloud() {
+      const clientId = DEVICE_NAME;
+      const username = `${PRODUCT_ID}/${DEVICE_NAME}`;
+      const password = DEVICE_SECRET;
+
+      mqttClient = mqtt.connect(BROKER_URL, {
+        clientId: clientId,
+        username: username,
+        password: password,
+        cleanSession: true,
+        reconnectPeriod: 3000
       });
 
-      geolocation.getCurrentPosition((status, result) => {
-        if(status === "complete" && result.position){
-          currentPos = result.position;
-          if(myMarker) myMarker.setMap(null);
-          myMarker = new AMap.Marker({ position: currentPos });
-          myMarker.setMap(map);
-          map.setCenter(currentPos);
-          tip.innerText = "读取硬件定位成功";
-          setTimeout(()=>tip.style.display = "none", 1500);
-        }else{
-          tip.innerText = "读取硬件定位失败，请检查头盔连接";
+      // 连接成功
+      mqttClient.on("connect", () => {
+        // 订阅硬件GPS上报的主题
+        mqttClient.subscribe(`$sys/${PRODUCT_ID}/${DEVICE_NAME}/thing/property/post`);
+      });
+
+      // 收到云端消息（硬件上传的GPS定位数据）
+      mqttClient.on("message", (topic, payload) => {
+        try {
+          const data = JSON.parse(payload.toString());
+          // 解析硬件上传的经纬度
+          if (data.params && data.params.latitude && data.params.longitude) {
+            const lat = data.params.latitude.value;
+            const lng = data.params.longitude.value;
+            
+            // 更新全局位置，路线规划、步骤校验都复用这个变量
+            currentPos = new AMap.LngLat(lng, lat);
+            
+            // 更新地图上的定位标记
+            if (myMarker) {
+              myMarker.setPosition(currentPos);
+            } else {
+              myMarker = new AMap.Marker({ position: currentPos });
+              myMarker.setMap(map);
+            }
+            map.setCenter(currentPos);
+            
+            tip.innerText = "读取硬件定位成功";
+            setTimeout(()=>tip.style.display = "none", 1500);
+
+            // 导航中：每次位置更新，自动检查是否到达步骤点
+            if(isNavigating){
+              checkNavStep();
+            }
+          }
+        } catch (e) {
+          console.error("解析云端数据失败", e);
         }
+      });
+
+      // 连接失败提示
+      mqttClient.on("error", (err) => {
+        tip.innerText = "读取硬件定位失败，请检查头盔连接";
       });
     }
 
-    // 导航时持续追踪位置
-    function startWatchPosition(){
-      if(watchId) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition(
-        (res) => {
-          currentPos = new AMap.LngLat(res.coords.longitude, res.coords.latitude);
-          if(myMarker) myMarker.setPosition(currentPos);
-          checkNavStep();
-        },
-        () => {},
-        { enableHighAccuracy: true, maximumAge: 2000 }
-      );
+    // ========== 新增：下发导航文字到云端，推送到头盔语音播报 ==========
+    function sendNavTextToCloud(text) {
+      if (!mqttClient || !mqttClient.connected) {
+        tip.innerText = "云端未连接，导航指令下发失败";
+        tip.style.display = "block";
+        setTimeout(()=>tip.style.display = "none", 2000);
+        return;
+      }
+
+      const topic = `$sys/${PRODUCT_ID}/${DEVICE_NAME}/thing/property/set`;
+      const payload = JSON.stringify({
+        id: Date.now().toString(),
+        params: {
+          navigation_text: {
+            value: text
+          }
+        }
+      });
+
+      mqttClient.publish(topic, payload);
     }
 
     // ========== 地址联想 + 关键词高亮 ==========
@@ -264,7 +321,7 @@
       });
     }
 
-    // ========== 开始导航 ==========
+    // ========== 开始导航（修改：自动下发第一条导航指令到头盔） ==========
     function startNav(type){
       if(!currentPos){
         tip.innerText = "请等待硬件定位成功";
@@ -322,9 +379,10 @@
             renderStepList();
             navPanel.style.display = "block";
 
-            startWatchPosition();
+            // 下发第一条导航指令到云端头盔
             if(navSteps.length > 0){
-              voiceSpeak(`开始${typeText}导航，${navSteps[0].text}`);
+              sendNavTextToCloud(`开始${typeText}导航，${navSteps[0].text}`);
+              voiceSpeak(`开始${typeText}导航，${navSteps[0].text}`); // 本地播报保留，可删除
             }
 
             tip.innerText = `${typeText}导航已开始`;
@@ -369,11 +427,12 @@
       });
     }
 
-    // 检查是否到达当前步骤终点
+    // 检查是否到达当前步骤终点（修改：到达后自动下发下一步指令）
     function checkNavStep(){
       if(!isNavigating || navSteps.length === 0) return;
 
       if(currentStepIndex >= navSteps.length){
+        sendNavTextToCloud("已到达目的地，导航结束");
         voiceSpeak("已到达目的地，导航结束");
         endNav();
         return;
@@ -388,7 +447,9 @@
           items[currentStepIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         if(currentStepIndex < navSteps.length){
-          voiceSpeak(navSteps[currentStepIndex].text);
+          // 自动下发下一步导航文字到云端头盔
+          sendNavTextToCloud(navSteps[currentStepIndex].text);
+          voiceSpeak(navSteps[currentStepIndex].text); // 本地播报保留，可删除
         }
       }
     }
@@ -398,12 +459,11 @@
       isNavigating = false;
       navSteps = [];
       currentStepIndex = 0;
-      if(watchId) navigator.geolocation.clearWatch(watchId);
       window.speechSynthesis.cancel();
       navPanel.style.display = "none";
     }
 
-    // ========== 语音播报 ==========
+    // ========== 语音播报（本地浏览器播报，可保留可删除） ==========
     function voiceSpeak(text){
       window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance(text);
