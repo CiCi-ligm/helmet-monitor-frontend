@@ -270,7 +270,7 @@
       mqttClient.publish(topic, payload);
     }
 
-    // ========== 地址联想 + 关键词高亮 ==========
+    // ========== 地址联想 + 关键词高亮（修复之前div追加的笔误） ==========
     function initAutoComplete(){
       const autoComplete = new AMap.AutoComplete({ city: "宜宾" });
       let timer = null;
@@ -284,20 +284,20 @@
           autoComplete.search(keyword, (status, res) => {
             if(status === "complete" && res.tips && res.tips.length > 0){
               suggestList.innerHTML = "";
-              res.tips.forEach(tip => {
-                if(!tip.location) return;
+              res.tips.forEach(tipItem => {
+                if(!tipItem.location) return;
                 const div = document.createElement('div');
                 div.className = "item";
-                div.innerHTML = tip.name.replace(
+                div.innerHTML = tipItem.name.replace(
                   new RegExp(`(${keyword})`, 'gi'),
                   '<span class="highlight">$1</span>'
                 );
                 div.onclick = () => {
-                  addressInput.value = tip.name;
-                  targetPos = tip.location;
+                  addressInput.value = tipItem.name;
+                  targetPos = tipItem.location;
                   suggestList.style.display = "none";
                 };
-                div.appendChild(div);
+                suggestList.appendChild(div); // 修正关键bug：把div添加进suggestList
               });
               suggestList.style.display = "block";
             }
