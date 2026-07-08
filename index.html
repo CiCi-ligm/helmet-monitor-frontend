@@ -160,7 +160,7 @@
     let watchId = null;
     const ARRIVE_DIST = 30;
 
-    // ====== 新增：OneNET云端配置（仅用于下发导航指令） ======
+    // ====== OneNET云端配置（仅用于下发导航指令） ======
     let mqttClient = null;
     const PRODUCT_ID = "G2ddPjoILg";
     const DEVICE_NAME = "gps";
@@ -194,7 +194,7 @@
       connectCloud(); // 页面加载就连接云端，准备下发指令
     };
 
-    // ========== 完全保留：手机原生定位 ==========
+    // ========== 手机原生定位保持原样 ==========
     function getMyLocation(){
       tip.innerText = "正在定位...";
       tip.style.display = "block";
@@ -219,7 +219,7 @@
       });
     }
 
-    // ========== 完全保留：导航时持续追踪手机位置 ==========
+    // ========== 持续追踪手机位置的原有逻辑 ==========
     function startWatchPosition(){
       if(watchId) navigator.geolocation.clearWatch(watchId);
       watchId = navigator.geolocation.watchPosition(
@@ -233,9 +233,10 @@
       );
     }
 
-    // ========== 新增：连接OneNET云端，仅用于发指令 ==========
+    // ========== 改动后的connectCloud，客户端ID随机独立 ==========
     function connectCloud() {
-      const clientId = DEVICE_NAME;
+      // 前端专属随机ID，不和硬件gps客户端ID产生冲突
+      const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
       const username = `${PRODUCT_ID}/${DEVICE_NAME}`;
       const password = DEVICE_SECRET;
 
@@ -252,7 +253,7 @@
       });
     }
 
-    // ========== 新增：下发导航文字到云端头盔 ==========
+    // ========== 下发导航文字至云端 ==========
     function sendNavTextToCloud(text) {
       if (!mqttClient || !mqttClient.connected) return;
 
@@ -296,7 +297,7 @@
                   targetPos = tip.location;
                   suggestList.style.display = "none";
                 };
-                suggestList.appendChild(div);
+                div.appendChild(div);
               });
               suggestList.style.display = "block";
             }
@@ -309,7 +310,7 @@
       });
     }
 
-    // ========== 开始导航（新增：同步下发第一条指令到头盔） ==========
+    // ========== 开始导航 ==========
     function startNav(type){
       if(!currentPos){
         tip.innerText = "请等待定位成功";
@@ -346,7 +347,6 @@
           if(status === "complete" && res.routes && res.routes.length > 0){
             const routeData = res.routes[0];
             
-            // 双重兼容步骤结构
             let stepArr = [];
             let distance = 0;
             let duration = 0;
@@ -369,7 +369,7 @@
 
             startWatchPosition();
             if(navSteps.length > 0){
-              sendNavTextToCloud(`开始${typeText}导航，${navSteps[0].text}`); // 下发到云端头盔
+              sendNavTextToCloud(`开始${typeText}导航，${navSteps[0].text}`);
               voiceSpeak(`开始${typeText}导航，${navSteps[0].text}`);
             }
 
@@ -415,7 +415,7 @@
       });
     }
 
-    // 检查是否到达当前步骤终点（新增：同步下发下一步指令）
+    // 检测步骤节点并下发下一步指令
     function checkNavStep(){
       if(!isNavigating || navSteps.length === 0) return;
 
@@ -435,7 +435,7 @@
           items[currentStepIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         if(currentStepIndex < navSteps.length){
-          sendNavTextToCloud(navSteps[currentStepIndex].text); // 下发下一步到头盔
+          sendNavTextToCloud(navSteps[currentStepIndex].text);
           voiceSpeak(navSteps[currentStepIndex].text);
         }
       }
@@ -451,7 +451,7 @@
       navPanel.style.display = "none";
     }
 
-    // ========== 语音播报 ==========
+    // 浏览器本地语音播报
     function voiceSpeak(text){
       window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance(text);
@@ -460,7 +460,7 @@
       speechSynthesis.speak(msg);
     }
 
-    // ========== 切换卫星图 ==========
+    // 切换卫星图层
     function switchSatellite(){
       if(!isSatellite){
         map.add(satelliteLayer);
@@ -473,7 +473,7 @@
       }
     }
 
-    // ========== 清空 ==========
+    // 清空导航状态
     function clearAll(){
       addressInput.value = "";
       targetPos = null;
