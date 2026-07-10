@@ -12,6 +12,14 @@
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
+  <!-- 新增双兜底MQTT CDN，解决国内加载失败 -->
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <script>
+    if (typeof mqtt === "undefined") {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"><\/script>');
+    }
+  </script>
+
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
     html,body{height:100%;overflow:hidden;padding-bottom:60px}
@@ -118,11 +126,71 @@
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
 
+    // MQTT 物联网配置（全部已填好你的参数）
+    const PRODUCT_ID = "G2ddPjoILg";
+    const WEB_DEVICE_NAME = "web_control";
+    const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
+    const BROKER_URL = "wss://mqtts.heclouds.com:8884/mqtt";
+    let mqttClient = null;
+
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
 
-    // 初始化 + 自动手机定位
+    // MQTT连接函数
+    function connectCloud() {
+      try{
+        if(typeof mqtt === "undefined"){
+          console.error("mqtt库加载失败，无法连接MQTT！");
+          return;
+        }
+        const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
+        const username = `${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
+        const password = WEB_DEVICE_SECRET;
+
+        mqttClient = mqtt.connect(BROKER_URL, {
+          clientId: clientId,
+          username: username,
+          password: password,
+          clean: true,
+          reconnectPeriod: 3000
+        });
+
+        mqttClient.on("connect", ()=>{
+          console.log("✅ 网页控制端MQTT连接成功，web_control自动激活");
+        });
+        mqttClient.on("error", (err) => {
+          console.warn("❌ MQTT连接失败", err);
+        });
+      }catch(e){
+        console.error("connectCloud执行异常：", e);
+      }
+    }
+
+    // 上报导航文本到OneNET web_control设备 nav_cmd 属性
+    function sendNavTextToCloud(text) {
+      console.log("准备上报导航指令：", text);
+      if (!mqttClient || !mqttClient.connected) {
+        tip.innerText = "云端未连接，指令无法下发";
+        tip.style.display = "block";
+        setTimeout(()=>tip.style.display = "none", 2000);
+        return;
+      }
+      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
+      const payload = JSON.stringify({
+        id: Date.now().toString(),
+        version: "1.0",
+        params: {
+          nav_cmd: {
+            value: text
+          }
+        }
+      });
+      mqttClient.publish(topic, payload);
+      console.log("导航指令已上报平台");
+    }
+
+    // 初始化
     window.onload = function(){
       // 登录校验
       if(localStorage.getItem('isLogin') !== '1'){
@@ -138,7 +206,12 @@
       satelliteLayer = new AMap.TileLayer.Satellite();
 
       initAutoComplete();
-      getMyLocation(); // 自动手机定位
+      // 电脑端打开注释定位，手机打开依旧正常定位
+      if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        getMyLocation();
+      }
+      connectCloud();
+      console.log("页面加载完毕，已执行MQTT连接");
     };
 
     // 纯手机浏览器定位
@@ -206,7 +279,7 @@
       });
     }
 
-    // 开始导航
+    // 开始导航，规划路线后上报第一条导航文字
     function startNav(type){
       if(!currentPos){
         tip.innerText = "请等待手机定位成功";
@@ -234,8 +307,17 @@
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
 
         route.search(currentPos, targetPos, (status, res) => {
-          tip.innerText = status === "complete" && res.routes ? `${typeText}路线规划成功` : "路线规划失败";
-          setTimeout(()=>tip.style.display = "none", 2000);
+          if(status === "complete" && res.routes && res.routes.length>0){
+            tip.innerText = `${typeText}路线规划成功`;
+            setTimeout(()=>tip.style.display = "none", 2000);
+            // 提取第一段导航提示上报
+            const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
+            const navText = `开始${typeText}导航，${firstStep}`;
+            sendNavTextToCloud(navText);
+          }else{
+            tip.innerText = "路线规划失败";
+            setTimeout(()=>tip.style.display = "none", 2000);
+          }
         });
       });
     }
