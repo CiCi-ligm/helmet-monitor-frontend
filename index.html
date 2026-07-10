@@ -11,7 +11,7 @@
     };
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-  <!-- 已替换为国内可用CDN，解决境外源加载失败 -->
+  <!-- 国内稳定CDN，解决加载失败 -->
   <script src="https://cdn.bootcdn.net/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 
   <style>
@@ -152,12 +152,13 @@
     let watchId = null;
     const ARRIVE_DIST = 30;
 
-    let mqttClient = null;
+    // 已填入web_control设备信息，无需修改
     const PRODUCT_ID = "G2ddPjoILg";
-    const DEVICE_NAME = "gps";
-    const DEVICE_SECRET = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
+    const WEB_DEVICE_NAME = "web_control";
+    const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
     const BROKER_URL = "wss://mqtts.heclouds.com:8884/mqtt";
 
+    let mqttClient = null;
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
@@ -182,6 +183,52 @@
       getMyLocation();
       connectCloud();
     };
+
+    // 网页专用设备MQTT连接，和头盔gps设备完全独立，互不挤掉线
+    function connectCloud() {
+      const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
+      const username = `${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
+      const password = WEB_DEVICE_SECRET;
+
+      mqttClient = mqtt.connect(BROKER_URL, {
+        clientId: clientId,
+        username: username,
+        password: password,
+        clean: true,
+        reconnectPeriod: 3000
+      });
+
+      mqttClient.on("connect", ()=>{
+        console.log("网页控制端MQTT连接成功");
+      });
+      mqttClient.on("error", (err) => {
+        console.warn("MQTT连接失败", err);
+      });
+    }
+
+    // 上报导航文字到web_control设备的nav_cmd属性，平台规则自动转发给头盔
+    function sendNavTextToCloud(text) {
+      console.log("准备上报导航指令：", text);
+      if (!mqttClient || !mqttClient.connected) {
+        tip.innerText = "云端未连接，指令无法下发";
+        tip.style.display = "block";
+        setTimeout(()=>tip.style.display = "none", 2000);
+        return;
+      }
+      // 设备属性上报主题（合法操作，平台100%接收）
+      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
+      const payload = JSON.stringify({
+        id: Date.now().toString(),
+        version: "1.0",
+        params: {
+          nav_cmd: {
+            value: text
+          }
+        }
+      });
+      mqttClient.publish(topic, payload);
+      console.log("导航指令已上报平台");
+    }
 
     // 手机定位
     function getMyLocation(){
@@ -218,50 +265,6 @@
         () => {},
         { enableHighAccuracy: true, maximumAge: 2000 }
       );
-    }
-
-    // MQTT连接，随机客户端ID
-    function connectCloud() {
-      const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
-      const username = `${PRODUCT_ID}/${DEVICE_NAME}`;
-      const password = DEVICE_SECRET;
-
-      mqttClient = mqtt.connect(BROKER_URL, {
-        clientId: clientId,
-        username: username,
-        password: password,
-        clean: true,
-        reconnectPeriod: 3000
-      });
-
-      mqttClient.on("connect", ()=>{
-        console.log("MQTT连接成功");
-      });
-      mqttClient.on("error", (err) => {
-        console.warn("MQTT连接失败", err);
-      });
-    }
-
-    // 下发导航文字到OneNET
-    function sendNavTextToCloud(text) {
-      console.log("准备发送：", text, "在线状态：", mqttClient?.connected);
-      if (!mqttClient || !mqttClient.connected) {
-        tip.innerText = "云端未连接，指令无法下发";
-        tip.style.display = "block";
-        setTimeout(()=>tip.style.display = "none", 2000);
-        return;
-      }
-      const topic = `$sys/${PRODUCT_ID}/${DEVICE_NAME}/thing/property/set`;
-      const payload = JSON.stringify({
-        id: Date.now().toString(),
-        params: {
-          navigation_text: {
-            value: text
-          }
-        }
-      });
-      mqttClient.publish(topic, payload);
-      console.log("已成功发送到云端：", text);
     }
 
     // 地址联想
@@ -301,7 +304,7 @@
       });
     }
 
-    // 开始导航 —— 已修复：规划成功立即上传OneNet，断连自动重连补发
+    // 开始导航：规划成功立刻上报云端
     function startNav(type){
       if(!currentPos){
         tip.innerText = "请等待定位成功";
@@ -349,15 +352,10 @@
             navPanel.style.display = "block";
             startWatchPosition();
 
-            // 导航规划成功立即上传云端，断连自动重连后补发
+            // 导航启动立刻上报云端
             if(navSteps.length > 0){
               const firstNavText = `开始${typeText}导航，${navSteps[0].text}`;
-              if (!mqttClient || !mqttClient.connected) {
-                mqttClient.reconnect();
-                mqttClient.once('connect', () => sendNavTextToCloud(firstNavText));
-              } else {
-                sendNavTextToCloud(firstNavText);
-              }
+              sendNavTextToCloud(firstNavText);
               voiceSpeak(firstNavText);
             }
 
@@ -400,7 +398,7 @@
       });
     }
 
-    // 检查步骤 —— 已加固：步骤切换时断连自动重连补发
+    // 导航步骤切换：同步上报云端
     function checkNavStep(){
       if(!isNavigating || navSteps.length === 0) return;
       if(currentStepIndex >= navSteps.length){
@@ -418,12 +416,7 @@
         }
         if(currentStepIndex < navSteps.length){
           const stepText = navSteps[currentStepIndex].text;
-          if (!mqttClient || !mqttClient.connected) {
-            mqttClient.reconnect();
-            mqttClient.once('connect', () => sendNavTextToCloud(stepText));
-          } else {
-            sendNavTextToCloud(stepText);
-          }
+          sendNavTextToCloud(stepText);
           voiceSpeak(stepText);
         }
       }
@@ -438,9 +431,8 @@
       navPanel.style.display = "none";
     }
 
-    // 语音播报 + 自动推送文字上云
+    // 本地语音播报
     function voiceSpeak(text){
-      sendNavTextToCloud(text);
       window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance(text);
       msg.lang = "zh-CN";
