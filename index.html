@@ -11,7 +11,8 @@
     };
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <!-- 已替换为国内可用CDN，解决境外源加载失败 -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -40,7 +41,7 @@
       position:fixed;top:130px;right:12px;z-index:9998;
       padding:10px 16px;background:rgba(255,255,255,0.95);
       border:none;border-radius:20px;font-size:14px;
-      box-shadow:0 2px 8px rgba(0,0,0.15);cursor:pointer;
+      box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;
     }
 
     #suggest-list{
@@ -300,7 +301,7 @@
       });
     }
 
-    // 开始导航（已删除手动sendNavTextToCloud）
+    // 开始导航 —— 已修复：规划成功立即上传OneNet，断连自动重连补发
     function startNav(type){
       if(!currentPos){
         tip.innerText = "请等待定位成功";
@@ -347,9 +348,19 @@
             renderStepList();
             navPanel.style.display = "block";
             startWatchPosition();
+
+            // 导航规划成功立即上传云端，断连自动重连后补发
             if(navSteps.length > 0){
-              voiceSpeak(`开始${typeText}导航，${navSteps[0].text}`);
+              const firstNavText = `开始${typeText}导航，${navSteps[0].text}`;
+              if (!mqttClient || !mqttClient.connected) {
+                mqttClient.reconnect();
+                mqttClient.once('connect', () => sendNavTextToCloud(firstNavText));
+              } else {
+                sendNavTextToCloud(firstNavText);
+              }
+              voiceSpeak(firstNavText);
             }
+
             tip.innerText = `${typeText}导航已开始`;
           }else{
             tip.innerText = "路线规划失败，请换目的地";
@@ -389,7 +400,7 @@
       });
     }
 
-    // 检查步骤（已删除手动sendNavTextToCloud）
+    // 检查步骤 —— 已加固：步骤切换时断连自动重连补发
     function checkNavStep(){
       if(!isNavigating || navSteps.length === 0) return;
       if(currentStepIndex >= navSteps.length){
@@ -406,7 +417,14 @@
           items[currentStepIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         if(currentStepIndex < navSteps.length){
-          voiceSpeak(navSteps[currentStepIndex].text);
+          const stepText = navSteps[currentStepIndex].text;
+          if (!mqttClient || !mqttClient.connected) {
+            mqttClient.reconnect();
+            mqttClient.once('connect', () => sendNavTextToCloud(stepText));
+          } else {
+            sendNavTextToCloud(stepText);
+          }
+          voiceSpeak(stepText);
         }
       }
     }
