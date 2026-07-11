@@ -208,27 +208,41 @@
 
     // 上报导航文字到web_control设备的nav_cmd属性，平台规则自动转发给头盔
     function sendNavTextToCloud(text) {
-      console.log("准备上报导航指令：", text);
-      if (!mqttClient || !mqttClient.connected) {
-        tip.innerText = "云端未连接，指令无法下发";
-        tip.style.display = "block";
-        setTimeout(()=>tip.style.display = "none", 2000);
-        return;
+  console.log("准备上报导航指令：", text);
+  
+  if (!mqttClient) {
+    alert('❌ mqttClient 不存在');
+    return;
+  }
+  
+  if (!mqttClient.connected) {
+    alert('❌ MQTT未连接，状态：' + (mqttClient.reconnecting ? '重连中' : '已断开'));
+    return;
+  }
+  
+  alert('✅ MQTT已连接，准备上报：' + text);
+  
+  const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
+  const payload = JSON.stringify({
+    id: Date.now().toString(),
+    version: "1.0",
+    params: {
+      nav_cmd: {
+        value: text
       }
-      // 设备属性上报主题（合法操作，平台100%接收）
-      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-      const payload = JSON.stringify({
-        id: Date.now().toString(),
-        version: "1.0",
-        params: {
-          nav_cmd: {
-            value: text
-          }
-        }
-      });
-      mqttClient.publish(topic, payload);
-      console.log("导航指令已上报平台");
     }
+  });
+  
+  mqttClient.publish(topic, payload, (err) => {
+    if (err) {
+      alert('❌ 发布失败：' + err.message);
+    } else {
+      alert('✅ 发布成功，数据已发送到OneNET');
+    }
+  });
+  
+  console.log("导航指令已上报平台");
+}
 
     // 手机定位
     function getMyLocation(){
