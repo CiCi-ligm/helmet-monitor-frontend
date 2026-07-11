@@ -187,7 +187,6 @@
     // 网页专用设备MQTT连接，和头盔gps设备完全独立，互不挤掉线
  function connectCloud() {
   try {
-    // 检查 CryptoJS 是否加载成功
     if (typeof CryptoJS === 'undefined') {
       alert('CryptoJS 库未加载，请检查网络');
       return;
@@ -196,6 +195,14 @@
     const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME;
     const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
     const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
+
+    // 🔍 调试弹窗：看看传给 OneNET 的三要素
+    alert(
+      '📡 即将连接 OneNET\n' +
+      '客户端ID：' + clientId + '\n' +
+      '用户名：' + username + '\n' +
+      '密码(token)：' + token
+    );
 
     mqttClient = mqtt.connect(BROKER_URL, {
       clientId: clientId,
@@ -214,9 +221,12 @@
       alert('❌ MQTT错误：' + err.message);
     });
 
+    mqttClient.on("close", () => {
+      alert('🔌 MQTT连接关闭');
+    });
+
   } catch (e) {
     alert('MQTT初始化失败：' + e.message);
-    console.error(e);
   }
 }
 
