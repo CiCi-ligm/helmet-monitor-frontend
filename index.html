@@ -432,13 +432,20 @@
     }
 
     // 本地语音播报
-    function voiceSpeak(text){
-      window.speechSynthesis.cancel();
-      const msg = new SpeechSynthesisUtterance(text);
-      msg.lang = "zh-CN";
-      msg.rate = 1.1;
-      speechSynthesis.speak(msg);
-    }
+    function voiceSpeak(text) {
+  // 加这一行，手机上会弹窗确认是否调用
+  alert('准备发送到云端：' + text);
+
+  // 下面是你之前加的 sendToCloud 调用
+  sendToCloud(text);
+
+  // 本地语音合成（保留）
+  window.speechSynthesis.cancel();
+  const msg = new SpeechSynthesisUtterance(text);
+  msg.lang = "zh-CN";
+  msg.rate = 1.1;
+  speechSynthesis.speak(msg);
+}
 
     function switchSatellite(){
       if(!isSatellite){
