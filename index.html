@@ -13,7 +13,7 @@
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
   <!-- 国内稳定CDN，解决加载失败 -->
 <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
     html,body{height:100%;overflow:hidden}
@@ -189,15 +189,15 @@
   const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
   const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
   
-  // OneNET MQTT 密码格式：使用设备密钥直接作为密码（部分版本支持）
-  const password = WEB_DEVICE_SECRET;
-
-  alert('正在连接MQTT...\n用户名：' + username + '\n客户端ID：' + clientId);
+  // 计算 token：使用设备密钥对 product_id/device_name 进行 hmac-sha1 签名
+  const token = CryptoJS.HmacSHA1(username, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
+  
+  alert('正在连接MQTT...\n用户名：' + username + '\n密码(token)：' + token);
 
   mqttClient = mqtt.connect(BROKER_URL, {
     clientId: clientId,
     username: username,
-    password: password,
+    password: token,  // 使用 token 作为密码
     clean: true,
     connectTimeout: 10000,
     reconnectPeriod: 3000
@@ -210,7 +210,6 @@
   
   mqttClient.on("error", (err) => {
     alert('❌ MQTT错误：' + err.message);
-    console.warn("MQTT连接失败", err);
   });
   
   mqttClient.on("close", () => {
