@@ -185,29 +185,39 @@
     };
 
     // 网页专用设备MQTT连接，和头盔gps设备完全独立，互不挤掉线
-    function connectCloud() {
-  return;
-  const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME;  // 标准格式
-  const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
-  // 新版：对产品ID进行签名
-  const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
+ function connectCloud() {
+  try {
+    // 检查 CryptoJS 是否加载成功
+    if (typeof CryptoJS === 'undefined') {
+      alert('CryptoJS 库未加载，请检查网络');
+      return;
+    }
 
-  mqttClient = mqtt.connect(BROKER_URL, {
-    clientId: clientId,
-    username: username,
-    password: token,
-    clean: true,
-    connectTimeout: 10000,
-    reconnectPeriod: 3000
-  });
+    const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME;
+    const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
+    const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
 
-  mqttClient.on("connect", () => {
-    alert('✅ MQTT连接成功');
-  });
-  
-  mqttClient.on("error", (err) => {
-    alert('❌ MQTT错误：' + err.message);
-  });
+    mqttClient = mqtt.connect(BROKER_URL, {
+      clientId: clientId,
+      username: username,
+      password: token,
+      clean: true,
+      connectTimeout: 10000,
+      reconnectPeriod: 3000
+    });
+
+    mqttClient.on("connect", () => {
+      alert('✅ MQTT连接成功');
+    });
+
+    mqttClient.on("error", (err) => {
+      alert('❌ MQTT错误：' + err.message);
+    });
+
+  } catch (e) {
+    alert('MQTT初始化失败：' + e.message);
+    console.error(e);
+  }
 }
 
     // 上报导航文字到web_control设备的nav_cmd属性，平台规则自动转发给头盔
