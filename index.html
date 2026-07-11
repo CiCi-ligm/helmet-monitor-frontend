@@ -186,25 +186,37 @@
 
     // 网页专用设备MQTT连接，和头盔gps设备完全独立，互不挤掉线
     function connectCloud() {
-      const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
-      const username = `${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
-      const password = WEB_DEVICE_SECRET;
+  const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
+  const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
+  
+  // OneNET MQTT 密码格式：使用设备密钥直接作为密码（部分版本支持）
+  const password = WEB_DEVICE_SECRET;
 
-      mqttClient = mqtt.connect(BROKER_URL, {
-        clientId: clientId,
-        username: username,
-        password: password,
-        clean: true,
-        reconnectPeriod: 3000
-      });
+  alert('正在连接MQTT...\n用户名：' + username + '\n客户端ID：' + clientId);
 
-      mqttClient.on("connect", ()=>{
-        console.log("网页控制端MQTT连接成功");
-      });
-      mqttClient.on("error", (err) => {
-        console.warn("MQTT连接失败", err);
-      });
-    }
+  mqttClient = mqtt.connect(BROKER_URL, {
+    clientId: clientId,
+    username: username,
+    password: password,
+    clean: true,
+    connectTimeout: 10000,
+    reconnectPeriod: 3000
+  });
+
+  mqttClient.on("connect", () => {
+    alert('✅ MQTT连接成功');
+    console.log("网页控制端MQTT连接成功");
+  });
+  
+  mqttClient.on("error", (err) => {
+    alert('❌ MQTT错误：' + err.message);
+    console.warn("MQTT连接失败", err);
+  });
+  
+  mqttClient.on("close", () => {
+    console.log("MQTT连接关闭");
+  });
+}
 
     // 上报导航文字到web_control设备的nav_cmd属性，平台规则自动转发给头盔
     function sendNavTextToCloud(text) {
