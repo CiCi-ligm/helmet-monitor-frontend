@@ -11,9 +11,9 @@
     };
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-  <!-- 国内稳定CDN，解决加载失败 -->
-<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
     html,body{height:100%;overflow:hidden}
@@ -152,11 +152,11 @@
     let watchId = null;
     const ARRIVE_DIST = 30;
 
-    // 已填入web_control设备信息，无需修改
+    // 设备信息
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
     const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
-    const BROKER_URL = "wss://mqtts.heclouds.com:8884/mqtt";
+    const BROKER_URL = "wss://mqtts.heclouds.com:8883/mqtt";
 
     let mqttClient = null;
     const tip = document.getElementById('tip');
@@ -184,119 +184,99 @@
       connectCloud();
     };
 
-    // 网页专用设备MQTT连接，和头盔gps设备完全独立，互不挤掉线
- function connectCloud() {
-  try {
-    if (typeof CryptoJS === 'undefined') {
-      alert('CryptoJS 库未加载，请检查网络');
-      return;
-    }
+    // MQTT连接 - 使用新版OneNET地址和更完善的连接参数
+    function connectCloud() {
+      try {
+        if (typeof CryptoJS === 'undefined') {
+          alert('CryptoJS 库未加载，请检查网络');
+          return;
+        }
 
-    const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME;
-    const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
-    const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
+        const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME + "_" + Date.now();
+        const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
+        const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
 
-    // 🔍 调试弹窗：看看传给 OneNET 的三要素
-    alert(
-      '📡 即将连接 OneNET\n' +
-      '客户端ID：' + clientId + '\n' +
-      '用户名：' + username + '\n' +
-      '密码(token)：' + token
-    );
+        mqttClient = mqtt.connect(BROKER_URL, {
+          clientId: clientId,
+          username: username,
+          password: token,
+          clean: true,
+          connectTimeout: 15000,
+          reconnectPeriod: 3000,
+          keepalive: 60,
+          protocolVersion: 4
+        });
 
-    mqttClient = mqtt.connect(BROKER_URL, {
-      clientId: clientId,
-      username: username,
-      password: token,
-      clean: true,
-      connectTimeout: 10000,
-      reconnectPeriod: 3000
-    });
+        mqttClient.on("connect", () => {
+          alert('✅ MQTT连接成功！web_control已激活');
+        });
 
-    mqttClient.on("connect", () => {
-      alert('✅ MQTT连接成功');
-    });
+        mqttClient.on("error", (err) => {
+          alert('❌ MQTT错误：' + err.message);
+        });
 
-    mqttClient.on("error", (err) => {
-      alert('❌ MQTT错误：' + err.message);
-    });
+        mqttClient.on("close", () => {
+          console.log("MQTT连接关闭，自动重连中...");
+        });
 
-    mqttClient.on("close", () => {
-      alert('🔌 MQTT连接关闭');
-    });
+        mqttClient.on("reconnect", () => {
+          console.log("正在重新连接MQTT...");
+        });
 
-  } catch (e) {
-    alert('MQTT初始化失败：' + e.message);
-  }
-}
-
-    // 上报导航文字到web_control设备的nav_cmd属性，平台规则自动转发给头盔
-    function sendNavTextToCloud(text) {
-  console.log("准备上报导航指令：", text);
-  
-  if (!mqttClient) {
-    alert('❌ mqttClient 不存在');
-    return;
-  }
-  
-  if (!mqttClient.connected) {
-    alert('❌ MQTT未连接，状态：' + (mqttClient.reconnecting ? '重连中' : '已断开'));
-    return;
-  }
-  
-  alert('✅ MQTT已连接，准备上报：' + text);
-  
-  const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-  const payload = JSON.stringify({
-    id: Date.now().toString(),
-    version: "1.0",
-    params: {
-      nav_cmd: {
-        value: text
+      } catch (e) {
+        alert('MQTT初始化失败：' + e.message);
       }
     }
-  });
-  
-  mqttClient.publish(topic, payload, (err) => {
-    if (err) {
-      alert('❌ 发布失败：' + err.message);
-    } else {
-      alert('✅ 发布成功，数据已发送到OneNET');
+
+    // 上报导航文字到云端
+    function sendNavTextToCloud(text) {
+      if (!mqttClient || !mqttClient.connected) {
+        alert('❌ 设备离线，无法发送指令');
+        return;
+      }
+      
+      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
+      const payload = JSON.stringify({
+        id: Date.now().toString(),
+        version: "1.0",
+        params: {
+          nav_cmd: {
+            value: text
+          }
+        }
+      });
+      
+      mqttClient.publish(topic, payload, (err) => {
+        if (!err) {
+          console.log("导航指令已发送:", text);
+        }
+      });
     }
-  });
-  
-  console.log("导航指令已上报平台");
-}
 
     // 手机定位
     function getMyLocation(){
-  alert('📍 开始请求定位');
-  tip.innerText = "正在定位...";
-  tip.style.display = "block";
-  
-  const geolocation = new AMap.Geolocation({
-    enableHighAccuracy: true,
-    timeout: 10000
-  });
-  
-  geolocation.getCurrentPosition((status, result) => {
-    alert('📍 定位回调，状态：' + status);
-    
-    if(status === "complete" && result.position){
-      currentPos = result.position;
-      if(myMarker) myMarker.setMap(null);
-      myMarker = new AMap.Marker({ position: currentPos });
-      myMarker.setMap(map);
-      map.setCenter(currentPos);
-      tip.innerText = "定位成功";
-      alert('✅ 定位成功');
-      setTimeout(()=>tip.style.display = "none", 1500);
-    }else{
-      alert('❌ 定位失败，信息：' + JSON.stringify(result));
-      tip.innerText = "定位失败，请开启定位权限";
+      tip.innerText = "正在定位...";
+      tip.style.display = "block";
+      
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000
+      });
+      
+      geolocation.getCurrentPosition((status, result) => {
+        if(status === "complete" && result.position){
+          currentPos = result.position;
+          if(myMarker) myMarker.setMap(null);
+          myMarker = new AMap.Marker({ position: currentPos });
+          myMarker.setMap(map);
+          map.setCenter(currentPos);
+          tip.innerText = "定位成功";
+          setTimeout(()=>tip.style.display = "none", 1500);
+        }else{
+          tip.innerText = "定位失败，请开启定位权限";
+        }
+      });
     }
-  });
-}
 
     // 持续监听手机位置
     function startWatchPosition(){
@@ -349,9 +329,8 @@
       });
     }
 
-    // 开始导航：规划成功立刻上报云端
+    // 开始导航
     function startNav(type){
-      alert('开始导航按钮被点击了');
       if(!currentPos){
         tip.innerText = "请等待硬件定位成功";
         tip.style.display = "block";
@@ -378,7 +357,6 @@
           : new AMap.Riding({ map, hideMarkers: true, autoFitView: true });
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
         route.search(currentPos, targetPos, (status, res) => {
-          alert('路线搜索回调执行，状态：' + status); // ← 加这一行
           if(status === "complete" && res.routes && res.routes.length > 0){
             const routeData = res.routes[0];
             let stepArr = [];
@@ -399,7 +377,6 @@
             navPanel.style.display = "block";
             startWatchPosition();
 
-            // 导航启动立刻上报云端
             if(navSteps.length > 0){
               const firstNavText = `开始${typeText}导航，${navSteps[0].text}`;
               sendNavTextToCloud(firstNavText);
@@ -445,7 +422,6 @@
       });
     }
 
-    // 导航步骤切换：同步上报云端
     function checkNavStep(){
       if(!isNavigating || navSteps.length === 0) return;
       if(currentStepIndex >= navSteps.length){
@@ -480,19 +456,13 @@
 
     // 本地语音播报
     function voiceSpeak(text) {
-  // 加这一行，手机上会弹窗确认是否调用
-  alert('准备发送到云端：' + text);
-
-  // 下面是你之前加的 sendToCloud 调用
-  sendToCloud(text);
-
-  // 本地语音合成（保留）
-  window.speechSynthesis.cancel();
-  const msg = new SpeechSynthesisUtterance(text);
-  msg.lang = "zh-CN";
-  msg.rate = 1.1;
-  speechSynthesis.speak(msg);
-}
+      sendNavTextToCloud(text);
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = "zh-CN";
+      msg.rate = 1.1;
+      speechSynthesis.speak(msg);
+    }
 
     function switchSatellite(){
       if(!isSatellite){
