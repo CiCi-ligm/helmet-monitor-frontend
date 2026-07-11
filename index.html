@@ -12,7 +12,7 @@
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -191,23 +191,18 @@ function connectCloud() {
   alert('【第1步】connectCloud 函数开始执行');
 
   try {
-    if (typeof CryptoJS === 'undefined') {
-      alert('【失败】CryptoJS 库未加载');
-      return;
-    }
-    alert('【第2步】CryptoJS 库加载正常');
-
     const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME + "_" + Date.now();
     const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
-    const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
+    // [关键修改] 不再自己算密码，直接使用您从OneNET平台复制的那个官方token
+    const token = "version=2018-10-31&res=products%2FG2ddPjoILg%2Fdevices%2Fweb_control&et=1846934218&method=md5&sign=Jq%2BMiHk4sgQPjDGIThNl2g%3D%3D";
 
     // 强制弹窗2：显示即将使用的连接参数
-    alert('【第3步】准备连接...\n\n服务器: ' + BROKER_URL + '\n客户端ID: ' + clientId + '\n用户名: ' + username + '\n密码(token): ' + token.substring(0, 20) + '...');
+    alert('【第2步】准备使用官方令牌连接...\n\n服务器: ' + BROKER_URL + '\n客户端ID: ' + clientId + '\n用户名: ' + username);
 
     mqttClient = mqtt.connect(BROKER_URL, {
       clientId: clientId,
       username: username,
-      password: token,
+      password: token, // [关键修改] 直接使用官方token作为密码
       clean: true,
       connectTimeout: 15000,
       reconnectPeriod: 3000,
