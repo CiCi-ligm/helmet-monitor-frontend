@@ -306,8 +306,9 @@
 
     // 开始导航：规划成功立刻上报云端
     function startNav(type){
+      alert('开始导航按钮被点击了');
       if(!currentPos){
-        tip.innerText = "请等待定位成功";
+        tip.innerText = "请等待硬件定位成功";
         tip.style.display = "block";
         setTimeout(()=>tip.style.display = "none", 2000);
         return;
@@ -332,6 +333,7 @@
           : new AMap.Riding({ map, hideMarkers: true, autoFitView: true });
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
         route.search(currentPos, targetPos, (status, res) => {
+          alert('路线搜索回调执行，状态：' + status); // ← 加这一行
           if(status === "complete" && res.routes && res.routes.length > 0){
             const routeData = res.routes[0];
             let stepArr = [];
