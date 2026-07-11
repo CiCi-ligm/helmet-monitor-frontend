@@ -181,7 +181,7 @@
 
     // ====== 通过 HTTP API 下发导航指令到 gps 设备 ======
     function sendNavTextToCloud(text) {
-  const apiUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set";
+  const apiUrl = "/api/send";  // 发给自己电脑的代理
 
   const body = JSON.stringify({
     product_id: PRODUCT_ID,
@@ -193,28 +193,23 @@
     }
   });
 
-  // 弹窗看看发送了什么
-  alert("正在下发指令到 gps:\n" + text);
-
   fetch(apiUrl, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + ACCESS_KEY   // 关键：加上 Bearer 前缀
+      "Content-Type": "application/json"
     },
     body: body
   })
   .then(response => response.json())
   .then(data => {
-    alert("API 返回: " + JSON.stringify(data));
     if (data.code === 0) {
-      console.log("✅ 指令下发成功:", text);
+      alert("✅ 指令已下发: " + text);
     } else {
-      alert("❌ 下发失败: " + (data.message || data.msg || "未知错误"));
+      alert("❌ API返回错误: " + JSON.stringify(data));
     }
   })
   .catch(err => {
-    alert("❌ 网络错误: " + err.message);
+    alert("❌ 代理失败: " + err.message);
   });
 }
 
