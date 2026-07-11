@@ -185,49 +185,56 @@
     };
 
     // MQTT连接 - 使用新版OneNET地址和更完善的连接参数
-    function connectCloud() {
-      try {
-        if (typeof CryptoJS === 'undefined') {
-          alert('CryptoJS 库未加载，请检查网络');
-          return;
-        }
+    // MQTT连接 - 终极调试版
+function connectCloud() {
+  // 强制弹窗1：确认函数被调用
+  alert('【第1步】connectCloud 函数开始执行');
 
-        const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME + "_" + Date.now();
-        const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
-        const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
-
-        mqttClient = mqtt.connect(BROKER_URL, {
-          clientId: clientId,
-          username: username,
-          password: token,
-          clean: true,
-          connectTimeout: 15000,
-          reconnectPeriod: 3000,
-          keepalive: 60,
-          protocolVersion: 4
-        });
-
-        mqttClient.on("connect", () => {
-          alert('✅ MQTT连接成功！web_control已激活');
-        });
-
-        mqttClient.on("error", (err) => {
-          alert('❌ MQTT错误：' + err.message);
-        });
-
-        mqttClient.on("close", () => {
-          console.log("MQTT连接关闭，自动重连中...");
-        });
-
-        mqttClient.on("reconnect", () => {
-          console.log("正在重新连接MQTT...");
-        });
-
-      } catch (e) {
-        alert('MQTT初始化失败：' + e.message);
-      }
+  try {
+    if (typeof CryptoJS === 'undefined') {
+      alert('【失败】CryptoJS 库未加载');
+      return;
     }
+    alert('【第2步】CryptoJS 库加载正常');
 
+    const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME + "_" + Date.now();
+    const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
+    const token = CryptoJS.HmacSHA1(PRODUCT_ID, WEB_DEVICE_SECRET).toString(CryptoJS.enc.Base64);
+
+    // 强制弹窗2：显示即将使用的连接参数
+    alert('【第3步】准备连接...\n\n服务器: ' + BROKER_URL + '\n客户端ID: ' + clientId + '\n用户名: ' + username + '\n密码(token): ' + token.substring(0, 20) + '...');
+
+    mqttClient = mqtt.connect(BROKER_URL, {
+      clientId: clientId,
+      username: username,
+      password: token,
+      clean: true,
+      connectTimeout: 15000,
+      reconnectPeriod: 3000,
+      keepalive: 60,
+      protocolVersion: 4
+    });
+
+    mqttClient.on("connect", () => {
+      alert('【成功！！！】MQTT连接成功！web_control 已激活');
+    });
+
+    mqttClient.on("error", (err) => {
+      alert('【失败】MQTT连接错误: ' + err.message);
+    });
+
+    mqttClient.on("close", () => {
+      alert('【警告】MQTT连接关闭，将尝试自动重连');
+    });
+
+    mqttClient.on("reconnect", () => {
+      alert('【提示】MQTT正在重连...');
+    });
+
+  } catch (e) {
+    alert('【严重错误】MQTT初始化失败: ' + e.message);
+  }
+}
     // 上报导航文字到云端
     function sendNavTextToCloud(text) {
       if (!mqttClient || !mqttClient.connected) {
