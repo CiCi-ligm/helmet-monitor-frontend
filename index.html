@@ -186,7 +186,6 @@
 
     // 网页专用设备MQTT连接，和头盔gps设备完全独立，互不挤掉线
     function connectCloud() {
-  return;
   const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME;  // 标准格式
   const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
   // 新版：对产品ID进行签名
