@@ -11,8 +11,6 @@
     };
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -152,13 +150,11 @@
     let watchId = null;
     const ARRIVE_DIST = 30;
 
-    // 设备信息
+    // ====== 核心信息 ======
     const PRODUCT_ID = "G2ddPjoILg";
-    const WEB_DEVICE_NAME = "web_control";
-    const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
-    const BROKER_URL = "wss://mqtts.heclouds.com:8883/mqtt";
+    const DEVICE_NAME = "gps";          // 目标设备（头盔）
+    const ACCESS_KEY = "zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s";  // 你的 Master-APIkey
 
-    let mqttClient = null;
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
@@ -181,77 +177,40 @@
 
       initAutoComplete();
       getMyLocation();
-      connectCloud();
     };
 
-    // MQTT连接 - 使用新版OneNET地址和更完善的连接参数
-    // MQTT连接 - 终极调试版
-function connectCloud() {
-  // 强制弹窗1：确认函数被调用
-  alert('【第1步】connectCloud 函数开始执行');
-
-  try {
-    const clientId = PRODUCT_ID + "." + WEB_DEVICE_NAME + "_" + Date.now();
-    const username = PRODUCT_ID + "/" + WEB_DEVICE_NAME;
-    // [关键修改] 不再自己算密码，直接使用您从OneNET平台复制的那个官方token
-    const token = "version=2018-10-31&res=products%2FG2ddPjoILg%2Fdevices%2Fweb_control&et=1846934218&method=md5&sign=Jq%2BMiHk4sgQPjDGIThNl2g%3D%3D";
-
-    // 强制弹窗2：显示即将使用的连接参数
-    alert('【第2步】准备使用官方令牌连接...\n\n服务器: ' + BROKER_URL + '\n客户端ID: ' + clientId + '\n用户名: ' + username);
-
-    mqttClient = mqtt.connect(BROKER_URL, {
-      clientId: clientId,
-      username: username,
-      password: token, // [关键修改] 直接使用官方token作为密码
-      clean: true,
-      connectTimeout: 15000,
-      reconnectPeriod: 3000,
-      keepalive: 60,
-      protocolVersion: 4
-    });
-
-    mqttClient.on("connect", () => {
-      alert('【成功！！！】MQTT连接成功！web_control 已激活');
-    });
-
-    mqttClient.on("error", (err) => {
-      alert('【失败】MQTT连接错误: ' + err.message);
-    });
-
-    mqttClient.on("close", () => {
-      alert('【警告】MQTT连接关闭，将尝试自动重连');
-    });
-
-    mqttClient.on("reconnect", () => {
-      alert('【提示】MQTT正在重连...');
-    });
-
-  } catch (e) {
-    alert('【严重错误】MQTT初始化失败: ' + e.message);
-  }
-}
-    // 上报导航文字到云端
+    // ====== 通过 HTTP API 下发导航指令到 gps 设备 ======
     function sendNavTextToCloud(text) {
-      if (!mqttClient || !mqttClient.connected) {
-        alert('❌ 设备离线，无法发送指令');
-        return;
-      }
-      
-      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-      const payload = JSON.stringify({
-        id: Date.now().toString(),
-        version: "1.0",
+      const apiUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set";
+
+      const body = JSON.stringify({
+        product_id: PRODUCT_ID,
+        device_name: DEVICE_NAME,
         params: {
           nav_cmd: {
             value: text
           }
         }
       });
-      
-      mqttClient.publish(topic, payload, (err) => {
-        if (!err) {
-          console.log("导航指令已发送:", text);
+
+      fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": ACCESS_KEY
+        },
+        body: body
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.code === 0) {
+          console.log("✅ 指令下发成功:", text);
+        } else {
+          console.error("❌ 指令下发失败:", data.message || data);
         }
+      })
+      .catch(err => {
+        console.error("❌ 网络错误:", err.message);
       });
     }
 
@@ -259,12 +218,10 @@ function connectCloud() {
     function getMyLocation(){
       tip.innerText = "正在定位...";
       tip.style.display = "block";
-      
       const geolocation = new AMap.Geolocation({
         enableHighAccuracy: true,
         timeout: 10000
       });
-      
       geolocation.getCurrentPosition((status, result) => {
         if(status === "complete" && result.position){
           currentPos = result.position;
@@ -379,6 +336,7 @@ function connectCloud() {
             navPanel.style.display = "block";
             startWatchPosition();
 
+            // 下发第一条导航指令
             if(navSteps.length > 0){
               const firstNavText = `开始${typeText}导航，${navSteps[0].text}`;
               sendNavTextToCloud(firstNavText);
@@ -456,7 +414,7 @@ function connectCloud() {
       navPanel.style.display = "none";
     }
 
-    // 本地语音播报
+    // 本地语音播报（同时发送到云端）
     function voiceSpeak(text) {
       sendNavTextToCloud(text);
       window.speechSynthesis.cancel();
