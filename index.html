@@ -181,38 +181,42 @@
 
     // ====== 通过 HTTP API 下发导航指令到 gps 设备 ======
     function sendNavTextToCloud(text) {
-      const apiUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set";
+  const apiUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set";
 
-      const body = JSON.stringify({
-        product_id: PRODUCT_ID,
-        device_name: DEVICE_NAME,
-        params: {
-          nav_cmd: {
-            value: text
-          }
-        }
-      });
-
-      fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": ACCESS_KEY
-        },
-        body: body
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.code === 0) {
-          console.log("✅ 指令下发成功:", text);
-        } else {
-          console.error("❌ 指令下发失败:", data.message || data);
-        }
-      })
-      .catch(err => {
-        console.error("❌ 网络错误:", err.message);
-      });
+  const body = JSON.stringify({
+    product_id: PRODUCT_ID,
+    device_name: DEVICE_NAME,
+    params: {
+      nav_cmd: {
+        value: text
+      }
     }
+  });
+
+  // 弹窗看看发送了什么
+  alert("正在下发指令到 gps:\n" + text);
+
+  fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + ACCESS_KEY   // 关键：加上 Bearer 前缀
+    },
+    body: body
+  })
+  .then(response => response.json())
+  .then(data => {
+    alert("API 返回: " + JSON.stringify(data));
+    if (data.code === 0) {
+      console.log("✅ 指令下发成功:", text);
+    } else {
+      alert("❌ 下发失败: " + (data.message || data.msg || "未知错误"));
+    }
+  })
+  .catch(err => {
+    alert("❌ 网络错误: " + err.message);
+  });
+}
 
     // 手机定位
     function getMyLocation(){
