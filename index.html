@@ -181,36 +181,29 @@
 
     // ====== 通过 HTTP API 下发导航指令到 gps 设备 ======
     function sendNavTextToCloud(text) {
-  const apiUrl = "/api/send";  // 发给自己电脑的代理
-
+  const apiUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set";
   const body = JSON.stringify({
     product_id: PRODUCT_ID,
     device_name: DEVICE_NAME,
     params: {
-      nav_cmd: {
-        value: text
-      }
+      nav_cmd: { value: text }
     }
   });
 
   fetch(apiUrl, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + ACCESS_KEY
     },
     body: body
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.code === 0) {
-      alert("✅ 指令已下发: " + text);
-    } else {
-      alert("❌ API返回错误: " + JSON.stringify(data));
-    }
+  .then(r => r.json())
+  .then(d => {
+    if (d.code === 0) alert("✅ 指令已下发，喇叭即将播报");
+    else alert("❌ API返回错误: " + JSON.stringify(d));
   })
-  .catch(err => {
-    alert("❌ 代理失败: " + err.message);
-  });
+  .catch(e => alert("❌ 网络错误: " + e.message));
 }
 
     // 手机定位
