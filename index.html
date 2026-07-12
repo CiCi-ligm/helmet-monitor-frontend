@@ -8,8 +8,6 @@
     window._AMapSecurityConfig = { securityJsCode: "fc5eab52eb041ff4874aba0dd149d954" };
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
     html,body{height:100%;overflow:hidden}
@@ -58,19 +56,13 @@
   </div>
 
   <script>
-    // ==================== 全局变量 ====================
+    const PROXY_URL = "http://192.168.43.5:8080/send";
+    const PRODUCT_ID = "G2ddPjoILg";
+    const DEVICE_NAME = "gps";
+
     let map, myMarker, currentPos, targetPos;
     let navSteps = [], currentStepIndex = 0, isNavigating = false, watchId = null;
     const ARRIVE_DIST = 30;
-
-    // OneNET 配置（使用 gps 设备自身凭证，不会踢掉硬件）
-    const PRODUCT_ID = "G2ddPjoILg";
-    const DEVICE_NAME = "gps";
-    const DEVICE_SECRET = "RjE2b05vY3NUT0o4T0NKUHhuQ2g2NVZyc1lsSnRibms=";
-    const BROKER_URL = "wss://mqtts.heclouds.com:8883/mqtt";  // 你的平台接入地址（可以试试 8883 或 8884）
-
-    let mqttClient = null;
-
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
@@ -79,68 +71,29 @@
     const stepList = document.getElementById('step-list');
 
     window.onload = function(){
-      // 简单登录校验（保留）
       if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       initAutoComplete();
       getMyLocation();
-      connectMQTT();
     };
 
-    // ==================== MQTT 连接 ====================
-    function connectMQTT() {
-      if (typeof CryptoJS === 'undefined') { alert('CryptoJS 库未加载'); return; }
-      const token = CryptoJS.HmacSHA1(PRODUCT_ID, DEVICE_SECRET).toString(CryptoJS.enc.Base64);
-      // 使用唯一的 clientId，防止与头盔冲突
-      const clientId = PRODUCT_ID + "." + DEVICE_NAME + "_web_" + Date.now();
-      const username = PRODUCT_ID + "/" + DEVICE_NAME;
-
-      alert('连接 MQTT…\nClientId: ' + clientId + '\nUsername: ' + username);
-      mqttClient = mqtt.connect(BROKER_URL, {
-        clientId: clientId,
-        username: username,
-        password: token,
-        clean: true,
-        connectTimeout: 15000,
-        reconnectPeriod: 3000,
-        keepalive: 60
-      });
-
-      mqttClient.on("connect", () => {
-        alert('✅ MQTT 连接成功！可下发指令');
-        tip.innerText = "云端已连接";
-      });
-      mqttClient.on("error", (err) => alert('❌ MQTT 错误: ' + err.message));
-      mqttClient.on("close", () => console.log('MQTT 关闭'));
-    }
-
-    // 通过 MQTT 属性设置主题下发指令
     function sendNavTextToCloud(text) {
-  const oneNetUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set?product_id=G2ddPjoILg&device_name=gps";
-  const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(oneNetUrl);
-
-  fetch(proxyUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s"
-    },
-    body: JSON.stringify({
-      params: { nav_cmd: { value: text } }
-    })
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.code === 0) alert("✅ 指令已下发: " + text);
-    else alert("❌ 失败: " + JSON.stringify(d));
-  })
-  .catch(e => alert("❌ 请求失败: " + e.message));
-}
+      fetch(PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.code === 0) alert("✅ 指令已下发: " + text);
+        else alert("❌ 失败: " + JSON.stringify(d));
+      })
+      .catch(e => alert("❌ 请求失败: " + e.message));
+    }
 
     function getMyLocation(){
       tip.innerText = "正在定位..."; tip.style.display = "block";
-      const geolocation = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
-      geolocation.getCurrentPosition((status, result) => {
+      new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 }).getCurrentPosition((status, result) => {
         if(status === "complete" && result.position){
           currentPos = result.position;
           if(myMarker) myMarker.setMap(null);
@@ -200,7 +153,6 @@
       if(!currentPos || !targetPos) return;
       isNavigating = true; currentStepIndex = 0; navSteps = [];
       const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding';
-      const typeText = type === 'walking' ? '步行' : '骑行';
       AMap.plugin(plugin, ()=>{
         const route = new (type === 'walking' ? AMap.Walking : AMap.Riding)({ map, hideMarkers: true, autoFitView: true });
         route.search(currentPos, targetPos, (status, res) => {
@@ -220,19 +172,16 @@
               text: s.instruction.replace(/<[^>]+>/g, ''),
               endPos: new AMap.LngLat(s.path[s.path.length-1].lng, s.path[s.path.length-1].lat)
             }));
-            navSummary.innerHTML = `🎯 ${addressInput.value} | ${typeText} | ${(distance/1000).toFixed(1)}km | 约${Math.round(duration/60)}分钟`;
-            stepList.innerHTML = navSteps.map((step, i) => `<div class="nav-step ${i===0?'active':''}">${step.text}</div>`).join('');
+            navSummary.innerHTML = '🎯 ' + addressInput.value + ' | ' + (type==='walking'?'步行':'骑行') + ' | ' + (distance/1000).toFixed(1) + 'km | 约' + Math.round(duration/60) + '分钟';
+            stepList.innerHTML = navSteps.map((step, i) => '<div class="nav-step ' + (i===0?'active':'') + '">' + step.text + '</div>').join('');
             navPanel.style.display = "block";
             startWatchPosition();
-
             if(navSteps.length > 0){
-              const firstNavText = `开始${typeText}导航，${navSteps[0].text}`;
+              const firstNavText = '开始' + (type==='walking'?'步行':'骑行') + '导航，' + navSteps[0].text;
               sendNavTextToCloud(firstNavText);
               voiceSpeak(firstNavText);
             }
-          } else {
-            alert("路线规划失败");
-          }
+          } else { alert("路线规划失败"); }
         });
       });
     }
@@ -267,16 +216,7 @@
       speechSynthesis.speak(msg);
     }
 
-    function switchSatellite(){
-      if(!isSatellite){
-        map.add(satelliteLayer);
-        isSatellite = true;
-      }else{
-        map.remove(satelliteLayer);
-        isSatellite = false;
-      }
-    }
-
+    function switchSatellite(){}
     function clearAll(){
       addressInput.value = ""; targetPos = null;
       endNav();
