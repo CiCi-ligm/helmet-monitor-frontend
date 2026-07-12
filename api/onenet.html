@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const echostr = urlParams.get('echostr');
+if (echostr) {
+  document.body.innerText = echostr;
+} else {
+  document.body.innerText = 'ok';
+}
+</script>
+</body>
+</html>
