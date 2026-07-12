@@ -56,9 +56,9 @@
   </div>
 
   <script>
-    const PROXY_URL = "http://192.168.43.5:8080/send";
     const PRODUCT_ID = "G2ddPjoILg";
     const DEVICE_NAME = "gps";
+    const ACCESS_KEY = "zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s";
 
     let map, myMarker, currentPos, targetPos;
     let navSteps = [], currentStepIndex = 0, isNavigating = false, watchId = null;
@@ -78,17 +78,22 @@
     };
 
     function sendNavTextToCloud(text) {
-      fetch(PROXY_URL, {
+      fetch("https://iot-api.heclouds.com/mqtt/thing/property/set?product_id=" + PRODUCT_ID + "&device_name=" + DEVICE_NAME, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text })
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + ACCESS_KEY
+        },
+        body: JSON.stringify({
+          params: { nav_cmd: { value: text } }
+        })
       })
       .then(r => r.json())
       .then(d => {
-        if (d.code === 0) alert("✅ 指令已下发: " + text);
-        else alert("❌ 失败: " + JSON.stringify(d));
+        if (d.code === 0) console.log("✅ 指令已下发: " + text);
+        else console.log("❌ 失败: " + JSON.stringify(d));
       })
-      .catch(e => alert("❌ 请求失败: " + e.message));
+      .catch(e => console.log("❌ 请求失败: " + e.message));
     }
 
     function getMyLocation(){
