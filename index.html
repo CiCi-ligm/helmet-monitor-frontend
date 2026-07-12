@@ -116,21 +116,23 @@
 
     // 通过 MQTT 属性设置主题下发指令
     function sendNavTextToCloud(text) {
-      if (!mqttClient || !mqttClient.connected) {
-        alert('MQTT 未连接');
-        return;
-      }
-      const topic = `$sys/${PRODUCT_ID}/${DEVICE_NAME}/thing/property/set`;
-      const payload = JSON.stringify({
-        id: Date.now().toString(),
-        version: "1.0",
-        params: { nav_cmd: { value: text } }
-      });
-      mqttClient.publish(topic, payload, (err) => {
-        if (err) alert('❌ 发布失败: ' + err.message);
-        else alert('✅ 指令已下发: ' + text);
-      });
-    }
+  fetch("https://iot-api.heclouds.com/mqtt/thing/property/set?product_id=G2ddPjoILg&device_name=gps", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s"
+    },
+    body: JSON.stringify({
+      params: { nav_cmd: { value: text } }
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.code === 0) alert("✅ 指令已下发: " + text);
+    else alert("❌ 失败: " + JSON.stringify(d));
+  })
+  .catch(e => alert("❌ 网络错误: " + e.message));
+}
 
     function getMyLocation(){
       tip.innerText = "正在定位..."; tip.style.display = "block";
