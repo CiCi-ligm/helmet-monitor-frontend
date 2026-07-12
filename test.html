@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>API 通路测试</title>
+</head>
+<body>
+  <h2>OneNET API 直接调用测试</h2>
+  <button onclick="test()">点我发送测试指令</button>
+  <p id="result"></p>
+
+  <script>
+    async function test() {
+      const url = 'https://iot-api.heclouds.com/mqtt/thing/property/set';
+      const accessKey = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s';
+      const body = {
+        product_id: 'G2ddPjoILg',
+        device_name: 'gps',
+        params: {
+          nav_cmd: { value: '测试喇叭' }
+        }
+      };
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + accessKey
+          },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+          document.getElementById('result').innerText = '✅ 成功！nav_cmd 已更新为“测试喇叭”，去 OneNET 看属性。喇叭应该会响一声。';
+        } else {
+          document.getElementById('result').innerText = '❌ 失败：' + JSON.stringify(data);
+        }
+      } catch (e) {
+        document.getElementById('result').innerText = '❌ 网络错误：' + e.message;
+      }
+    }
+  </script>
+</body>
+</html>
