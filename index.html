@@ -116,7 +116,10 @@
 
     // 通过 MQTT 属性设置主题下发指令
     function sendNavTextToCloud(text) {
-  fetch("https://iot-api.heclouds.com/mqtt/thing/property/set?product_id=G2ddPjoILg&device_name=gps", {
+  const oneNetUrl = "https://iot-api.heclouds.com/mqtt/thing/property/set?product_id=G2ddPjoILg&device_name=gps";
+  const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(oneNetUrl);
+
+  fetch(proxyUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -131,7 +134,7 @@
     if (d.code === 0) alert("✅ 指令已下发: " + text);
     else alert("❌ 失败: " + JSON.stringify(d));
   })
-  .catch(e => alert("❌ 网络错误: " + e.message));
+  .catch(e => alert("❌ 请求失败: " + e.message));
 }
 
     function getMyLocation(){
