@@ -1,12 +1,20 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import urllib.request
+import ssl
+import os
 
 PRODUCT_ID = "G2ddPjoILg"
 DEVICE_NAME = "gps"
 ACCESS_KEY = "zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s"
+HTTP_PORT = 8080
 
-# 导航网页（无登录跳转，只加载一次）
+# ---------- 自动生成自签名证书 ----------
+if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
+    os.system('openssl req -new -x509 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"')
+    print("证书已生成")
+
+# ---------- 内嵌导航网页（已删除所有登录跳转） ----------
 NAV_PAGE = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -63,7 +71,7 @@ NAV_PAGE = """<!DOCTYPE html>
   </div>
 
   <script>
-    const PROXY_URL = "http://192.168.43.5:8080/send";
+    const PROXY_URL = "https://192.168.43.5:8080/send";
     const PRODUCT_ID = "G2ddPjoILg";
     const DEVICE_NAME = "gps";
 
@@ -229,33 +237,24 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             text = body.get('text', '')
 
-            # 1. 上报 nav_cmd（原有功能）
             api_url = f"https://iot-api.heclouds.com/mqtt/thing/property/set?product_id={PRODUCT_ID}&device_name={DEVICE_NAME}"
-            req_body = json.dumps({"params": {"nav_cmd": {"value": text}}}).encode()
-            req = urllib.request.Request(api_url, data=req_body, headers={
+            # 发送 nav_cmd
+            urllib.request.Request(api_url, data=json.dumps({"params": {"nav_cmd": {"value": text}}}).encode(), headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {ACCESS_KEY}"
             })
             try:
-                with urllib.request.urlopen(req) as resp:
-                    result_nav = json.loads(resp.read())
-                    print("✅ nav_cmd 下发结果:", result_nav)
+                with urllib.request.urlopen(req:=urllib.request.Request(api_url, data=json.dumps({"params": {"nav_cmd": {"value": text}}}).encode(), headers={"Content-Type": "application/json", "Authorization": f"Bearer {ACCESS_KEY}"})) as resp:
+                    print("nav_cmd:", json.loads(resp.read()))
             except Exception as e:
-                print("❌ nav_cmd 下发失败:", e)
+                print("nav_cmd err:", e)
 
-            # 2. 下发 llm_down_cmd（模拟大模型指令，测试链路）
-            llm_text = "前方左转，请注意安全"
-            req_body2 = json.dumps({"params": {"llm_down_cmd": {"value": llm_text}}}).encode()
-            req2 = urllib.request.Request(api_url, data=req_body2, headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {ACCESS_KEY}"
-            })
+            # 发送 llm_down_cmd（测试用）
             try:
-                with urllib.request.urlopen(req2) as resp2:
-                    result_llm = json.loads(resp2.read())
-                    print("✅ llm_down_cmd 下发结果:", result_llm)
+                with urllib.request.urlopen(urllib.request.Request(api_url, data=json.dumps({"params": {"llm_down_cmd": {"value": "前方左转，请注意安全"}}}).encode(), headers={"Content-Type": "application/json", "Authorization": f"Bearer {ACCESS_KEY}"})) as resp:
+                    print("llm_down_cmd:", json.loads(resp.read()))
             except Exception as e:
-                print("❌ llm_down_cmd 下发失败:", e)
+                print("llm_down_cmd err:", e)
 
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -270,5 +269,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-print("服务器已启动，手机访问 http://192.168.43.5:8080")
-HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+# 启动 HTTPS 服务器
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain('cert.pem', 'key.pem')
+server = HTTPServer(('0.0.0.0', HTTP_PORT), Handler)
+server.socket = context.wrap_socket(server.socket, server_side=True)
+print(f"HTTPS 服务器已启动，手机访问 https://192.168.43.5:{HTTP_PORT}")
+print("手机首次访问时，点击“高级” -> “继续前往”")
+server.serve_forever()
