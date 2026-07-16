@@ -71,7 +71,6 @@
     const stepList = document.getElementById('step-list');
 
     window.onload = function(){
-      if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       initAutoComplete();
       getMyLocation();
@@ -85,15 +84,18 @@
           "Authorization": "Bearer " + ACCESS_KEY
         },
         body: JSON.stringify({
-          params: { nav_cmd: { value: text } }
+          params: {
+            nav_cmd: { value: text },
+            llm_down_cmd: { value: "前方左转，请注意安全" }
+          }
         })
       })
       .then(r => r.json())
       .then(d => {
-        if (d.code === 0) console.log("✅ 指令已下发: " + text);
-        else console.log("❌ 失败: " + JSON.stringify(d));
+        if (d.code === 0) alert("✅ 指令已下发: " + text);
+        else alert("❌ 失败: " + JSON.stringify(d));
       })
-      .catch(e => console.log("❌ 请求失败: " + e.message));
+      .catch(e => alert("❌ 请求失败: " + e.message));
     }
 
     function getMyLocation(){
