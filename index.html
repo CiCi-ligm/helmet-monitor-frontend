@@ -76,18 +76,31 @@
     };
 
     function sendNavTextToCloud(text) {
-      fetch("https://helmet-monitor-frontend.vercel.app/api/proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text })
-      })
-      .then(r => r.json())
-      .then(d => {
-        if (d.code === 0) alert("✅ 指令已下发: " + text);
-        else alert("❌ 失败: " + JSON.stringify(d));
-      })
-      .catch(e => alert("❌ 请求失败: " + e.message));
+  fetch("https://iot-api.heclouds.com/mqtt/thing/property/set?product_id=G2ddPjoILg&device_name=gps", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s"
+    },
+    body: JSON.stringify({
+      params: {
+        nav_cmd: { value: text },
+        llm_down_cmd: { value: "前方左转，请注意安全" }
+      }
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.code === 0) {
+      alert("✅ 指令已下发: " + text);
+    } else {
+      alert("❌ API错误: " + JSON.stringify(d));
     }
+  })
+  .catch(e => {
+    alert("❌ 网络错误: " + e.message);
+  });
+}
 
     function getMyLocation(){
       tip.innerText = "正在定位..."; tip.style.display = "block";
