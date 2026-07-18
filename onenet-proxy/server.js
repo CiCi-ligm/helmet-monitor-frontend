@@ -16,7 +16,8 @@ app.use('/api/', limiter);
 
 const ONENET_DEVICE_ID = process.env.ONENET_DEVICE_ID;
 const ONENET_ACCESS_KEY = process.env.ONENET_ACCESS_KEY;
-const ONENET_KEY_NAME = process.env.ONENET_KEY_NAME || 'api-key'; // change to 'access-key' if needed
+// Default header name changed to access_key per your request
+const ONENET_KEY_NAME = process.env.ONENET_KEY_NAME || 'access_key';
 const SECRET_TOKEN = process.env.SECRET_TOKEN; // optional simple auth for browser requests
 
 if (!ONENET_DEVICE_ID || !ONENET_ACCESS_KEY) {
