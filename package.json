@@ -1,0 +1,28 @@
+{
+  "name": "helmet-monitor-frontend",
+  "version": "1.0.0",
+  "description": "智能头盔项目前端网页",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CiCi-ligm/helmet-monitor-frontend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CiCi-ligm/helmet-monitor-frontend/issues"
+  },
+  "homepage": "https://github.com/CiCi-ligm/helmet-monitor-frontend#readme",
+  "dependencies": {
+    "axios": "^1.18.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "mqtt": "^5.15.2"
+  }
+}
