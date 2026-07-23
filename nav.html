@@ -178,7 +178,7 @@
       try {
         const response = await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },  // ✅ 关键修改：绕过 CORS 预检
           body: JSON.stringify({ destination, status })
         });
         const data = await response.json();
