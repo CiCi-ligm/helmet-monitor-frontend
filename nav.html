@@ -174,7 +174,7 @@
       console.log("已上报 web_control", text);
     }
 
-    // ========== 语音输入（增强错误提示） ==========
+    // ========== 语音输入（修复版：自动停止并显示结果） ==========
     function startVoiceInput() {
       if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
         alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器');
@@ -186,6 +186,7 @@
       recognition.lang = 'zh-CN';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
+      recognition.continuous = false;  // 单次识别，说完自动停止
 
       recognition.onstart = () => {
         tip.innerText = '请说话...';
@@ -196,6 +197,7 @@
         const spokenText = event.results[0][0].transcript;
         addressInput.value = spokenText;
         tip.innerText = '识别成功: ' + spokenText;
+        setTimeout(() => tip.style.display = 'none', 1500);
         resolveNaturalLanguage(spokenText);
       };
 
@@ -213,12 +215,21 @@
         setTimeout(() => tip.style.display = 'none', 3000);
       };
 
+      recognition.onend = () => {
+        // 识别结束（可能正常结束或超时），如果还没结果，提示用户
+        if (tip.innerText === '请说话...') {
+          tip.innerText = '未识别到语音，请点击按钮重试';
+          setTimeout(() => tip.style.display = 'none', 3000);
+        }
+      };
+
       recognition.start();
     }
 
     // ========== 自然语言解析并自动导航 ==========
     async function resolveNaturalLanguage(spokenText) {
       tip.innerText = 'AI正在理解你的指令...';
+      tip.style.display = 'block';
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
           method: 'POST',
