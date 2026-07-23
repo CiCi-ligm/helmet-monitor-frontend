@@ -175,56 +175,81 @@
     }
 
     // ========== 语音输入（修复版：自动停止并显示结果） ==========
-    function startVoiceInput() {
-      if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    let recognition = null; // 全局变量，用于手动停止
+
+function startVoiceInput() {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
         alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器');
         return;
-      }
+    }
 
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'zh-CN';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.continuous = false;  // 单次识别，说完自动停止
+    // 如果已经在识别中，点击则停止
+    if (recognition) {
+        recognition.stop();
+        return;
+    }
 
-      recognition.onstart = () => {
-        tip.innerText = '请说话...';
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'zh-CN';
+    recognition.interimResults = true; // 开启临时结果，实时显示
+    recognition.continuous = false;
+
+    const voiceBtn = document.getElementById('voiceBtn');
+    voiceBtn.innerText = '🔴 结束说话';
+    voiceBtn.style.background = '#f44336';
+
+    recognition.onstart = () => {
+        tip.innerText = '请说话，说完点击"结束说话"...';
         tip.style.display = 'block';
-      };
+    };
 
-      recognition.onresult = (event) => {
-        const spokenText = event.results[0][0].transcript;
-        addressInput.value = spokenText;
-        tip.innerText = '识别成功: ' + spokenText;
-        setTimeout(() => tip.style.display = 'none', 1500);
-        resolveNaturalLanguage(spokenText);
-      };
+    recognition.onresult = (event) => {
+        // 实时显示识别内容
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+                const spokenText = event.results[i][0].transcript;
+                addressInput.value = spokenText;
+                tip.innerText = '识别成功: ' + spokenText;
+                resolveNaturalLanguage(spokenText);
+            } else {
+                interim += event.results[i][0].transcript;
+                tip.innerText = '正在听: ' + interim;
+            }
+        }
+    };
 
-      recognition.onerror = (event) => {
+    recognition.onerror = (event) => {
         console.error('语音识别错误:', event.error);
         if (event.error === 'not-allowed') {
-          tip.innerText = '麦克风权限被拒绝，请在浏览器设置中允许麦克风';
+            tip.innerText = '麦克风权限被拒绝';
         } else if (event.error === 'no-speech') {
-          tip.innerText = '未检测到语音，请重试';
-        } else if (event.error === 'network') {
-          tip.innerText = '网络错误，请检查网络连接';
+            tip.innerText = '未检测到语音';
         } else {
-          tip.innerText = '语音识别失败: ' + event.error;
+            tip.innerText = '语音识别失败: ' + event.error;
         }
-        setTimeout(() => tip.style.display = 'none', 3000);
-      };
+        resetVoiceButton();
+        setTimeout(() => tip.style.display = 'none', 2000);
+    };
 
-      recognition.onend = () => {
-        // 识别结束（可能正常结束或超时），如果还没结果，提示用户
-        if (tip.innerText === '请说话...') {
-          tip.innerText = '未识别到语音，请点击按钮重试';
-          setTimeout(() => tip.style.display = 'none', 3000);
+    recognition.onend = () => {
+        resetVoiceButton();
+        if (tip.innerText === '请说话，说完点击"结束说话"...') {
+            tip.innerText = '未识别到语音，请重试';
+            setTimeout(() => tip.style.display = 'none', 2000);
         }
-      };
+    };
 
-      recognition.start();
-    }
+    recognition.start();
+}
+
+function resetVoiceButton() {
+    recognition = null;
+    const voiceBtn = document.getElementById('voiceBtn');
+    voiceBtn.innerText = '🎤 语音输入目的地';
+    voiceBtn.style.background = '#4CAF50';
+}
 
     // ========== 自然语言解析并自动导航 ==========
     async function resolveNaturalLanguage(spokenText) {
