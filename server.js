@@ -7,7 +7,20 @@ const { askQwen } = require('./aiService');
 const app = express();
 app.use(express.json());
 
-// ✅ 关键修改：只允许你的前端域名跨域
+// ✅ 关键修改：彻底解决 CORS 问题
+// 1. 先手动设置所有响应头，确保包括 OPTIONS 预检请求在内的所有请求都带有正确的 CORS 头
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', 'https://cici-ligm.github.io');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // 2. 如果是预检请求（OPTIONS），直接返回 200，不再向后传递
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+// 3. 保留 cors 中间件作为备用（但上面的手动设置已经足够）
 app.use(cors({
   origin: 'https://cici-ligm.github.io'
 }));
@@ -67,6 +80,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
+// 本地开发时监听端口（Vercel 会自动忽略这部分）
 if (process.env.NODE_ENV !== 'production') {
     const PORT = 3000;
     app.listen(PORT, () => {
