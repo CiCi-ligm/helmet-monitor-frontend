@@ -6,7 +6,11 @@ const { askQwen } = require('./aiService');
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+// ✅ 关键修改：只允许你的前端域名跨域
+app.use(cors({
+  origin: 'https://cici-ligm.github.io'
+}));
 
 // 测试路由
 app.get('/test', (req, res) => res.send('服务正常'));
@@ -16,7 +20,7 @@ const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 
-// GET 测试路由（新增）
+// GET 测试路由
 app.get('/api/ai/nav', (req, res) => {
     res.json({ message: 'AI 路由正常，请使用 POST 请求发送数据' });
 });
@@ -29,11 +33,9 @@ app.post('/api/ai/nav', async (req, res) => {
             return res.status(400).json({ error: '缺少目的地参数' });
         }
 
-        // 调用大模型
         const prompt = `用户骑行导航到"${destination}"已${status || '完成'}，请生成一句简短的语音提示（15字以内），语气积极。`;
         const aiText = await askQwen(prompt);
 
-        // 生成产品签名 token
         const version = '2022-05-01';
         const resStr = `products/${PRODUCT_ID}`;
         const et = Math.ceil((Date.now() + 3600000) / 1000);
@@ -43,7 +45,6 @@ app.post('/api/ai/nav', async (req, res) => {
         const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
         const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
-        // 下发 OneNET
         try {
             const onenetRes = await axios.post(
                 'https://iot-api.heclouds.com/thingmodel/set-device-property',
@@ -66,7 +67,6 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 本地开发时监听端口（Vercel 会自动忽略这部分）
 if (process.env.NODE_ENV !== 'production') {
     const PORT = 3000;
     app.listen(PORT, () => {
@@ -74,5 +74,4 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-// 导出 app 供 Vercel 使用
 module.exports = app;
