@@ -174,25 +174,46 @@
       console.log("已上报 web_control", text);
     }
 
-    // ========== 语音输入 ==========
+    // ========== 语音输入（增强错误提示） ==========
     function startVoiceInput() {
       if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-        alert('请使用Chrome浏览器打开');
+        alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器');
         return;
       }
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = 'zh-CN';
-      recognition.start();
-      tip.innerText = '正在聆听...';
-      tip.style.display = 'block';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        tip.innerText = '请说话...';
+        tip.style.display = 'block';
+      };
 
       recognition.onresult = (event) => {
         const spokenText = event.results[0][0].transcript;
         addressInput.value = spokenText;
+        tip.innerText = '识别成功: ' + spokenText;
         resolveNaturalLanguage(spokenText);
       };
-      recognition.onerror = () => tip.innerText = '语音识别失败';
+
+      recognition.onerror = (event) => {
+        console.error('语音识别错误:', event.error);
+        if (event.error === 'not-allowed') {
+          tip.innerText = '麦克风权限被拒绝，请在浏览器设置中允许麦克风';
+        } else if (event.error === 'no-speech') {
+          tip.innerText = '未检测到语音，请重试';
+        } else if (event.error === 'network') {
+          tip.innerText = '网络错误，请检查网络连接';
+        } else {
+          tip.innerText = '语音识别失败: ' + event.error;
+        }
+        setTimeout(() => tip.style.display = 'none', 3000);
+      };
+
+      recognition.start();
     }
 
     // ========== 自然语言解析并自动导航 ==========
