@@ -16,6 +16,11 @@ const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 
+// GET 测试路由（新增）
+app.get('/api/ai/nav', (req, res) => {
+    res.json({ message: 'AI 路由正常，请使用 POST 请求发送数据' });
+});
+
 // 核心 AI 路由
 app.post('/api/ai/nav', async (req, res) => {
     try {
@@ -25,7 +30,7 @@ app.post('/api/ai/nav', async (req, res) => {
         }
 
         // 调用大模型
-        const prompt = `用户骑行导航到“${destination}”已${status || '完成'}，请生成一句简短的语音提示（15字以内），语气积极。`;
+        const prompt = `用户骑行导航到"${destination}"已${status || '完成'}，请生成一句简短的语音提示（15字以内），语气积极。`;
         const aiText = await askQwen(prompt);
 
         // 生成产品签名 token
