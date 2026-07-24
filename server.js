@@ -148,7 +148,7 @@ app.post('/api/ai/risk', async (req, res) => {
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
-        const prompt = `你是一个骑行助手。用户最近完成了${count || 6}次骑行，总里程${distance}公里，总时长${duration}分钟，平均速度${speed}km/h，消耗${calories}卡路里。请生成一段积极的骑行总结（30字以内），鼓励用户继续保持。`;
+        const prompt = `你是一位专业的骑行教练。你的学员最近完成了${count}次骑行，总里程${distance}公里，总时长${duration}分钟，平均速度${speed}km/h，消耗${calories}卡路里。请从专业角度分析他的骑行表现，指出优点和不足，并给出具体的改进建议。回答控制在50字以内，语气专业但鼓励。`;
         const aiText = await askQwen(prompt);
         res.json({ success: true, text: aiText });
     } catch (error) {
