@@ -94,7 +94,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送 + 逆地理编码）
+// 安全风险研判接口（含微信推送 + 逆地理编码 + 详细日志）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -114,19 +114,22 @@ app.post('/api/ai/risk', async (req, res) => {
         let address = '未知位置';
         const loc = userLocation || '104.5647,28.7658';
         try {
+            console.log('开始逆地理编码，坐标:', loc);
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
                 params: {
                     key: AMAP_KEY,
                     location: loc,
-                    extensions: 'base'
+                    output: 'json'
                 }
             });
-            if (geoResp.data.regeocode) {
-                address = geoResp.data.regeocode.formatted_address;
+            console.log('逆地理编码原始返回:', JSON.stringify(geoResp.data));
+            if (geoResp.data.status === '1' && geoResp.data.regeocode) {
+                address = geoResp.data.regeocode.formatted_address || '未知位置';
+            } else {
+                console.warn('逆地理编码失败，状态:', geoResp.data.status);
             }
-            console.log('逆地理编码结果:', address);
         } catch (e) {
-            console.warn('逆地理编码失败:', e.message);
+            console.warn('逆地理编码请求失败:', e.message);
         }
 
         // 微信通知（详细地址）
