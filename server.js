@@ -1,73 +1,136 @@
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
-const cors = require('cors');
+const multer = require('multer');
 const { askQwen } = require('./aiService');
 
 const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// 终极 CORS
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', '*');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+});
 app.use(express.json());
-app.use(cors());
 
-// 测试路由
-app.get('/test', (req, res) => res.send('服务正常'));
-
-// 产品信息
 const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
+const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 
-// 核心 AI 路由
+// 原有 AI 导航路由
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
-        if (!destination) {
-            return res.status(400).json({ error: '缺少目的地参数' });
-        }
+        if (!destination) return res.status(400).json({ error: '缺少目的地参数' });
 
-        // 调用大模型
-        const prompt = `用户骑行导航到“${destination}”已${status || '完成'}，请生成一句简短的语音提示（15字以内），语气积极。`;
+        const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
 
-        // 生成产品签名 token
-        const version = '2022-05-01';
-        const resStr = `products/${PRODUCT_ID}`;
-        const et = Math.ceil((Date.now() + 3600000) / 1000);
-        const method = 'sha1';
-        const base64Key = Buffer.from(API_KEY, 'base64');
-        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
-        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
-        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
-
-        // 下发 OneNET
-        try {
-            const onenetRes = await axios.post(
-                'https://iot-api.heclouds.com/thingmodel/set-device-property',
-                {
-                    product_id: PRODUCT_ID,
-                    device_name: DEVICE_NAME,
-                    params: { nav_text: aiText }
-                },
-                { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
-            );
-            console.log('OneNET 下发成功:', onenetRes.data);
-        } catch (err) {
-            console.warn('OneNET 下发失败（设备可能离线）:', err.response?.data || err.message);
-        }
-
-        res.json({ success: true, text: aiText, destination, status });
+        res.json({ success: true, text: aiText });
     } catch (error) {
-        console.error('大模型调用失败:', error.response?.data || error.message);
-        res.status(500).json({ success: false, error: 'AI 服务暂时不可用' });
+        res.status(500).json({ error: 'AI 服务暂时不可用' });
     }
 });
 
-// 本地开发时监听端口（Vercel 会自动忽略这部分）
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = 3000;
-    app.listen(PORT, () => {
-        console.log(`🚀 本地后端运行在 http://localhost:${PORT}`);
-    });
-}
+// 自然语言解析接口
+app.post('/api/nlp/nav', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-// 导出 app 供 Vercel 使用
+        const prompt = `从以下用户指令中提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。用户指令：${text}`;
+        const aiResult = await askQwen(prompt);
+        const parsed = JSON.parse(aiResult);
+
+        if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
+
+        const geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
+            params: {
+                key: '977b6123358698744cd4f2a96e219145',
+                keywords: parsed.destination
+            }
+        });
+
+        if (geoResp.data.tips && geoResp.data.tips.length > 0) {
+            const location = geoResp.data.tips[0].location;
+            res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
+        } else {
+            res.json({ success: false, error: '找不到该目的地' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: '意图解析失败' });
+    }
+});
+
+// 语音导航接口（接收音频，调用大模型识别并解析意图）
+app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: '缺少音频文件' });
+        }
+
+        // 将音频 buffer 转为 base64
+        const audioBase64 = req.file.buffer.toString('base64');
+        const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+
+        // 调用通义千问多模态模型，同时完成语音识别和意图解析
+        const prompt = '请分析这段语音，提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。';
+        const response = await axios.post(
+            'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+            {
+                model: 'qwen-omni-turbo',
+                input: {
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { "audio": audioUrl },
+                                { "text": prompt }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${QWEN_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        // 处理大模型的返回结果
+        const aiOutput = response.data.output.choices[0].message.content[0].text;
+        const parsed = JSON.parse(aiOutput);
+
+        if (!parsed.destination) {
+            return res.json({ success: false, error: '未识别到目的地' });
+        }
+
+        // 使用高德搜索坐标
+        const geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
+            params: {
+                key: '977b6123358698744cd4f2a96e219145',
+                keywords: parsed.destination
+            }
+        });
+
+        if (geoResp.data.tips && geoResp.data.tips.length > 0) {
+            const location = geoResp.data.tips[0].location;
+            res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
+        } else {
+            res.json({ success: false, error: '找不到该目的地' });
+        }
+    } catch (error) {
+        console.error('语音处理失败:', error.response?.data || error.message);
+        res.status(500).json({ error: '语音服务暂时不可用' });
+    }
+});
+
+// Vercel 导出
 module.exports = app;
