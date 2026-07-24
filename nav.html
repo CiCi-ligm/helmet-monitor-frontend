@@ -225,18 +225,21 @@
       voiceBtn.classList.remove('recording-btn');
     }
 
-    // ========== 模拟摔倒检测 ==========
+    // ========== 模拟摔倒检测（带用户位置） ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，AI正在研判...';
       tip.style.display = 'block';
-      
+
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             event: '摔倒',
-            data: '加速度8.5g, 倾角75度, 持续2秒'
+            data: '加速度8.5g, 倾角75度, 持续2秒',
+            userLocation: loc
           })
         });
         const data = await resp.json();
