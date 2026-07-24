@@ -21,25 +21,20 @@ const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
+const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
 
-// 高德搜索函数（带重试逻辑）
-async function searchAmap(keywords) {
-    let geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
+// 周边搜索函数（真正找身边的店铺）
+async function searchNearby(keywords, userLocation) {
+    const response = await axios.get('https://restapi.amap.com/v3/place/around', {
         params: {
-            key: '977b6123358698744cd4f2a96e219145',
+            key: AMAP_KEY,
             keywords: keywords,
-            city: '宜宾'
+            location: userLocation || '104.5647,28.7658', // 默认宜宾坐标
+            radius: 5000,
+            offset: 1
         }
     });
-    if (!geoResp.data.tips || geoResp.data.tips.length === 0) {
-        geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
-            params: {
-                key: '977b6123358698744cd4f2a96e219145',
-                keywords: keywords
-            }
-        });
-    }
-    return geoResp;
+    return response;
 }
 
 // 原有 AI 导航路由
@@ -60,7 +55,7 @@ app.post('/api/ai/nav', async (req, res) => {
 // 自然语言解析接口（增强版：返回详情和导航指令）
 app.post('/api/nlp/nav', async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, userLocation } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
         const prompt = `你是一个专业的骑行导航助手。用户说：${text}。请分析这句话，以JSON格式返回：{"destination":"具体地点名","detail":"检测到的最近的具体地点（如星巴克宜宾万达店）","mode":"walking或riding","instruction":"一句简短的导航起始指令，如'直走50米后左转'"}。只输出JSON，不要任何解释。`;
@@ -76,22 +71,24 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
 
-        const geoResp = await searchAmap(parsed.destination);
+        // 使用周边搜索
+        const geoResp = await searchNearby(parsed.destination, userLocation);
 
-        if (geoResp.data.tips && geoResp.data.tips.length > 0) {
-            const location = geoResp.data.tips[0].location;
+        if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+            const location = geoResp.data.pois[0].location;
             res.json({
                 success: true,
                 destination: parsed.destination,
-                detail: parsed.detail || parsed.destination,
+                detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination,
                 instruction: parsed.instruction || '',
                 mode: parsed.mode || 'riding',
                 location: location
             });
         } else {
-            res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
+            res.json({ success: false, error: `找不到附近的"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
+        console.error('NLP解析失败:', error.response?.data || error.message);
         res.status(500).json({ error: '意图解析失败' });
     }
 });
@@ -151,20 +148,20 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             return res.json({ success: false, error: '未识别到目的地' });
         }
 
-        const geoResp = await searchAmap(parsed.destination);
+        const geoResp = await searchNearby(parsed.destination, req.body.userLocation);
 
-        if (geoResp.data.tips && geoResp.data.tips.length > 0) {
-            const location = geoResp.data.tips[0].location;
+        if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+            const location = geoResp.data.pois[0].location;
             res.json({
                 success: true,
                 destination: parsed.destination,
-                detail: parsed.detail || parsed.destination,
+                detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination,
                 instruction: parsed.instruction || '',
                 mode: parsed.mode || 'riding',
                 location: location
             });
         } else {
-            res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
+            res.json({ success: false, error: `找不到附近的"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
         console.error('语音处理失败:', error.response?.data || error.message);
