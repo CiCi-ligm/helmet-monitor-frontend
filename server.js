@@ -23,9 +23,35 @@ const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
 
+// 生成产品 token 并下发到 OneNET
+async function sendToOneNET(navText) {
+    const version = '2022-05-01';
+    const resStr = `products/${PRODUCT_ID}`;
+    const et = Math.ceil((Date.now() + 3600000) / 1000);
+    const method = 'sha1';
+    const base64Key = Buffer.from(API_KEY, 'base64');
+    const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+    const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+    const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+
+    try {
+        await axios.post(
+            'https://iot-api.heclouds.com/thingmodel/set-device-property',
+            {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                params: { nav_text: navText }
+            },
+            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
+        );
+        console.log('OneNET 下发成功:', navText);
+    } catch (err) {
+        console.warn('OneNET 下发失败:', err.response?.data || err.message);
+    }
+}
+
 // 搜索函数（先用关键词搜索，失败再用周边搜索）
 async function searchPlace(keywords, userLocation) {
-    // 先用关键词搜索（适合搜索具体店名）
     let response = await axios.get('https://restapi.amap.com/v3/place/text', {
         params: {
             key: AMAP_KEY,
@@ -34,7 +60,6 @@ async function searchPlace(keywords, userLocation) {
         }
     });
     
-    // 如果关键词搜索失败，再用周边搜索
     if (!response.data.pois || response.data.pois.length === 0) {
         response = await axios.get('https://restapi.amap.com/v3/place/around', {
             params: {
@@ -50,7 +75,7 @@ async function searchPlace(keywords, userLocation) {
     return response;
 }
 
-// 原有 AI 导航路由
+// AI 导航路由（含 OneNET 下发）
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
@@ -59,13 +84,16 @@ app.post('/api/ai/nav', async (req, res) => {
         const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
 
+        // 下发到 OneNET
+        sendToOneNET(aiText);
+
         res.json({ success: true, text: aiText });
     } catch (error) {
         res.status(500).json({ error: 'AI 服务暂时不可用' });
     }
 });
 
-// 自然语言解析接口（增强版：返回详情和导航指令）
+// 自然语言解析接口
 app.post('/api/nlp/nav', async (req, res) => {
     try {
         const { text, userLocation } = req.body;
@@ -84,7 +112,6 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
 
-        // 使用搜索函数
         const geoResp = await searchPlace(parsed.destination, userLocation);
 
         if (geoResp.data.pois && geoResp.data.pois.length > 0) {
@@ -106,7 +133,7 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// 语音导航接口（同样增强）
+// 语音导航接口
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) {
