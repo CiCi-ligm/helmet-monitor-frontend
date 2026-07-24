@@ -23,7 +23,7 @@ const DEVICE_NAME = 'gps';
 const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
 const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 
-// 发送微信通知（带完整日志）
+// 发送微信通知
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
@@ -94,10 +94,10 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送，带完整日志）
+// 安全风险研判接口（含微信推送 + 逆地理编码）
 app.post('/api/ai/risk', async (req, res) => {
     try {
-        const { event, data } = req.body;
+        const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
 
         console.log('收到风险研判请求:', event, data);
@@ -110,11 +110,31 @@ app.post('/api/ai/risk', async (req, res) => {
         // 下发到 OneNET
         sendToOneNET(parsed.text);
 
-        // 微信通知
-        console.log('准备发送微信通知...');
-        await sendWeChat('骑行安全警报', `检测到${event}，风险等级：${parsed.level}，语音提示：${parsed.text}`);
+        // 逆地理编码获取具体地址
+        let address = '未知位置';
+        const loc = userLocation || '104.5647,28.7658';
+        try {
+            const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
+                params: {
+                    key: AMAP_KEY,
+                    location: loc,
+                    extensions: 'base'
+                }
+            });
+            if (geoResp.data.regeocode) {
+                address = geoResp.data.regeocode.formatted_address;
+            }
+            console.log('逆地理编码结果:', address);
+        } catch (e) {
+            console.warn('逆地理编码失败:', e.message);
+        }
 
-        res.json({ success: true, text: parsed.text, level: parsed.level, wechat: '已通知' });
+        // 微信通知（详细地址）
+        const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
+        console.log('准备发送微信通知...');
+        await sendWeChat('骑行安全警报', wechatMsg);
+
+        res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
         console.error('风险研判失败:', error.message);
         res.status(500).json({ error: '风险研判失败' });
