@@ -8,6 +8,20 @@
         *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
         html,body{background:#f6f7f9;min-height:100%;padding-bottom:60px}
         .header{padding:20px 15px;font-size:24px;font-weight:600;color:#2563eb;background:#f6f7f9}
+        
+        .summary-btn{
+            margin:10px 15px;width:calc(100% - 30px);padding:14px;
+            background:#2196F3;color:#fff;border:none;border-radius:12px;
+            font-size:16px;cursor:pointer;
+        }
+        
+        .summary-text{
+            margin:5px 15px 15px;padding:14px;
+            background:#fff;border-radius:12px;font-size:15px;
+            color:#333;display:none;
+            box-shadow:0 2px 8px rgba(0,0,0,0.03);
+        }
+        
         .record-list{padding:0 15px;display:flex;flex-direction:column;gap:10px}
         .record-item{
             background:#fff;border-radius:16px;padding:18px 20px;
@@ -15,7 +29,6 @@
             box-shadow:0 2px 8px rgba(0,0,0,0.03);
         }
 
-        /* 底部Tab栏 */
         .tab-bar{
             position:fixed;bottom:0;left:0;right:0;height:60px;
             background:#fff;border-top:1px solid #eee;
@@ -32,6 +45,10 @@
 </head>
 <body>
     <div class="header">📋 骑行记录</div>
+    
+    <button class="summary-btn" onclick="getRideSummary()">🚴 AI 骑行数据播报</button>
+    <div id="summaryText" class="summary-text"></div>
+    
     <div class="record-list">
         <div class="record-item"><span>🚴</span><span>2026-06-20 | 行程 8.2km | 用时 28分钟</span></div>
         <div class="record-item"><span>🚴</span><span>2026-06-15 | 行程 5.6km | 用时 20分钟</span></div>
@@ -41,12 +58,49 @@
         <div class="record-item"><span>🚴</span><span>2026-04-22 | 行程 6.8km | 用时 22分钟</span></div>
     </div>
 
-    <!-- 底部Tab栏 -->
     <div class="tab-bar">
         <a href="nav.html" class="tab-item"><span class="icon">🗺️</span><span>导航</span></a>
         <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
         <a href="record.html" class="tab-item active"><span class="icon">📋</span><span>记录</span></a>
         <a href="profile.html" class="tab-item"><span class="icon">👤</span><span>我的</span></a>
     </div>
+
+    <script>
+        const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
+        
+        async function getRideSummary() {
+            const btn = document.querySelector('.summary-btn');
+            const textDiv = document.getElementById('summaryText');
+            
+            btn.innerText = '⏳ AI正在生成总结...';
+            btn.disabled = true;
+            textDiv.style.display = 'none';
+            
+            try {
+                const resp = await fetch(`${AI_BACKEND_URL}/api/ai/summary`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        distance: 50.4,
+                        duration: 173,
+                        speed: 17.5,
+                        calories: 1320,
+                        count: 6
+                    })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    textDiv.innerText = '📊 ' + data.text;
+                    textDiv.style.display = 'block';
+                }
+            } catch (e) {
+                textDiv.innerText = '生成失败，请重试';
+                textDiv.style.display = 'block';
+            }
+            
+            btn.innerText = '🚴 AI 骑行数据播报';
+            btn.disabled = false;
+        }
+    </script>
 </body>
 </html>
