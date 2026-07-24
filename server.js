@@ -22,6 +22,28 @@ const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QF
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 
+// 高德搜索函数（带重试逻辑）
+async function searchAmap(keywords) {
+    // 第一次尝试：限定宜宾
+    let geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
+        params: {
+            key: '977b6123358698744cd4f2a96e219145',
+            keywords: keywords,
+            city: '宜宾'
+        }
+    });
+    // 如果失败，去掉城市限制再试
+    if (!geoResp.data.tips || geoResp.data.tips.length === 0) {
+        geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
+            params: {
+                key: '977b6123358698744cd4f2a96e219145',
+                keywords: keywords
+            }
+        });
+    }
+    return geoResp;
+}
+
 // 原有 AI 导航路由
 app.post('/api/ai/nav', async (req, res) => {
     try {
@@ -43,10 +65,9 @@ app.post('/api/nlp/nav', async (req, res) => {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        const prompt = `从以下用户指令中提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。用户指令：${text}`;
+        const prompt = `从以下用户指令中提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。如果用户说"最近的咖啡店"，destination应该是具体的咖啡店名称如"星巴克"。用户指令：${text}`;
         const aiResult = await askQwen(prompt);
         
-        // ✅ 安全解析JSON
         let parsed;
         try {
             parsed = JSON.parse(aiResult);
@@ -57,37 +78,31 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
 
-        const geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
-            params: {
-                key: '977b6123358698744cd4f2a96e219145',
-                keywords: parsed.destination
-            }
-        });
+        const geoResp = await searchAmap(parsed.destination);
 
         if (geoResp.data.tips && geoResp.data.tips.length > 0) {
             const location = geoResp.data.tips[0].location;
             res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
         } else {
-            res.json({ success: false, error: '找不到该目的地' });
+            console.log('高德搜索失败，目的地:', parsed.destination);
+            res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
         res.status(500).json({ error: '意图解析失败' });
     }
 });
 
-// 语音导航接口（接收音频，调用大模型识别并解析意图）
+// 语音导航接口
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '缺少音频文件' });
         }
 
-        // 将音频 buffer 转为 base64
         const audioBase64 = req.file.buffer.toString('base64');
         const audioUrl = `data:audio/wav;base64,${audioBase64}`;
 
-        // 调用通义千问多模态模型，同时完成语音识别和意图解析
-        const prompt = '请分析这段语音，提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。';
+        const prompt = '请分析这段语音，提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。如果用户说"最近的咖啡店"，destination应该是具体的咖啡店名称如"星巴克"。';
         const response = await axios.post(
             'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
             {
@@ -112,7 +127,6 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             }
         );
 
-        // ✅ 安全提取AI返回内容
         let aiOutput;
         try {
             aiOutput = response.data.output.choices[0].message.content[0].text;
@@ -121,7 +135,6 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             return res.status(500).json({ error: 'AI返回格式异常，请查看日志' });
         }
 
-        // ✅ 安全解析JSON
         let parsed;
         try {
             parsed = JSON.parse(aiOutput);
@@ -134,19 +147,13 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             return res.json({ success: false, error: '未识别到目的地' });
         }
 
-        // 使用高德搜索坐标
-        const geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
-            params: {
-                key: '977b6123358698744cd4f2a96e219145',
-                keywords: parsed.destination
-            }
-        });
+        const geoResp = await searchAmap(parsed.destination);
 
         if (geoResp.data.tips && geoResp.data.tips.length > 0) {
             const location = geoResp.data.tips[0].location;
             res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
         } else {
-            res.json({ success: false, error: '找不到该目的地' });
+            res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
         console.error('语音处理失败:', error.response?.data || error.message);
