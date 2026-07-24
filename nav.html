@@ -12,7 +12,6 @@
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
-  <!-- MQTT CDN -->
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script>
     if (typeof mqtt === "undefined") {
@@ -89,8 +88,7 @@
 
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或使用语音）" />
-    <button id="voiceStartBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 开始说话</button>
-    <button id="voiceStopBtn" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px; display: none;">🔴 停止识别</button>
+    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 开始说话 / 停止</button>
     <div class="btn-group">
       <button onclick="startNav('walking')">步行导航</button>
       <button onclick="startNav('riding')">骑行导航</button>
@@ -131,14 +129,13 @@
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
-    const startBtn = document.getElementById('voiceStartBtn');
-    const stopBtn = document.getElementById('voiceStopBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
-    // 语音识别实例（全局）
+    // 语音识别相关变量
     let recognition = null;
-    let finalTranscript = ''; // 累积的最终识别文本
+    let isListening = false;
 
     function connectCloud() {
       try{
@@ -178,87 +175,90 @@
       console.log("已上报 web_control", text);
     }
 
-    // ========== 语音识别（完全参照成功Demo的逻辑） ==========
-    function startVoiceRecognition() {
+    // ========== 语音识别：一个按钮控制开始/停止，实时显示 ==========
+    voiceBtn.addEventListener('click', () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        alert('请使用Chrome浏览器打开');
+        alert('请使用 Chrome 浏览器');
         return;
       }
 
-      // 如果已有实例在运行，先停止
-      if (recognition) {
-        recognition.stop();
+      if (isListening) {
+        // 正在听，点击停止
+        if (recognition) {
+          recognition.stop();
+        }
+        isListening = false;
+        voiceBtn.innerText = '🎤 开始说话 / 停止';
+        voiceBtn.style.background = '#4CAF50';
+        tip.innerText = '识别已停止，点击按钮开始说话';
+        setTimeout(() => tip.style.display = 'none', 2000);
+        return;
       }
 
+      // 开始识别
       recognition = new SpeechRecognition();
       recognition.lang = 'zh-CN';
-      recognition.continuous = true;   // 持续识别，不会自动停止
-      recognition.interimResults = true; // 返回临时结果，用于实时显示
-
-      finalTranscript = ''; // 清空最终文本
+      recognition.continuous = true;   // 持续识别，不说自动停
+      recognition.interimResults = true; // 实时显示
 
       recognition.onstart = () => {
-        startBtn.style.display = 'none';
-        stopBtn.style.display = 'block';
-        tip.innerText = '🎤 正在聆听，请说话...';
+        isListening = true;
+        voiceBtn.innerText = '🔴 正在聆听... (点击停止)';
+        voiceBtn.style.background = '#f44336';
+        tip.innerText = '🎤 请说话，实时文字会出现在输入框';
         tip.style.display = 'block';
       };
 
       recognition.onresult = (event) => {
-        let interimTranscript = '';
+        let interim = '';
+        let final = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
+          const result = event.results[i];
+          if (result.isFinal) {
+            final += result[0].transcript;
           } else {
-            interimTranscript += transcript;
+            interim += result[0].transcript;
           }
         }
-        // 实时显示：最终文本 + 临时文本
-        const displayText = finalTranscript + interimTranscript;
+        // 实时更新输入框和提示
+        const displayText = final + interim;
         addressInput.value = displayText;
-        tip.innerText = displayText ? '📝 ' + displayText : '🎤 正在聆听...';
+        tip.innerText = displayText || '🎤 正在听...';
         tip.style.display = 'block';
       };
 
       recognition.onerror = (event) => {
-        console.error('语音识别错误:', event.error);
-        tip.innerText = '❌ 识别错误: ' + event.error;
-        resetVoiceUI();
+        console.error('语音错误:', event.error);
+        tip.innerText = '❌ 错误: ' + event.error;
+        resetVoiceState();
         setTimeout(() => tip.style.display = 'none', 3000);
       };
 
       recognition.onend = () => {
-        // 手动停止或错误才会触发，不做额外操作，保持UI状态
-        resetVoiceUI();
-        // 如果有最终文本，自动触发导航
-        if (finalTranscript.trim()) {
-          resolveNaturalLanguage(finalTranscript.trim());
-        } else {
-          tip.innerText = '未识别到内容，请重试';
-          setTimeout(() => tip.style.display = 'none', 2000);
+        // 如果用户没有手动停止，而是自动结束（如长时间静音）
+        if (isListening) {
+          // 自动停止时，如果有文本则触发导航
+          const finalText = addressInput.value.trim();
+          if (finalText) {
+            resolveNaturalLanguage(finalText);
+          } else {
+            tip.innerText = '未识别到语音，请重试';
+            setTimeout(() => tip.style.display = 'none', 2000);
+          }
+          resetVoiceState();
         }
       };
 
       recognition.start();
-    }
+    });
 
-    function stopVoiceRecognition() {
-      if (recognition) {
-        recognition.stop(); // 停止识别，会触发 onend 事件
-      }
-    }
-
-    function resetVoiceUI() {
-      startBtn.style.display = 'block';
-      stopBtn.style.display = 'none';
+    function resetVoiceState() {
+      isListening = false;
       recognition = null;
+      voiceBtn.innerText = '🎤 开始说话 / 停止';
+      voiceBtn.style.background = '#4CAF50';
     }
-
-    // 绑定按钮事件
-    startBtn.addEventListener('click', startVoiceRecognition);
-    stopBtn.addEventListener('click', stopVoiceRecognition);
 
     // ========== 自然语言解析 + 导航 ==========
     async function resolveNaturalLanguage(spokenText) {
