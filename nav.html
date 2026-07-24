@@ -223,15 +223,15 @@
             addressInput.value = data.destination;
             startNav(data.mode || 'riding');
           } else {
-            tip.innerText = '📍 未识别到目的地: ' + (data.error || '请重试');
-            setTimeout(() => tip.style.display = 'none', 3000);
+            tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
+            setTimeout(() => tip.style.display = 'none', 5000);
           }
           resetVoiceUI();
         })
         .catch(err => {
           console.error('请求失败:', err);
           tip.innerText = '🌐 网络错误，请检查连接';
-          setTimeout(() => tip.style.display = 'none', 3000);
+          setTimeout(() => tip.style.display = 'none', 5000);
           resetVoiceUI();
         });
         recorder.stream.getTracks().forEach(track => track.stop());
@@ -260,12 +260,12 @@
           addressInput.value = data.destination;
           startNav(data.mode || 'riding');
         } else {
-          tip.innerText = '📍 未识别到目的地: ' + (data.error || '请重试');
-          setTimeout(() => tip.style.display = 'none', 3000);
+          tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
+          setTimeout(() => tip.style.display = 'none', 5000);
         }
       } catch (e) {
         tip.innerText = '🌐 网络错误';
-        setTimeout(() => tip.style.display = 'none', 3000);
+        setTimeout(() => tip.style.display = 'none', 5000);
       }
     }
 
