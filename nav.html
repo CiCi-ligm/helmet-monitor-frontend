@@ -100,6 +100,7 @@
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或点击下方语音按钮）" />
     <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音输入)</button>
+    <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
     <div class="btn-group">
       <button onclick="startNav('walking')">步行导航</button>
       <button onclick="startNav('riding')">骑行导航</button>
@@ -208,7 +209,6 @@
       }
     });
 
-    // 移动端触摸事件
     voiceBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       voiceBtn.dispatchEvent(new Event('mousedown'));
@@ -223,6 +223,32 @@
       voiceBtn.innerText = '🎤 按住说话 (语音输入)';
       voiceBtn.style.background = '#4CAF50';
       voiceBtn.classList.remove('recording-btn');
+    }
+
+    // ========== 模拟摔倒检测 ==========
+    async function simulateRisk() {
+      tip.innerText = '🆘 检测到异常加速度，AI正在研判...';
+      tip.style.display = 'block';
+      
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            event: '摔倒',
+            data: '加速度8.5g, 倾角75度, 持续2秒'
+          })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          tip.innerText = '⚠️ [' + data.level + '风险] ' + data.text;
+          tip.style.display = 'block';
+          setTimeout(() => tip.style.display = 'none', 5000);
+        }
+      } catch (e) {
+        tip.innerText = '研判失败';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
     }
 
     // ========== 自然语言解析 + 导航 ==========
