@@ -144,7 +144,7 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// 骑行数据播报接口
+// 骑行数据播报接口（含 OneNET 下发）
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
@@ -152,6 +152,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const avgDuration = Math.round(duration / count);
         const prompt = `你是一位专业的骑行教练。你的学员最近完成了${count}次骑行，总里程${distance}公里（平均每次${avgDist}公里），总时长${duration}分钟（平均每次${avgDuration}分钟），平均速度${speed}km/h，消耗${calories}卡路里。请结合这些具体数据分析他的骑行表现，指出优点和不足，并给出1-2条具体的改进建议。回答控制在60字以内，必须引用数据。`;
         const aiText = await askQwen(prompt);
+        sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
     } catch (error) {
         res.status(500).json({ error: '生成失败' });
