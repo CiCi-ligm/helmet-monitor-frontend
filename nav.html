@@ -166,13 +166,33 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 一键演示语音导航 ==========
+    // ========== 一键演示语音导航（直接导航到星巴克万象汇店） ==========
     function demoVoiceNav() {
-      const demoText = '带我去最近的咖啡店';
-      addressInput.value = demoText;
-      tip.innerText = '🎤 模拟语音: ' + demoText;
+      const destination = '星巴克(宜宾万象汇店)';
+      addressInput.value = destination;
+      tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
       tip.style.display = 'block';
-      resolveNaturalLanguage(demoText);
+      
+      fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: destination })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          targetPos = data.location.split(',').map(Number);
+          addressInput.value = data.destination;
+          startNav(data.mode || 'riding');
+        } else {
+          tip.innerText = '📍 ' + (data.error || '搜索失败');
+          setTimeout(() => tip.style.display = 'none', 5000);
+        }
+      })
+      .catch(err => {
+        tip.innerText = '🌐 网络错误';
+        setTimeout(() => tip.style.display = 'none', 5000);
+      });
     }
 
     // ========== 录音控制逻辑 ==========
@@ -221,6 +241,7 @@
           if (data.success) {
             targetPos = data.location.split(',').map(Number);
             addressInput.value = data.destination;
+            tip.innerText = '✅ 已识别您的需求，' + (data.detail || data.destination) + '，' + (data.instruction || '正在规划路线...');
             startNav(data.mode || 'riding');
           } else {
             tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
@@ -258,6 +279,7 @@
         if (data.success) {
           targetPos = data.location.split(',').map(Number);
           addressInput.value = data.destination;
+          tip.innerText = '✅ 已识别您的需求，' + (data.detail || data.destination) + '，' + (data.instruction || '正在规划路线...');
           startNav(data.mode || 'riding');
         } else {
           tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
