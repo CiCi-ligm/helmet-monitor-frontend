@@ -72,7 +72,7 @@
             const btn = document.querySelector('.summary-btn');
             const textDiv = document.getElementById('summaryText');
             
-            btn.innerText = '⏳ AI正在生成总结...';
+            btn.innerText = '⏳ AI正在分析你的骑行数据...';
             btn.disabled = true;
             textDiv.style.display = 'none';
             
@@ -92,9 +92,12 @@
                 if (data.success) {
                     textDiv.innerText = '📊 ' + data.text;
                     textDiv.style.display = 'block';
+                } else {
+                    textDiv.innerText = '生成失败，请重试';
+                    textDiv.style.display = 'block';
                 }
             } catch (e) {
-                textDiv.innerText = '生成失败，请重试';
+                textDiv.innerText = '网络错误，请检查连接';
                 textDiv.style.display = 'block';
             }
             
