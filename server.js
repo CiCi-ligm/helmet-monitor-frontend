@@ -45,7 +45,15 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         const prompt = `从以下用户指令中提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。用户指令：${text}`;
         const aiResult = await askQwen(prompt);
-        const parsed = JSON.parse(aiResult);
+        
+        // ✅ 安全解析JSON
+        let parsed;
+        try {
+            parsed = JSON.parse(aiResult);
+        } catch (e) {
+            console.error('NLP JSON解析失败，AI原始输出:', aiResult);
+            return res.status(500).json({ error: 'AI输出格式错误' });
+        }
 
         if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
 
@@ -104,9 +112,23 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             }
         );
 
-        // 处理大模型的返回结果
-        const aiOutput = response.data.output.choices[0].message.content[0].text;
-        const parsed = JSON.parse(aiOutput);
+        // ✅ 安全提取AI返回内容
+        let aiOutput;
+        try {
+            aiOutput = response.data.output.choices[0].message.content[0].text;
+        } catch (e) {
+            console.error('提取AI返回内容失败，原始返回:', JSON.stringify(response.data));
+            return res.status(500).json({ error: 'AI返回格式异常，请查看日志' });
+        }
+
+        // ✅ 安全解析JSON
+        let parsed;
+        try {
+            parsed = JSON.parse(aiOutput);
+        } catch (e) {
+            console.error('JSON解析失败，AI原始输出:', aiOutput);
+            return res.status(500).json({ error: 'AI输出格式错误', raw: aiOutput });
+        }
 
         if (!parsed.destination) {
             return res.json({ success: false, error: '未识别到目的地' });
