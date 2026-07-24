@@ -20,7 +20,8 @@ const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
-const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
+// 替换为你的 Web 服务 Key
+const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
 const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 
 // 发送微信通知
@@ -94,7 +95,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送 + 逆地理编码 + 详细日志）
+// 安全风险研判接口（含微信推送 + 逆地理编码）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
