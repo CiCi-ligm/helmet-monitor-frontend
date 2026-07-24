@@ -1,9 +1,11 @@
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
+const multer = require('multer');
 const { askQwen } = require('./aiService');
 
 const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // 终极 CORS
 app.use((req, res, next) => {
@@ -16,6 +18,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
+const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 
@@ -28,14 +31,13 @@ app.post('/api/ai/nav', async (req, res) => {
         const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
 
-        // 生成产品 token 并下发 OneNET（省略，可保留原逻辑）
         res.json({ success: true, text: aiText });
     } catch (error) {
         res.status(500).json({ error: 'AI 服务暂时不可用' });
     }
 });
 
-// 新增：自然语言解析接口
+// 自然语言解析接口
 app.post('/api/nlp/nav', async (req, res) => {
     try {
         const { text } = req.body;
@@ -47,7 +49,6 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
 
-        // 高德 POI 搜索
         const geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
             params: {
                 key: '977b6123358698744cd4f2a96e219145',
@@ -56,13 +57,78 @@ app.post('/api/nlp/nav', async (req, res) => {
         });
 
         if (geoResp.data.tips && geoResp.data.tips.length > 0) {
-            const location = geoResp.data.tips[0].location; // "lng,lat"
+            const location = geoResp.data.tips[0].location;
             res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
         } else {
             res.json({ success: false, error: '找不到该目的地' });
         }
     } catch (error) {
         res.status(500).json({ error: '意图解析失败' });
+    }
+});
+
+// 语音导航接口（接收音频，调用大模型识别并解析意图）
+app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: '缺少音频文件' });
+        }
+
+        // 将音频 buffer 转为 base64
+        const audioBase64 = req.file.buffer.toString('base64');
+        const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+
+        // 调用通义千问多模态模型，同时完成语音识别和意图解析
+        const prompt = '请分析这段语音，提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。';
+        const response = await axios.post(
+            'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+            {
+                model: 'qwen-omni-turbo',
+                input: {
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { "audio": audioUrl },
+                                { "text": prompt }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${QWEN_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        // 处理大模型的返回结果
+        const aiOutput = response.data.output.choices[0].message.content[0].text;
+        const parsed = JSON.parse(aiOutput);
+
+        if (!parsed.destination) {
+            return res.json({ success: false, error: '未识别到目的地' });
+        }
+
+        // 使用高德搜索坐标
+        const geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
+            params: {
+                key: '977b6123358698744cd4f2a96e219145',
+                keywords: parsed.destination
+            }
+        });
+
+        if (geoResp.data.tips && geoResp.data.tips.length > 0) {
+            const location = geoResp.data.tips[0].location;
+            res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
+        } else {
+            res.json({ success: false, error: '找不到该目的地' });
+        }
+    } catch (error) {
+        console.error('语音处理失败:', error.response?.data || error.message);
+        res.status(500).json({ error: '语音服务暂时不可用' });
     }
 });
 
