@@ -21,7 +21,22 @@ const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QF
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
+const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';  // 你的 Server酱 SendKey
 
+// 发送微信通知
+async function sendWeChat(title, desp) {
+    try {
+        await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, {
+            title: title,
+            desp: desp
+        });
+        console.log('微信通知发送成功');
+    } catch (err) {
+        console.warn('微信通知发送失败:', err.message);
+    }
+}
+
+// 生成产品 token 并下发到 OneNET
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -44,6 +59,7 @@ async function sendToOneNET(navText) {
     }
 }
 
+// 搜索函数
 async function searchPlace(keywords, userLocation) {
     let response = await axios.get('https://restapi.amap.com/v3/place/text', {
         params: { key: AMAP_KEY, keywords: keywords, city: '宜宾' }
@@ -70,16 +86,23 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口
+// 安全风险研判接口（含微信推送）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
+
         const prompt = `你是一个骑行安全助手。用户设备检测到${event}事件，传感器数据：${data || '无详细数据'}。请判断风险等级（低/中/高），并生成一句紧急语音提示（15字以内），如"检测到摔倒，已通知紧急联系人"。只输出JSON：{"level":"风险等级","text":"语音提示"}。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
+
+        // 下发到 OneNET
         sendToOneNET(parsed.text);
-        res.json({ success: true, text: parsed.text, level: parsed.level });
+
+        // 微信通知
+        sendWeChat('骑行安全警报', `检测到${event}，风险等级：${parsed.level}，语音提示：${parsed.text}`);
+
+        res.json({ success: true, text: parsed.text, level: parsed.level, wechat: '已通知' });
     } catch (error) {
         res.status(500).json({ error: '风险研判失败' });
     }
