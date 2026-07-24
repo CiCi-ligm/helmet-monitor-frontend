@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+  <button id="btn">🎤 点击说话</button>
+  <div id="result"></div>
+  <script>
+    const btn = document.getElementById('btn');
+    const result = document.getElementById('result');
+    btn.addEventListener('click', () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        result.innerText = '❌ 当前浏览器不支持语音识别';
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'zh-CN';
+      recognition.onstart = () => result.innerText = '⏳ 正在聆听...';
+      recognition.onresult = (e) => {
+        result.innerText = '✅ 识别结果：' + e.results[0][0].transcript;
+      };
+      recognition.onerror = (e) => {
+        result.innerText = '❌ 识别错误：' + e.error + '（常见：not-allowed 表示没给麦克风权限，no-speech 表示没检测到声音）';
+      };
+      recognition.onend = () => {
+        if (result.innerText === '⏳ 正在聆听...') result.innerText = '⏹ 未识别到语音，请重试';
+      };
+      recognition.start();
+    });
+  </script>
+</body>
+</html>
