@@ -12,7 +12,7 @@
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
-  <!-- MQTT CDN（保留） -->
+  <!-- MQTT CDN -->
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script>
     if (typeof mqtt === "undefined") {
@@ -121,7 +121,6 @@
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
 
-    // MQTT 相关
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
     const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
@@ -133,10 +132,11 @@
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
 
-    // ========== 永久 AI 后端地址 ==========
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
-    // MQTT连接
+    // 关键修复：防止重复启动识别
+    let isRecognizing = false;
+
     function connectCloud() {
       try{
         if(typeof mqtt === "undefined"){
@@ -175,64 +175,72 @@
       console.log("已上报 web_control", text);
     }
 
-    // ========== 语音输入核心函数 ==========
+    // 极简语音输入（修复 abort 错误）
     function startVoiceInput() {
-      // 检测支持
+      // 防止重复点击按钮导致 abort
+      if (isRecognizing) return;
+      
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        alert('您的浏览器不支持语音识别，请使用最新版 Chrome 浏览器');
+        alert('请使用 Chrome 浏览器');
         return;
       }
 
-      // 每次创建新实例
+      isRecognizing = true;
+      voiceBtn.innerText = '⏳ 正在聆听... (请说话，说完等待2秒)';
+      voiceBtn.style.background = '#FF9800';
+      voiceBtn.disabled = true;
+
       const recognition = new SpeechRecognition();
       recognition.lang = 'zh-CN';
-      recognition.continuous = false;  // 单次识别，说完自动停止
+      recognition.continuous = false;
       recognition.interimResults = false;
 
       recognition.onstart = () => {
         tip.innerText = '🎤 请说话...';
         tip.style.display = 'block';
-        voiceBtn.innerText = '⏳ 正在聆听...';
-        voiceBtn.disabled = true;
       };
 
       recognition.onresult = (event) => {
         const spokenText = event.results[0][0].transcript;
         addressInput.value = spokenText;
         tip.innerText = '✅ 识别成功: ' + spokenText;
-        // 调用自然语言解析
         resolveNaturalLanguage(spokenText);
+        resetVoiceButton();
       };
 
       recognition.onerror = (event) => {
-        tip.innerText = '❌ 语音错误: ' + event.error;
+        console.error('语音错误:', event.error);
+        if (event.error === 'aborted') {
+          tip.innerText = '识别中断，请重试（说完话后请等待2秒自动结束，不要触碰屏幕）';
+        } else {
+          tip.innerText = '❌ 识别错误: ' + event.error;
+        }
         resetVoiceButton();
-        setTimeout(() => tip.style.display = 'none', 2000);
+        setTimeout(() => tip.style.display = 'none', 3000);
       };
 
       recognition.onend = () => {
-        resetVoiceButton();
-        // 如果还没结果就结束了，提示
-        if (tip.innerText === '🎤 请说话...') {
-          tip.innerText = '未检测到语音，请重试';
+        if (isRecognizing) {
+          tip.innerText = '未识别到语音，请重试';
+          resetVoiceButton();
           setTimeout(() => tip.style.display = 'none', 2000);
         }
       };
 
-      // 开始识别
       recognition.start();
     }
 
     function resetVoiceButton() {
+      isRecognizing = false;
       voiceBtn.innerText = '🎤 语音输入目的地';
+      voiceBtn.style.background = '#4CAF50';
       voiceBtn.disabled = false;
     }
 
-    // 绑定语音按钮点击事件
     voiceBtn.addEventListener('click', startVoiceInput);
 
-    // ========== 自然语言解析并自动导航 ==========
+    // 自然语言解析并自动导航
     async function resolveNaturalLanguage(spokenText) {
       tip.innerText = '🧠 AI正在理解...';
       tip.style.display = 'block';
@@ -252,12 +260,12 @@
           setTimeout(() => tip.style.display = 'none', 3000);
         }
       } catch (e) {
-        tip.innerText = '🌐 网络错误，请检查连接';
+        tip.innerText = '🌐 网络错误';
         setTimeout(() => tip.style.display = 'none', 3000);
       }
     }
 
-    // ========== 调用 AI 后端，生成语音并下发到 gps ==========
+    // 调用 AI 后端，生成语音并下发到 gps
     async function callAIBackend(destination, status) {
       try {
         const response = await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
@@ -269,12 +277,9 @@
         });
         const data = await response.json();
         if (data.success) {
-          console.log('AI 播报:', data.text);
           tip.innerText = '📢 ' + data.text;
           tip.style.display = 'block';
           setTimeout(() => tip.style.display = 'none', 5000);
-        } else {
-          console.error('AI 接口返回错误:', data.error);
         }
       } catch (error) {
         console.error('AI 接口调用失败:', error);
