@@ -24,7 +24,6 @@ const DEVICE_NAME = 'gps';
 
 // 高德搜索函数（带重试逻辑）
 async function searchAmap(keywords) {
-    // 第一次尝试：限定宜宾
     let geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
         params: {
             key: '977b6123358698744cd4f2a96e219145',
@@ -32,7 +31,6 @@ async function searchAmap(keywords) {
             city: '宜宾'
         }
     });
-    // 如果失败，去掉城市限制再试
     if (!geoResp.data.tips || geoResp.data.tips.length === 0) {
         geoResp = await axios.get('https://restapi.amap.com/v3/assistant/inputtips', {
             params: {
@@ -59,13 +57,13 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 自然语言解析接口
+// 自然语言解析接口（增强版：返回详情和导航指令）
 app.post('/api/nlp/nav', async (req, res) => {
     try {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        const prompt = `从以下用户指令中提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。如果用户说"最近的咖啡店"，destination应该是具体的咖啡店名称如"星巴克"。用户指令：${text}`;
+        const prompt = `你是一个专业的骑行导航助手。用户说：${text}。请分析这句话，以JSON格式返回：{"destination":"具体地点名","detail":"检测到的最近的具体地点（如星巴克宜宾万达店）","mode":"walking或riding","instruction":"一句简短的导航起始指令，如'直走50米后左转'"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         
         let parsed;
@@ -82,9 +80,15 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         if (geoResp.data.tips && geoResp.data.tips.length > 0) {
             const location = geoResp.data.tips[0].location;
-            res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
+            res.json({
+                success: true,
+                destination: parsed.destination,
+                detail: parsed.detail || parsed.destination,
+                instruction: parsed.instruction || '',
+                mode: parsed.mode || 'riding',
+                location: location
+            });
         } else {
-            console.log('高德搜索失败，目的地:', parsed.destination);
             res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
@@ -92,7 +96,7 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// 语音导航接口
+// 语音导航接口（同样增强）
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) {
@@ -102,7 +106,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         const audioBase64 = req.file.buffer.toString('base64');
         const audioUrl = `data:audio/wav;base64,${audioBase64}`;
 
-        const prompt = '请分析这段语音，提取出目的地和导航类型（步行/骑行），以JSON格式返回：{"destination":"地点名","mode":"walking"或"riding"}。只输出JSON，不要任何解释。如果用户说"最近的咖啡店"，destination应该是具体的咖啡店名称如"星巴克"。';
+        const prompt = '你是一个专业的骑行导航助手。请分析这段语音，以JSON格式返回：{"destination":"具体地点名","detail":"检测到的最近的具体地点","mode":"walking或riding","instruction":"一句简短的导航起始指令"}。只输出JSON，不要任何解释。';
         const response = await axios.post(
             'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
             {
@@ -132,7 +136,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             aiOutput = response.data.output.choices[0].message.content[0].text;
         } catch (e) {
             console.error('提取AI返回内容失败，原始返回:', JSON.stringify(response.data));
-            return res.status(500).json({ error: 'AI返回格式异常，请查看日志' });
+            return res.status(500).json({ error: 'AI返回格式异常' });
         }
 
         let parsed;
@@ -151,7 +155,14 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
 
         if (geoResp.data.tips && geoResp.data.tips.length > 0) {
             const location = geoResp.data.tips[0].location;
-            res.json({ success: true, destination: parsed.destination, mode: parsed.mode || 'riding', location });
+            res.json({
+                success: true,
+                destination: parsed.destination,
+                detail: parsed.detail || parsed.destination,
+                instruction: parsed.instruction || '',
+                mode: parsed.mode || 'riding',
+                location: location
+            });
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
         }
