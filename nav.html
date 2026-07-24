@@ -166,7 +166,7 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 一键演示语音导航 ==========
+    // ========== 一键演示语音导航（步行导航） ==========
     function demoVoiceNav() {
       const destination = '星巴克(宜宾万象汇店)';
       const lnglat = [104.6432, 28.7518];
@@ -184,7 +184,7 @@
       }
       
       setTimeout(() => {
-        startNav('riding');
+        startNav('walking');
       }, 1500);
     }
 
@@ -363,7 +363,6 @@
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
         route.search(currentPos, targetPos, (status, res) => {
           if(status === "complete" && res.routes && res.routes.length>0){
-            tip.innerText = `${typeText}路线规划成功`; setTimeout(()=>tip.style.display = "none", 2000);
             const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
             const navText = `开始${typeText}导航，${firstStep}`;
             sendNavTextToCloud(navText); callAIBackend(addressInput.value, '开始' + typeText);
