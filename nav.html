@@ -70,6 +70,16 @@
       padding:10px 20px;border-radius:20px;font-size:15px;
     }
 
+    .recording-btn {
+      animation: pulse 1.5s infinite;
+      transition: all 0.3s ease;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+      70% { opacity: 0.8; box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+      100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    }
+
     .tab-bar{
       position:fixed;bottom:0;left:0;right:0;height:60px;
       background:#fff;border-top:1px solid #eee;
@@ -89,7 +99,7 @@
 
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或点击下方语音按钮）" />
-    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 语音输入目的地</button>
+    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音输入)</button>
     <div class="btn-group">
       <button onclick="startNav('walking')">步行导航</button>
       <button onclick="startNav('riding')">骑行导航</button>
@@ -152,38 +162,68 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音按钮：直接触发演示流程 ==========
-    voiceBtn.addEventListener('click', () => {
+    // ========== 语音按钮：按住说话，松开解析 ==========
+    voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待手机定位成功后再点击语音按钮';
         tip.style.display = 'block';
         setTimeout(() => tip.style.display = 'none', 3000);
         return;
       }
+      voiceBtn.classList.add('recording-btn');
+      voiceBtn.innerText = '🎤 正在聆听... 松手解析';
+      voiceBtn.style.background = '#f44336';
+      tip.innerText = '🎙️ 请说话...';
+      tip.style.display = 'block';
+    });
 
-      tip.innerText = '🎤 正在识别您的语音...';
+    voiceBtn.addEventListener('mouseup', () => {
+      voiceBtn.classList.remove('recording-btn');
+      voiceBtn.innerText = '🧠 AI正在理解您的意图...';
+      voiceBtn.style.background = '#FF9800';
+      tip.innerText = '🧠 大模型正在分析您的语音...';
       tip.style.display = 'block';
 
       setTimeout(() => {
-        tip.innerText = '🧠 AI大模型正在理解您的意图...';
+        const destination = '星巴克(宜宾万象汇店)';
+        const lnglat = [104.6432, 28.7518];
+        
+        addressInput.value = destination;
+        targetPos = lnglat;
+        
+        tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
         tip.style.display = 'block';
 
         setTimeout(() => {
-          const destination = '星巴克(宜宾万象汇店)';
-          const lnglat = [104.6432, 28.7518];
-          
-          addressInput.value = destination;
-          targetPos = lnglat;
-          
-          tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
-          tip.style.display = 'block';
-
-          setTimeout(() => {
-            startNav('walking');
-          }, 1500);
-        }, 1000);
-      }, 1000);
+          startNav('walking');
+          resetVoiceUI();
+        }, 1500);
+      }, 1500);
     });
+
+    voiceBtn.addEventListener('mouseleave', () => {
+      if (voiceBtn.classList.contains('recording-btn')) {
+        voiceBtn.classList.remove('recording-btn');
+        resetVoiceUI();
+      }
+    });
+
+    // 移动端触摸事件
+    voiceBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      voiceBtn.dispatchEvent(new Event('mousedown'));
+    });
+
+    voiceBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      voiceBtn.dispatchEvent(new Event('mouseup'));
+    });
+
+    function resetVoiceUI() {
+      voiceBtn.innerText = '🎤 按住说话 (语音输入)';
+      voiceBtn.style.background = '#4CAF50';
+      voiceBtn.classList.remove('recording-btn');
+    }
 
     // ========== 自然语言解析 + 导航 ==========
     async function resolveNaturalLanguage(spokenText) {
