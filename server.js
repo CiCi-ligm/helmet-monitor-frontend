@@ -20,7 +20,6 @@ const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
-// 替换为你的 Web 服务 Key
 const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
 const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 
@@ -142,6 +141,18 @@ app.post('/api/ai/risk', async (req, res) => {
     } catch (error) {
         console.error('风险研判失败:', error.message);
         res.status(500).json({ error: '风险研判失败' });
+    }
+});
+
+// 骑行数据播报接口
+app.post('/api/ai/summary', async (req, res) => {
+    try {
+        const { distance, duration, speed, calories, count } = req.body;
+        const prompt = `你是一个骑行助手。用户最近完成了${count || 6}次骑行，总里程${distance}公里，总时长${duration}分钟，平均速度${speed}km/h，消耗${calories}卡路里。请生成一段积极的骑行总结（30字以内），鼓励用户继续保持。`;
+        const aiText = await askQwen(prompt);
+        res.json({ success: true, text: aiText });
+    } catch (error) {
+        res.status(500).json({ error: '生成失败' });
     }
 });
 
