@@ -13,6 +13,8 @@
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <!-- 引入 RecordRTC 库 -->
+  <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <script>
     if (typeof mqtt === "undefined") {
       document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"><\/script>');
@@ -68,6 +70,17 @@
       background:rgba(0,0,0,0.7);color:#fff;
       padding:10px 20px;border-radius:20px;font-size:15px;
     }
+    
+    /* 录音动画效果 */
+    .recording-btn {
+      animation: pulse 1.5s infinite;
+      transition: all 0.3s ease;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+      70% { opacity: 0.8; box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+      100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    }
 
     .tab-bar{
       position:fixed;bottom:0;left:0;right:0;height:60px;
@@ -87,8 +100,8 @@
   <div id="container"></div>
 
   <div class="input-box">
-    <input id="addressInput" placeholder="输入目的地（或使用语音）" />
-    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 开始说话 / 停止</button>
+    <input id="addressInput" placeholder="输入目的地（或按住下方按钮说话）" />
+    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音输入)</button>
     <div class="btn-group">
       <button onclick="startNav('walking')">步行导航</button>
       <button onclick="startNav('riding')">骑行导航</button>
@@ -133,137 +146,111 @@
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
-    // 语音识别相关变量
-    let recognition = null;
-    let isListening = false;
+    // 录音相关变量
+    let recorder;
 
-    function connectCloud() {
+    function connectCloud() { /* ... 保持不变 ... */
       try{
-        if(typeof mqtt === "undefined"){
-          console.error("mqtt库加载失败");
-          return;
-        }
+        if(typeof mqtt === "undefined"){ console.error("mqtt库加载失败"); return; }
         const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
         const username = `${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
         const password = WEB_DEVICE_SECRET;
-
-        mqttClient = mqtt.connect(BROKER_URL, {
-          clientId, username, password,
-          clean: true,
-          reconnectPeriod: 3000
-        });
-        mqttClient.on("connect", ()=>{
-          console.log("✅ MQTT 连接成功");
-        });
+        mqttClient = mqtt.connect(BROKER_URL, { clientId, username, password, clean: true, reconnectPeriod: 3000 });
+        mqttClient.on("connect", ()=>{ console.log("✅ MQTT 连接成功"); });
         mqttClient.on("error", (err) => console.warn("MQTT 错误", err));
-      }catch(e){
-        console.error("MQTT 连接异常", e);
-      }
+      }catch(e){ console.error("MQTT 连接异常", e); }
     }
 
-    function sendNavTextToCloud(text) {
+    function sendNavTextToCloud(text) { /* ... 保持不变 ... */
       if (!mqttClient || !mqttClient.connected) return;
       const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-      const payload = JSON.stringify({
-        id: Date.now().toString(),
-        version: "1.0",
-        params: {
-          nav_cmd: { value: text }
-        }
-      });
-      mqttClient.publish(topic, payload);
-      console.log("已上报 web_control", text);
+      mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音识别：一个按钮控制开始/停止，实时显示 ==========
-    voiceBtn.addEventListener('click', () => {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert('请使用 Chrome 浏览器');
-        return;
-      }
+    // ========== 全新的录音控制逻辑 ==========
+    voiceBtn.addEventListener('mousedown', startRecording);
+    voiceBtn.addEventListener('touchstart', startRecording);
+    
+    voiceBtn.addEventListener('mouseup', stopRecording);
+    voiceBtn.addEventListener('touchend', stopRecording);
+    
+    voiceBtn.addEventListener('mouseleave', stopRecording); // 防止鼠标移开没松手
 
-      if (isListening) {
-        // 正在听，点击停止
-        if (recognition) {
-          recognition.stop();
-        }
-        isListening = false;
-        voiceBtn.innerText = '🎤 开始说话 / 停止';
-        voiceBtn.style.background = '#4CAF50';
-        tip.innerText = '识别已停止，点击按钮开始说话';
-        setTimeout(() => tip.style.display = 'none', 2000);
-        return;
-      }
+    async function startRecording(e) {
+      e.preventDefault();
+      if (recorder) return;
 
-      // 开始识别
-      recognition = new SpeechRecognition();
-      recognition.lang = 'zh-CN';
-      recognition.continuous = true;   // 持续识别，不说自动停
-      recognition.interimResults = true; // 实时显示
-
-      recognition.onstart = () => {
-        isListening = true;
-        voiceBtn.innerText = '🔴 正在聆听... (点击停止)';
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recorder = new RecordRTC(stream, { type: 'audio', mimeType: 'audio/wav' });
+        recorder.startRecording();
+        
+        voiceBtn.classList.add('recording-btn');
+        voiceBtn.innerText = '🎤 正在聆听... 松手结束';
         voiceBtn.style.background = '#f44336';
-        tip.innerText = '🎤 请说话，实时文字会出现在输入框';
+        tip.innerText = '🎙️ 请说话...';
         tip.style.display = 'block';
-      };
-
-      recognition.onresult = (event) => {
-        let interim = '';
-        let final = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            final += result[0].transcript;
-          } else {
-            interim += result[0].transcript;
-          }
-        }
-        // 实时更新输入框和提示
-        const displayText = final + interim;
-        addressInput.value = displayText;
-        tip.innerText = displayText || '🎤 正在听...';
-        tip.style.display = 'block';
-      };
-
-      recognition.onerror = (event) => {
-        console.error('语音错误:', event.error);
-        tip.innerText = '❌ 错误: ' + event.error;
-        resetVoiceState();
+        
+        recorder.stream = stream;
+      } catch (err) {
+        console.error('无法获取麦克风权限:', err);
+        tip.innerText = '❌ 麦克风权限被拒绝';
         setTimeout(() => tip.style.display = 'none', 3000);
-      };
-
-      recognition.onend = () => {
-        // 如果用户没有手动停止，而是自动结束（如长时间静音）
-        if (isListening) {
-          // 自动停止时，如果有文本则触发导航
-          const finalText = addressInput.value.trim();
-          if (finalText) {
-            resolveNaturalLanguage(finalText);
-          } else {
-            tip.innerText = '未识别到语音，请重试';
-            setTimeout(() => tip.style.display = 'none', 2000);
-          }
-          resetVoiceState();
-        }
-      };
-
-      recognition.start();
-    });
-
-    function resetVoiceState() {
-      isListening = false;
-      recognition = null;
-      voiceBtn.innerText = '🎤 开始说话 / 停止';
-      voiceBtn.style.background = '#4CAF50';
+      }
     }
 
-    // ========== 自然语言解析 + 导航 ==========
-    async function resolveNaturalLanguage(spokenText) {
+    function stopRecording() {
+      if (!recorder) return;
+      
+      voiceBtn.classList.remove('recording-btn');
+      voiceBtn.innerText = '🧠 AI正在理解...';
+      voiceBtn.style.background = '#FF9800';
+      tip.innerText = '🧠 大模型正在识别语音并解析意图...';
+      
+      recorder.stopRecording(() => {
+        const blob = recorder.getBlob();
+        const formData = new FormData();
+        formData.append('audio', blob, 'voice.wav');
+        
+        // 发送到后端进行AI识别
+        fetch(`${AI_BACKEND_URL}/api/voice/nav`, {
+          method: 'POST',
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            targetPos = data.location.split(',').map(Number);
+            addressInput.value = data.destination;
+            startNav(data.mode || 'riding');
+          } else {
+            tip.innerText = '📍 未识别到目的地: ' + (data.error || '请重试');
+            setTimeout(() => tip.style.display = 'none', 3000);
+          }
+          resetVoiceUI();
+        })
+        .catch(err => {
+          console.error('语音上传失败:', err);
+          tip.innerText = '🌐 网络错误，请检查连接';
+          setTimeout(() => tip.style.display = 'none', 3000);
+          resetVoiceUI();
+        });
+
+        // 释放麦克风
+        recorder.stream.getTracks().forEach(track => track.stop());
+        recorder = null;
+      });
+    }
+
+    function resetVoiceUI() {
+      voiceBtn.innerText = '🎤 按住说话 (语音输入)';
+      voiceBtn.style.background = '#4CAF50';
+      voiceBtn.classList.remove('recording-btn');
+    }
+
+    // ========== 自然语言解析（保留用于手动输入） ==========
+    async function resolveNaturalLanguage(spokenText) { /* ... 保持不变 ... */
       tip.innerText = '🧠 AI正在理解...';
-      tip.style.display = 'block';
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
           method: 'POST',
@@ -286,7 +273,7 @@
     }
 
     // ========== AI 导航指令 ==========
-    async function callAIBackend(destination, status) {
+    async function callAIBackend(destination, status) { /* ... 保持不变 ... */
       try {
         const response = await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
           method: 'POST',
@@ -306,67 +293,41 @@
       }
     }
 
-    window.onload = function(){
-      if(localStorage.getItem('isLogin') !== '1'){
-        location.href = 'login.html';
-        return;
-      }
-      map = new AMap.Map("container", {
-        zoom: 16,
-        resizeEnable: true,
-        center: [104.5647, 28.7658]
-      });
+    window.onload = function(){ /* ... 保持不变 ... */
+      if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
+      map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       satelliteLayer = new AMap.TileLayer.Satellite();
       initAutoComplete();
-      if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        getMyLocation();
-      }
+      if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) { getMyLocation(); }
       connectCloud();
     };
 
-    function getMyLocation(){
-      tip.innerText = "正在获取手机GPS位置...";
-      tip.style.display = "block";
+    function getMyLocation(){ /* ... 保持不变 ... */
+      tip.innerText = "正在获取手机GPS位置..."; tip.style.display = "block";
       const geolocation = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
       geolocation.getCurrentPosition((status, result) => {
         if(status === "complete" && result.position){
-          currentPos = result.position;
-          if(myMarker) myMarker.setMap(null);
-          myMarker = new AMap.Marker({ position: currentPos });
-          myMarker.setMap(map);
-          map.setCenter(currentPos);
-          tip.innerText = "定位成功";
+          currentPos = result.position; if(myMarker) myMarker.setMap(null);
+          myMarker = new AMap.Marker({ position: currentPos }); myMarker.setMap(map);
+          map.setCenter(currentPos); tip.innerText = "定位成功";
           setTimeout(()=>tip.style.display = "none", 1500);
-        }else{
-          tip.innerText = "定位失败，请开启手机定位权限";
-        }
+        }else{ tip.innerText = "定位失败，请开启手机定位权限"; }
       });
     }
 
-    function initAutoComplete(){
-      const autoComplete = new AMap.AutoComplete({ city: "宜宾" });
-      let timer = null;
+    function initAutoComplete(){ /* ... 保持不变 ... */
+      const autoComplete = new AMap.AutoComplete({ city: "宜宾" }); let timer = null;
       addressInput.addEventListener('input', function(){
-        const keyword = this.value.trim();
-        if(!keyword){ suggestList.style.display = "none"; return; }
+        const keyword = this.value.trim(); if(!keyword){ suggestList.style.display = "none"; return; }
         clearTimeout(timer);
         timer = setTimeout(()=>{
           autoComplete.search(keyword, (status, res) => {
             if(status === "complete" && res.tips && res.tips.length > 0){
               suggestList.innerHTML = "";
-              res.tips.forEach(tip => {
-                if(!tip.location) return;
-                const div = document.createElement('div');
-                div.className = "item";
-                div.innerHTML = tip.name.replace(
-                  new RegExp(`(${keyword})`, 'gi'),
-                  '<span class="highlight">$1</span>'
-                );
-                div.onclick = () => {
-                  addressInput.value = tip.name;
-                  targetPos = tip.location;
-                  suggestList.style.display = "none";
-                };
+              res.tips.forEach(tip => { if(!tip.location) return;
+                const div = document.createElement('div'); div.className = "item";
+                div.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
+                div.onclick = () => { addressInput.value = tip.name; targetPos = tip.location; suggestList.style.display = "none"; };
                 suggestList.appendChild(div);
               });
               suggestList.style.display = "block";
@@ -374,71 +335,36 @@
           });
         }, 300);
       });
-      addressInput.addEventListener('blur', ()=>{
-        setTimeout(()=>suggestList.style.display = "none", 200);
-      });
+      addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
-    function startNav(type){
-      if(!currentPos){
-        tip.innerText = "请等待手机定位成功";
-        tip.style.display = "block";
-        setTimeout(()=>tip.style.display = "none", 2000);
-        return;
-      }
-      if(!targetPos){
-        tip.innerText = "请先选择目的地";
-        tip.style.display = "block";
-        setTimeout(()=>tip.style.display = "none", 2000);
-        return;
-      }
-      if(walkingRoute) walkingRoute.clear();
-      if(ridingRoute) ridingRoute.clear();
-
-      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding';
-      const typeText = type === 'walking' ? '步行' : '骑行';
-
+    function startNav(type){ /* ... 保持不变 ... */
+      if(!currentPos){ tip.innerText = "请等待手机定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; const typeText = type === 'walking' ? '步行' : '骑行';
       AMap.plugin(plugin, ()=>{
-        const route = type === 'walking'
-          ? new AMap.Walking({ map, autoFitView: true })
-          : new AMap.Riding({ map, autoFitView: true });
+        const route = type === 'walking' ? new AMap.Walking({ map, autoFitView: true }) : new AMap.Riding({ map, autoFitView: true });
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
-
         route.search(currentPos, targetPos, (status, res) => {
           if(status === "complete" && res.routes && res.routes.length>0){
-            tip.innerText = `${typeText}路线规划成功`;
-            setTimeout(()=>tip.style.display = "none", 2000);
-
+            tip.innerText = `${typeText}路线规划成功`; setTimeout(()=>tip.style.display = "none", 2000);
             const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
             const navText = `开始${typeText}导航，${firstStep}`;
-            
-            sendNavTextToCloud(navText);
-            callAIBackend(addressInput.value, '开始' + typeText);
-          }else{
-            tip.innerText = "路线规划失败";
-            setTimeout(()=>tip.style.display = "none", 2000);
-          }
+            sendNavTextToCloud(navText); callAIBackend(addressInput.value, '开始' + typeText);
+          }else{ tip.innerText = "路线规划失败"; setTimeout(()=>tip.style.display = "none", 2000); }
         });
       });
     }
 
-    function switchSatellite(){
-      if(!isSatellite){
-        map.add(satelliteLayer);
-        document.getElementById('switchMapBtn').innerText = "切换普通地图";
-        isSatellite = true;
-      }else{
-        map.remove(satelliteLayer);
-        document.getElementById('switchMapBtn').innerText = "切换卫星图";
-        isSatellite = false;
-      }
+    function switchSatellite(){ /* ... 保持不变 ... */
+      if(!isSatellite){ map.add(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换普通地图"; isSatellite = true; }
+      else{ map.remove(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换卫星图"; isSatellite = false; }
     }
 
-    function clearAll(){
-      addressInput.value = "";
-      targetPos = null;
-      if(walkingRoute) walkingRoute.clear();
-      if(ridingRoute) ridingRoute.clear();
+    function clearAll(){ /* ... 保持不变 ... */
+      addressInput.value = ""; targetPos = null;
+      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
       suggestList.style.display = "none";
     }
   </script>
