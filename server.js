@@ -23,7 +23,7 @@ const DEVICE_NAME = 'gps';
 const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
 const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 
-// 发送微信通知（带详细日志）
+// 发送微信通知（带完整日志）
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
@@ -31,12 +31,15 @@ async function sendWeChat(title, desp) {
             title: title,
             desp: desp
         });
-        console.log('微信通知返回:', JSON.stringify(resp.data));
+        console.log('微信通知返回结果:', JSON.stringify(resp.data));
+        console.log('微信通知状态码:', resp.status);
     } catch (err) {
-        console.error('微信通知失败详情:', err.message);
+        console.error('微信通知失败:', err.message);
         if (err.response) {
-            console.error('微信通知状态码:', err.response.status);
-            console.error('微信通知返回体:', JSON.stringify(err.response.data));
+            console.error('微信通知错误状态码:', err.response.status);
+            console.error('微信通知错误返回体:', JSON.stringify(err.response.data));
+        } else if (err.request) {
+            console.error('微信通知无响应，可能超时');
         }
     }
 }
@@ -91,7 +94,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送，带详细日志）
+// 安全风险研判接口（含微信推送，带完整日志）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data } = req.body;
@@ -109,7 +112,7 @@ app.post('/api/ai/risk', async (req, res) => {
 
         // 微信通知
         console.log('准备发送微信通知...');
-        sendWeChat('骑行安全警报', `检测到${event}，风险等级：${parsed.level}，语音提示：${parsed.text}`);
+        await sendWeChat('骑行安全警报', `检测到${event}，风险等级：${parsed.level}，语音提示：${parsed.text}`);
 
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: '已通知' });
     } catch (error) {
