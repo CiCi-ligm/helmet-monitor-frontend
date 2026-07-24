@@ -23,17 +23,30 @@ const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
 
-// 周边搜索函数（真正找身边的店铺）
-async function searchNearby(keywords, userLocation) {
-    const response = await axios.get('https://restapi.amap.com/v3/place/around', {
+// 搜索函数（先用关键词搜索，失败再用周边搜索）
+async function searchPlace(keywords, userLocation) {
+    // 先用关键词搜索（适合搜索具体店名）
+    let response = await axios.get('https://restapi.amap.com/v3/place/text', {
         params: {
             key: AMAP_KEY,
             keywords: keywords,
-            location: userLocation || '104.5647,28.7658', // 默认宜宾坐标
-            radius: 5000,
-            offset: 1
+            city: '宜宾'
         }
     });
+    
+    // 如果关键词搜索失败，再用周边搜索
+    if (!response.data.pois || response.data.pois.length === 0) {
+        response = await axios.get('https://restapi.amap.com/v3/place/around', {
+            params: {
+                key: AMAP_KEY,
+                keywords: keywords,
+                location: userLocation || '104.5647,28.7658',
+                radius: 5000,
+                offset: 1
+            }
+        });
+    }
+    
     return response;
 }
 
@@ -71,8 +84,8 @@ app.post('/api/nlp/nav', async (req, res) => {
 
         if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
 
-        // 使用周边搜索
-        const geoResp = await searchNearby(parsed.destination, userLocation);
+        // 使用搜索函数
+        const geoResp = await searchPlace(parsed.destination, userLocation);
 
         if (geoResp.data.pois && geoResp.data.pois.length > 0) {
             const location = geoResp.data.pois[0].location;
@@ -85,7 +98,7 @@ app.post('/api/nlp/nav', async (req, res) => {
                 location: location
             });
         } else {
-            res.json({ success: false, error: `找不到附近的"${parsed.destination}"，请尝试更具体的地点名称` });
+            res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
         console.error('NLP解析失败:', error.response?.data || error.message);
@@ -148,7 +161,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             return res.json({ success: false, error: '未识别到目的地' });
         }
 
-        const geoResp = await searchNearby(parsed.destination, req.body.userLocation);
+        const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
 
         if (geoResp.data.pois && geoResp.data.pois.length > 0) {
             const location = geoResp.data.pois[0].location;
@@ -161,7 +174,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
                 location: location
             });
         } else {
-            res.json({ success: false, error: `找不到附近的"${parsed.destination}"，请尝试更具体的地点名称` });
+            res.json({ success: false, error: `找不到"${parsed.destination}"，请尝试更具体的地点名称` });
         }
     } catch (error) {
         console.error('语音处理失败:', error.response?.data || error.message);
