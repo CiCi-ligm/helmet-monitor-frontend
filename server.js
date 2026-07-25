@@ -96,7 +96,7 @@ app.post('/api/ai/nav', async (req, res) => {
         if (!destination) return res.status(400).json({ error: '缺少目的地参数' });
         const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
-        sendToOneNET(aiText);
+        await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
     } catch (error) {
         res.status(500).json({ error: 'AI 服务暂时不可用' });
@@ -117,7 +117,7 @@ app.post('/api/ai/risk', async (req, res) => {
         const parsed = JSON.parse(aiResult);
 
         // 下发到 OneNET
-        sendToOneNET(parsed.text);
+        await sendToOneNET(parsed.text);
 
         // 逆地理编码获取具体地址
         let address = '未知位置';
@@ -161,7 +161,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const avgDuration = Math.round(duration / count);
         const prompt = `你是一位专业的骑行教练。你的学员最近完成了${count}次骑行，总里程${distance}公里（平均每次${avgDist}公里），总时长${duration}分钟（平均每次${avgDuration}分钟），平均速度${speed}km/h，消耗${calories}卡路里。请结合这些具体数据分析他的骑行表现，指出优点和不足，并给出1-2条具体的改进建议。回答控制在60字以内，必须引用数据。`;
         const aiText = await askQwen(prompt);
-        sendToOneNET(aiText);
+        await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
     } catch (error) {
         res.status(500).json({ error: '生成失败' });
