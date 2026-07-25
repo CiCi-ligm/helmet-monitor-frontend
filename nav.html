@@ -163,7 +163,7 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音按钮：按住说话，松开解析 ==========
+    // ========== 语音按钮 ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待手机定位成功后再点击语音按钮';
@@ -196,15 +196,13 @@
       tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
       tip.style.display = 'block';
 
-      // 合并完整提示文字一次性下发
       await fetch(`${AI_BACKEND_URL}/api/ai/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: '大模型正在分析您的语音。已识别您要去最近的咖啡店，即将导航到星巴克宜宾万象汇店。' })
       });
 
-      // 延迟3秒再开始导航，确保设备收到第一条消息
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       startNav('walking');
       resetVoiceUI();
@@ -237,18 +235,12 @@
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，AI正在研判...';
       tip.style.display = 'block';
-
       const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
-
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            event: '摔倒',
-            data: '加速度8.5g, 倾角75度, 持续2秒',
-            userLocation: loc
-          })
+          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度, 持续2秒', userLocation: loc })
         });
         const data = await resp.json();
         if (data.success) {
@@ -262,7 +254,7 @@
       }
     }
 
-    // ========== 自然语言解析 + 导航 ==========
+    // ========== 自然语言解析 ==========
     async function resolveNaturalLanguage(spokenText) {
       tip.innerText = '🧠 AI正在理解...';
       try {
@@ -369,8 +361,7 @@
             const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
             const navText = `开始${typeText}导航，${firstStep}`;
             sendNavTextToCloud(navText);
-            // 延迟2秒再发送AI导航指令
-            setTimeout(() => callAIBackend(addressInput.value, '开始' + typeText), 2000);
+            setTimeout(() => callAIBackend(addressInput.value, '开始' + typeText), 5000);
           } else if (type === 'riding') {
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
