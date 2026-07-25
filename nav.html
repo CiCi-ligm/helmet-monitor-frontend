@@ -163,7 +163,7 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音按钮：按住说话，松开解析（合并为一次下发） ==========
+    // ========== 语音按钮：按住说话，松开解析（合并下发完整提示） ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待手机定位成功后再点击语音按钮';
@@ -196,11 +196,11 @@
       tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
       tip.style.display = 'block';
 
-      // 合并所有文字为一条消息，一次性下发
+      // 合并完整提示文字一次性下发
       await fetch(`${AI_BACKEND_URL}/api/ai/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: '大模型正在分析您的语音。即将导航到星巴克万象汇店。' })
+        body: JSON.stringify({ text: '大模型正在分析您的语音。已识别您要去最近的咖啡店，即将导航到星巴克宜宾万象汇店。' })
       });
 
       await new Promise(resolve => setTimeout(resolve, 1500));
