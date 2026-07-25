@@ -110,14 +110,14 @@
 
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
-  <div id="tip">正在获取硬件GPS位置...</div>
+  <div id="tip">正在获取手机GPS位置...</div>
 
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active">
       <span class="icon">🗺️</span><span>导航</span>
     </a>
-    <a href="blind.html" class="tab-item">
-      <span class="icon">⛑️</span><span>头盔</span>
+    <a href="sensors.html" class="tab-item">
+      <span class="icon">📊</span><span>传感器</span>
     </a>
     <a href="record.html" class="tab-item">
       <span class="icon">📋</span><span>记录</span>
@@ -163,10 +163,10 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音按钮 ==========
+    // ========== 语音按钮：按住说话，松开解析 ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
-        tip.innerText = '请等待硬件GPS定位成功后再点击语音按钮';
+        tip.innerText = '请等待手机定位成功后再点击语音按钮';
         tip.style.display = 'block';
         setTimeout(() => tip.style.display = 'none', 3000);
         return;
@@ -178,34 +178,28 @@
       tip.style.display = 'block';
     });
 
-    voiceBtn.addEventListener('mouseup', async () => {
+    voiceBtn.addEventListener('mouseup', () => {
       voiceBtn.classList.remove('recording-btn');
       voiceBtn.innerText = '🧠 AI正在理解您的意图...';
       voiceBtn.style.background = '#FF9800';
       tip.innerText = '🧠 大模型正在分析您的语音...';
       tip.style.display = 'block';
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      setTimeout(() => {
+        const destination = '星巴克(宜宾万象汇店)';
+        const lnglat = [104.6432, 28.7518];
+        
+        addressInput.value = destination;
+        targetPos = lnglat;
+        
+        tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
+        tip.style.display = 'block';
 
-      const destination = '星巴克(宜宾万象汇店)';
-      const lnglat = [104.6432, 28.7518];
-      
-      addressInput.value = destination;
-      targetPos = lnglat;
-      
-      tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
-      tip.style.display = 'block';
-
-      await fetch(`${AI_BACKEND_URL}/api/ai/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: '大模型正在分析您的语音。已识别您要去最近的咖啡店，即将导航到星巴克宜宾万象汇店。' })
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 5000));
-
-      startNav('walking');
-      resetVoiceUI();
+        setTimeout(() => {
+          startNav('walking');
+          resetVoiceUI();
+        }, 1500);
+      }, 1500);
     });
 
     voiceBtn.addEventListener('mouseleave', () => {
@@ -231,16 +225,22 @@
       voiceBtn.classList.remove('recording-btn');
     }
 
-    // ========== 模拟摔倒检测 ==========
+    // ========== 模拟摔倒检测（带用户位置） ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，AI正在研判...';
       tip.style.display = 'block';
+
       const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度, 持续2秒', userLocation: loc })
+          body: JSON.stringify({ 
+            event: '摔倒',
+            data: '加速度8.5g, 倾角75度, 持续2秒',
+            userLocation: loc
+          })
         });
         const data = await resp.json();
         if (data.success) {
@@ -254,7 +254,7 @@
       }
     }
 
-    // ========== 自然语言解析 ==========
+    // ========== 自然语言解析 + 导航 ==========
     async function resolveNaturalLanguage(spokenText) {
       tip.innerText = '🧠 AI正在理解...';
       try {
@@ -313,15 +313,15 @@
     };
 
     function getMyLocation(){
-      tip.innerText = "正在获取硬件GPS位置..."; tip.style.display = "block";
+      tip.innerText = "正在获取手机GPS位置..."; tip.style.display = "block";
       const geolocation = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
       geolocation.getCurrentPosition((status, result) => {
         if(status === "complete" && result.position){
           currentPos = result.position; if(myMarker) myMarker.setMap(null);
           myMarker = new AMap.Marker({ position: currentPos }); myMarker.setMap(map);
-          map.setCenter(currentPos); tip.innerText = "硬件GPS定位成功";
+          map.setCenter(currentPos); tip.innerText = "定位成功";
           setTimeout(()=>tip.style.display = "none", 1500);
-        }else{ tip.innerText = "硬件GPS定位失败，请开启手机定位权限"; }
+        }else{ tip.innerText = "定位失败，请开启手机定位权限"; }
       });
     }
 
@@ -349,7 +349,7 @@
     }
 
     function startNav(type){
-      if(!currentPos){ tip.innerText = "请等待硬件GPS定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(!currentPos){ tip.innerText = "请等待手机定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
       const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; const typeText = type === 'walking' ? '步行' : '骑行';
@@ -360,8 +360,7 @@
           if(status === "complete" && res.routes && res.routes.length>0){
             const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
             const navText = `开始${typeText}导航，${firstStep}`;
-            sendNavTextToCloud(navText);
-            setTimeout(() => callAIBackend(addressInput.value, '开始' + typeText), 5000);
+            sendNavTextToCloud(navText); callAIBackend(addressInput.value, '开始' + typeText);
           } else if (type === 'riding') {
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
