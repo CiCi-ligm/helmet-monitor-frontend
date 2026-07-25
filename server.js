@@ -44,10 +44,10 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 生成产品 token 并下发到 OneNET（改用属性上报接口）
+// 下发到 OneNET（使用 MQTT 属性设置接口）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
-    const resStr = `products/${PRODUCT_ID}/devices/${DEVICE_NAME}`;
+    const resStr = `products/${PRODUCT_ID}`;
     const et = Math.ceil((Date.now() + 3600000) / 1000);
     const method = 'sha1';
     const base64Key = Buffer.from(API_KEY, 'base64');
@@ -57,7 +57,7 @@ async function sendToOneNET(navText) {
 
     try {
         const resp = await axios.post(
-            'https://iot-api.heclouds.com/thingmodel/property/report',
+            'https://iot-api.heclouds.com/mqtt/thing/property/set',
             {
                 product_id: PRODUCT_ID,
                 device_name: DEVICE_NAME,
