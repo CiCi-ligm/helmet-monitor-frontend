@@ -163,7 +163,7 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音按钮：按住说话，松开解析 ==========
+    // ========== 语音按钮：按住说话，松开解析（所有阶段都下发设备） ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待手机定位成功后再点击语音按钮';
@@ -185,6 +185,13 @@
       tip.innerText = '🧠 大模型正在分析您的语音...';
       tip.style.display = 'block';
 
+      // 下发：大模型正在分析
+      fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destination: '语音分析', status: '大模型正在分析您的语音' })
+      });
+
       setTimeout(() => {
         const destination = '星巴克(宜宾万象汇店)';
         const lnglat = [104.6432, 28.7518];
@@ -194,6 +201,13 @@
         
         tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
         tip.style.display = 'block';
+
+        // 下发：已识别目的地
+        fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ destination: '已识别', status: '即将导航到星巴克万象汇店' })
+        });
 
         setTimeout(() => {
           startNav('walking');
@@ -225,7 +239,7 @@
       voiceBtn.classList.remove('recording-btn');
     }
 
-    // ========== 模拟摔倒检测（带用户位置） ==========
+    // ========== 模拟摔倒检测 ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，AI正在研判...';
       tip.style.display = 'block';
