@@ -44,7 +44,7 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 下发到 OneNET【自定义单向消息，无需设备应答】
+// 下发到 OneNET（使用自定义消息接口，payload 为纯文本）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}/devices/${DEVICE_NAME}`;
@@ -62,7 +62,7 @@ async function sendToOneNET(navText) {
                 product_id: PRODUCT_ID,
                 device_name: DEVICE_NAME,
                 topic: 'down',
-                payload: JSON.stringify({ nav_text: navText, timestamp: Date.now() })
+                payload: navText
             },
             { 
                 headers: { 
@@ -73,15 +73,12 @@ async function sendToOneNET(navText) {
         );
         console.log('OneNET 原始返回:', JSON.stringify(resp.data));
         if (resp.data.code === 0) {
-            console.log('✅ OneNET 自定义消息下发成功');
+            console.log('✅ OneNET 下发成功');
         } else {
             console.log('❌ OneNET 业务错误:', resp.data.code, resp.data.msg);
         }
     } catch (err) {
         console.warn('OneNET 下发失败:', err.message);
-        if (err.response) {
-            console.warn('错误详情:', err.response.data);
-        }
     }
 }
 
