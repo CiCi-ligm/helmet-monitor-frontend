@@ -7,6 +7,7 @@ const { askQwen } = require('./aiService');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// 跨域全局中间件
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -16,6 +17,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
+// 全局配置常量
 const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
@@ -44,10 +46,11 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 生成产品 token 并下发到 OneNET
+// 生成签名Token并下发指令至OneNET（已完全修复）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
-    const resStr = `products/${PRODUCT_ID}`;
+    // 修复1：签名资源路径改为【设备完整路径】，产品级Token无法修改设备属性
+    const resStr = `products/${PRODUCT_ID}/devices/${DEVICE_NAME}`;
     const et = Math.ceil((Date.now() + 3600000) / 1000);
     const method = 'sha1';
     const base64Key = Buffer.from(API_KEY, 'base64');
@@ -56,18 +59,38 @@ async function sendToOneNET(navText) {
     const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
     try {
-        await axios.post(
+        const resp = await axios.post(
             'https://iot-api.heclouds.com/thingmodel/set-device-property',
-            { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
-            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
+            {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                params: { nav_text: navText }
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': productToken
+                }
+            }
         );
-        console.log('OneNET 下发成功:', navText);
+        // 修复2：校验OneNET业务返回码，code=0才是真正下发成功
+        const retData = resp.data;
+        if (retData.code === 0) {
+            console.log('✅ OneNET 下发业务成功 指令内容：', navText, '平台完整返回：', retData);
+        } else {
+            console.warn('❌ OneNET 业务下发失败 | 错误码：', retData.code, '错误信息：', retData.msg);
+        }
     } catch (err) {
-        console.warn('OneNET 下发失败:', err.response?.data || err.message);
+        // 区分HTTP报错 / 网络超时
+        if (err.response) {
+            console.warn('❌ OneNET HTTP请求异常 | 状态码：', err.response.status, '返回内容：', err.response.data);
+        } else {
+            console.warn('❌ OneNET 网络连接超时 ETIMEDOUT', err.message);
+        }
     }
 }
 
-// 搜索函数
+// 高德地图地点搜索函数
 async function searchPlace(keywords, userLocation) {
     let response = await axios.get('https://restapi.amap.com/v3/place/text', {
         params: { key: AMAP_KEY, keywords: keywords, city: '宜宾' }
@@ -80,7 +103,7 @@ async function searchPlace(keywords, userLocation) {
     return response;
 }
 
-// AI 导航路由
+// AI导航路由接口
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
@@ -90,11 +113,12 @@ app.post('/api/ai/nav', async (req, res) => {
         sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
     } catch (error) {
+        console.error('/api/ai/nav 接口异常：', error);
         res.status(500).json({ error: 'AI 服务暂时不可用' });
     }
 });
 
-// 安全风险研判接口（含微信推送 + 逆地理编码）
+// 安全风险研判接口（微信推送+逆地理编码）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -107,10 +131,10 @@ app.post('/api/ai/risk', async (req, res) => {
         console.log('大模型返回:', aiResult);
         const parsed = JSON.parse(aiResult);
 
-        // 下发到 OneNET
+        // 下发导航提示到设备
         sendToOneNET(parsed.text);
 
-        // 逆地理编码获取具体地址
+        // 逆地理编码获取地址
         let address = '未知位置';
         const loc = userLocation || '104.5647,28.7658';
         try {
@@ -132,19 +156,19 @@ app.post('/api/ai/risk', async (req, res) => {
             console.warn('逆地理编码请求失败:', e.message);
         }
 
-        // 微信通知（详细地址）
+        // 发送微信报警通知
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         console.log('准备发送微信通知...');
         await sendWeChat('骑行安全警报', wechatMsg);
 
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
-        console.error('风险研判失败:', error.message);
+        console.error('/api/ai/risk 接口异常：', error.message);
         res.status(500).json({ error: '风险研判失败' });
     }
 });
 
-// 骑行数据播报接口（含 OneNET 下发）
+// 骑行数据总结播报接口
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
@@ -155,11 +179,12 @@ app.post('/api/ai/summary', async (req, res) => {
         sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
     } catch (error) {
+        console.error('/api/ai/summary 接口异常：', error);
         res.status(500).json({ error: '生成失败' });
     }
 });
 
-// 自然语言解析接口
+// 自然语言文本导航解析接口
 app.post('/api/nlp/nav', async (req, res) => {
     try {
         const { text, userLocation } = req.body;
@@ -177,11 +202,12 @@ app.post('/api/nlp/nav', async (req, res) => {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
     } catch (error) {
+        console.error('/api/nlp/nav 接口异常：', error);
         res.status(500).json({ error: '意图解析失败' });
     }
 });
 
-// 语音导航接口
+// 音频语音导航接口
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
@@ -204,6 +230,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
     } catch (error) {
+        console.error('/api/voice/nav 接口异常：', error);
         res.status(500).json({ error: '语音服务暂时不可用' });
     }
 });
