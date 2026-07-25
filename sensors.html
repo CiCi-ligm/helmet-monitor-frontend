@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>传感器数据</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
+        body{background:#f5f5f5;padding:20px;padding-bottom:70px}
+        .header{font-size:22px;font-weight:bold;color:#333;margin-bottom:20px}
+        .sensor-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+        .sensor-card{
+            background:#fff;border-radius:16px;padding:20px;
+            text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.05)
+        }
+        .sensor-icon{font-size:40px;margin-bottom:10px}
+        .sensor-value{font-size:36px;font-weight:bold;color:#333}
+        .sensor-unit{font-size:14px;color:#999;margin-left:5px}
+        .sensor-label{font-size:14px;color:#666;margin-top:5px}
+        .sensor-time{font-size:11px;color:#bbb;margin-top:8px}
+        .status-bar{
+            display:flex;justify-content:space-between;align-items:center;
+            background:#fff;border-radius:12px;padding:15px;margin-top:20px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.05)
+        }
+        .status-dot{width:12px;height:12px;border-radius:50%;background:#4CAF50;margin-right:8px}
+        .status-text{font-size:14px;color:#666}
+        .refresh-btn{
+            width:100%;padding:14px;background:#2196F3;color:#fff;
+            border:none;border-radius:12px;font-size:16px;margin-top:20px;cursor:pointer
+        }
+
+        .tab-bar{
+            position:fixed;bottom:0;left:0;right:0;height:60px;
+            background:#fff;border-top:1px solid #eee;
+            display:flex;justify-content:space-around;align-items:center;
+        }
+        .tab-item{display:flex;flex-direction:column;align-items:center;font-size:12px;color:#666;text-decoration:none}
+        .tab-item.active{color:#2563eb}
+        .tab-item .icon{font-size:22px}
+    </style>
+</head>
+<body>
+    <div class="header">📊 实时传感器数据</div>
+
+    <div class="status-bar">
+        <div style="display:flex;align-items:center">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">设备在线</span>
+        </div>
+        <span style="font-size:12px;color:#999" id="updateTime">--</span>
+    </div>
+
+    <div class="sensor-grid">
+        <div class="sensor-card">
+            <div class="sensor-icon">🩸</div>
+            <div>
+                <span class="sensor-value" id="spo2Value">--</span>
+                <span class="sensor-unit">%</span>
+            </div>
+            <div class="sensor-label">血氧饱和度</div>
+            <div class="sensor-time" id="spo2Time">--</div>
+        </div>
+
+        <div class="sensor-card">
+            <div class="sensor-icon">💓</div>
+            <div>
+                <span class="sensor-value" id="heartValue">--</span>
+                <span class="sensor-unit">bpm</span>
+            </div>
+            <div class="sensor-label">心率</div>
+            <div class="sensor-time" id="heartTime">--</div>
+        </div>
+
+        <div class="sensor-card">
+            <div class="sensor-icon">🌡️</div>
+            <div>
+                <span class="sensor-value" id="tempValue">--</span>
+                <span class="sensor-unit">°C</span>
+            </div>
+            <div class="sensor-label">体温</div>
+            <div class="sensor-time" id="tempTime">--</div>
+        </div>
+
+        <div class="sensor-card">
+            <div class="sensor-icon">☀️</div>
+            <div>
+                <span class="sensor-value" id="lightValue">--</span>
+                <span class="sensor-unit">lux</span>
+            </div>
+            <div class="sensor-label">光照强度</div>
+            <div class="sensor-time" id="lightTime">--</div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="fetchSensorData()">🔄 刷新数据</button>
+
+    <div class="tab-bar">
+        <a href="nav.html" class="tab-item"><span class="icon">🗺️</span><span>导航</span></a>
+        <a href="sensors.html" class="tab-item active"><span class="icon">📊</span><span>传感器</span></a>
+        <a href="record.html" class="tab-item"><span class="icon">📋</span><span>记录</span></a>
+        <a href="profile.html" class="tab-item"><span class="icon">👤</span><span>我的</span></a>
+    </div>
+
+    <script>
+        const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
+
+        async function fetchSensorData() {
+            try {
+                const resp = await fetch(`${AI_BACKEND_URL}/api/device/sensors`);
+                const data = await resp.json();
+                
+                if (data.success) {
+                    const s = data.sensors;
+                    
+                    document.getElementById('spo2Value').innerText = s.spo2.value;
+                    document.getElementById('spo2Time').innerText = formatTime(s.spo2.time);
+                    
+                    document.getElementById('heartValue').innerText = s.heart_rate.value;
+                    document.getElementById('heartTime').innerText = formatTime(s.heart_rate.time);
+                    
+                    document.getElementById('tempValue').innerText = s.temperature.value;
+                    document.getElementById('tempTime').innerText = formatTime(s.temperature.time);
+                    
+                    document.getElementById('lightValue').innerText = s.light.value;
+                    document.getElementById('lightTime').innerText = formatTime(s.light.time);
+                    
+                    document.getElementById('updateTime').innerText = formatTime(Date.now());
+                }
+            } catch (e) {
+                console.error('获取传感器数据失败:', e);
+            }
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return '--';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        // 页面加载时自动获取一次
+        fetchSensorData();
+        
+        // 每10秒自动刷新
+        setInterval(fetchSensorData, 10000);
+    </script>
+</body>
+</html>
