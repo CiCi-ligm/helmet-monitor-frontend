@@ -44,7 +44,7 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 下发到 OneNET（使用 set-device-property 接口）
+// 下发到 OneNET
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -58,24 +58,12 @@ async function sendToOneNET(navText) {
     try {
         const resp = await axios.post(
             'https://iot-api.heclouds.com/thingmodel/set-device-property',
-            {
-                product_id: PRODUCT_ID,
-                device_name: DEVICE_NAME,
-                params: { nav_text: navText }
-            },
-            { 
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': productToken 
-                } 
-            }
+            { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
+            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
         );
         console.log('OneNET 原始返回:', JSON.stringify(resp.data));
-        if (resp.data.code === 0) {
-            console.log('✅ OneNET 下发成功');
-        } else {
-            console.log('❌ OneNET 业务错误:', resp.data.code, resp.data.msg);
-        }
+        if (resp.data.code === 0) console.log('✅ OneNET 下发成功');
+        else console.log('❌ OneNET 业务错误:', resp.data.code, resp.data.msg);
     } catch (err) {
         console.warn('OneNET 下发失败:', err.message);
     }
@@ -108,57 +96,48 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送 + 逆地理编码）
+// 纯文本下发接口（不经过 AI）
+app.post('/api/ai/send', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ error: '缺少文本' });
+        await sendToOneNET(text);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: '下发失败' });
+    }
+});
+
+// 安全风险研判接口
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
-
-        console.log('收到风险研判请求:', event, data);
-
         const prompt = `你是一个骑行安全助手。用户设备检测到${event}事件，传感器数据：${data || '无详细数据'}。请判断风险等级（低/中/高），并生成一句紧急语音提示（15字以内），如"检测到摔倒，已通知紧急联系人"。只输出JSON：{"level":"风险等级","text":"语音提示"}。`;
         const aiResult = await askQwen(prompt);
-        console.log('大模型返回:', aiResult);
         const parsed = JSON.parse(aiResult);
-
-        // 下发到 OneNET
         await sendToOneNET(parsed.text);
 
-        // 逆地理编码获取具体地址
         let address = '未知位置';
         const loc = userLocation || '104.5647,28.7658';
         try {
-            console.log('开始逆地理编码，坐标:', loc);
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-                params: {
-                    key: AMAP_KEY,
-                    location: loc,
-                    output: 'json'
-                }
+                params: { key: AMAP_KEY, location: loc, output: 'json' }
             });
-            console.log('逆地理编码原始返回:', JSON.stringify(geoResp.data));
             if (geoResp.data.status === '1' && geoResp.data.regeocode) {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
-            } else {
-                console.warn('逆地理编码失败，状态:', geoResp.data.status);
             }
-        } catch (e) {
-            console.warn('逆地理编码请求失败:', e.message);
-        }
+        } catch (e) {}
 
-        // 微信通知（详细地址）
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        console.log('准备发送微信通知...');
         await sendWeChat('骑行安全警报', wechatMsg);
-
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
-        console.error('风险研判失败:', error.message);
         res.status(500).json({ error: '风险研判失败' });
     }
 });
 
-// 骑行数据播报接口（含 OneNET 下发）
+// 骑行数据播报接口
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
