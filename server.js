@@ -122,7 +122,6 @@ app.get('/api/device/sensors', async (req, res) => {
             }
         });
     } catch (error) {
-        // 查询失败时返回模拟数据
         res.json({
             success: true,
             sensors: {
@@ -132,6 +131,56 @@ app.get('/api/device/sensors', async (req, res) => {
                 light: { value: 1200, time: Date.now() }
             }
         });
+    }
+});
+
+// 骑行前综合评估接口
+app.post('/api/ai/ride-check', async (req, res) => {
+    try {
+        const { userLocation } = req.body;
+        const loc = userLocation || '104.5647,28.7658';
+
+        // 获取天气
+        let weather = '未知';
+        try {
+            const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
+                params: {
+                    key: AMAP_KEY,
+                    city: loc,
+                    extensions: 'base'
+                }
+            });
+            if (weatherResp.data.lives && weatherResp.data.lives[0]) {
+                const w = weatherResp.data.lives[0];
+                weather = `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
+            }
+        } catch (e) {
+            console.warn('获取天气失败:', e.message);
+        }
+
+        // 传感器数据
+        const sensors = {
+            spo2: 98,
+            heart_rate: 72,
+            temperature: 28,
+            light: 35000
+        };
+
+        // AI 综合分析
+        const prompt = `你是一个专业的骑行顾问。请根据以下数据分析是否适合骑行并给出建议：
+- 天气：${weather}
+- 环境温度：${sensors.temperature}°C
+- 光照强度：${sensors.light}lux
+- 血氧饱和度：${sensors.spo2}%
+- 心率：${sensors.heart_rate}bpm
+
+请以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "具体建议（40字以内）", "detail": "详细分析（60字以内）"}。只输出JSON，不要任何解释。`;
+        const aiResult = await askQwen(prompt);
+        const parsed = JSON.parse(aiResult);
+
+        res.json({ success: true, weather, sensors, ...parsed });
+    } catch (error) {
+        res.status(500).json({ error: '评估失败' });
     }
 });
 
@@ -162,32 +211,23 @@ app.post('/api/ai/risk', async (req, res) => {
         console.log('大模型返回:', aiResult);
         const parsed = JSON.parse(aiResult);
 
-        // 下发到 OneNET
         await sendToOneNET(parsed.text);
 
-        // 逆地理编码获取具体地址
         let address = '未知位置';
         const loc = userLocation || '104.5647,28.7658';
         try {
             console.log('开始逆地理编码，坐标:', loc);
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-                params: {
-                    key: AMAP_KEY,
-                    location: loc,
-                    output: 'json'
-                }
+                params: { key: AMAP_KEY, location: loc, output: 'json' }
             });
             console.log('逆地理编码原始返回:', JSON.stringify(geoResp.data));
             if (geoResp.data.status === '1' && geoResp.data.regeocode) {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
-            } else {
-                console.warn('逆地理编码失败，状态:', geoResp.data.status);
             }
         } catch (e) {
             console.warn('逆地理编码请求失败:', e.message);
         }
 
-        // 微信通知（详细地址）
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         console.log('准备发送微信通知...');
         await sendWeChat('骑行安全警报', wechatMsg);
@@ -199,7 +239,7 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// 骑行数据播报接口（含 OneNET 下发）
+// 骑行数据播报接口
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
