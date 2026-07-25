@@ -34,7 +34,7 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 下发到 OneNET（带重试机制）
+// 下发到 OneNET（只发一次，不重试）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -45,19 +45,16 @@ async function sendToOneNET(navText) {
     const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
     const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
-    for (let i = 0; i < 3; i++) {
-        try {
-            const resp = await axios.post(
-                'https://iot-api.heclouds.com/thingmodel/set-device-property',
-                { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
-                { headers: { 'Content-Type': 'application/json', 'Authorization': productToken }, timeout: 5000 }
-            );
-            console.log('OneNET 原始返回:', JSON.stringify(resp.data));
-            if (resp.data.code === 0) { console.log('✅ OneNET 下发成功'); return; }
-        } catch (err) {
-            console.warn(`OneNET 下发失败 (第${i+1}次):`, err.message);
-            if (i < 2) await new Promise(r => setTimeout(r, 1000));
-        }
+    try {
+        const resp = await axios.post(
+            'https://iot-api.heclouds.com/thingmodel/set-device-property',
+            { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
+            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken }, timeout: 5000 }
+        );
+        console.log('OneNET 原始返回:', JSON.stringify(resp.data));
+        if (resp.data.code === 0) console.log('✅ OneNET 下发成功');
+    } catch (err) {
+        console.warn('OneNET 下发失败:', err.message);
     }
 }
 
