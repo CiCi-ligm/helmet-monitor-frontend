@@ -134,13 +134,13 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口
+// 骑行前综合评估接口（含 OneNET 下发）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
 
-        // 获取天气（先用逆地理编码获取城市名）
+        // 获取天气
         let weather = '未知';
         try {
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
@@ -178,6 +178,9 @@ app.post('/api/ai/ride-check', async (req, res) => {
 请以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "具体建议（40字以内）", "detail": "详细分析（60字以内）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
+
+        // 下发到 OneNET
+        await sendToOneNET(parsed.advice);
 
         res.json({ success: true, weather, sensors, ...parsed });
     } catch (error) {
