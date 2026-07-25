@@ -134,7 +134,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口（含真实传感器数据分析）
+// 骑行前综合评估接口（专业运动生理学分析）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -166,22 +166,29 @@ app.post('/api/ai/ride-check', async (req, res) => {
             console.warn('获取天气失败:', e.message);
         }
 
-        // 传感器数据（基于日常心率60，血氧98）
         const sensors = { spo2: 98, heart_rate: 60, temperature: 28, light: 35000 };
 
-        const prompt = `你是一个专业的骑行顾问。请根据以下数据分析是否适合骑行并给出建议：
+        const prompt = `你是一位资深运动生理学专家和骑行教练。请根据以下数据，给出专业的骑行前评估：
+
+【环境数据】
 - 天气：${weather}
 - 环境温度：${sensors.temperature}°C
 - 光照强度：${sensors.light}lux
-- 血氧饱和度：${sensors.spo2}%（正常范围95%-100%，低于95%需警惕）
-- 静息心率：${sensors.heart_rate}bpm（正常静息心率60-100bpm）
 
-骑行时心率参考：
+【生理数据】
+- 血氧饱和度：${sensors.spo2}%（正常范围：95%-100%，低于95%需警惕）
+- 静息心率：${sensors.heart_rate}bpm
+
+【心率参考标准】
+- 普通成年人静息心率：60-100次/分钟
+- 经常运动/骑行爱好者：50-70次/分（心肺功能更强）
 - 慢速休闲骑行：100-130次/分
 - 中等强度骑行：130-160次/分
 - 高强度冲刺：160-180次/分
 
-请结合天气、血氧、静息心率等数据，判断是否适合骑行，并给出针对性的运动强度建议。如果血氧低于95%或心率异常，请特别提醒。以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "具体建议（40字以内）", "detail": "详细分析（60字以内）"}。只输出JSON，不要任何解释。`;
+请结合以上数据和参考标准，分析用户的生理状态和运动能力，给出是否适合骑行的判断，以及运动强度建议。必须引用具体的参考标准进行对比分析（如"您的静息心率60bpm属于运动爱好者水平，心肺功能良好"）。
+
+以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "具体建议（40字以内）", "detail": "详细分析（80字以内，必须包含参考标准对比）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
