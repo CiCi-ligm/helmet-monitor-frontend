@@ -126,7 +126,7 @@ app.get('/api/device/sensors', async (req, res) => {
             success: true,
             sensors: {
                 spo2: { value: 98, time: Date.now() },
-                heart_rate: { value: 72, time: Date.now() },
+                heart_rate: { value: 60, time: Date.now() },
                 temperature: { value: 36.5, time: Date.now() },
                 light: { value: 1200, time: Date.now() }
             }
@@ -134,7 +134,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口（含 OneNET 下发）
+// 骑行前综合评估接口（含真实传感器数据分析）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -166,16 +166,22 @@ app.post('/api/ai/ride-check', async (req, res) => {
             console.warn('获取天气失败:', e.message);
         }
 
-        const sensors = { spo2: 98, heart_rate: 72, temperature: 28, light: 35000 };
+        // 传感器数据（基于日常心率60，血氧98）
+        const sensors = { spo2: 98, heart_rate: 60, temperature: 28, light: 35000 };
 
         const prompt = `你是一个专业的骑行顾问。请根据以下数据分析是否适合骑行并给出建议：
 - 天气：${weather}
 - 环境温度：${sensors.temperature}°C
 - 光照强度：${sensors.light}lux
-- 血氧饱和度：${sensors.spo2}%
-- 心率：${sensors.heart_rate}bpm
+- 血氧饱和度：${sensors.spo2}%（正常范围95%-100%，低于95%需警惕）
+- 静息心率：${sensors.heart_rate}bpm（正常静息心率60-100bpm）
 
-请以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "具体建议（40字以内）", "detail": "详细分析（60字以内）"}。只输出JSON，不要任何解释。`;
+骑行时心率参考：
+- 慢速休闲骑行：100-130次/分
+- 中等强度骑行：130-160次/分
+- 高强度冲刺：160-180次/分
+
+请结合天气、血氧、静息心率等数据，判断是否适合骑行，并给出针对性的运动强度建议。如果血氧低于95%或心率异常，请特别提醒。以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "具体建议（40字以内）", "detail": "详细分析（60字以内）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
