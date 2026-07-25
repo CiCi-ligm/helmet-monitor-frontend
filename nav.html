@@ -110,7 +110,7 @@
 
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
-  <div id="tip">正在获取手机GPS位置...</div>
+  <div id="tip">正在获取硬件GPS位置...</div>
 
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active">
@@ -166,7 +166,7 @@
     // ========== 语音按钮：按住说话，松开解析 ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
-        tip.innerText = '请等待手机定位成功后再点击语音按钮';
+        tip.innerText = '请等待硬件定位成功后再点击语音按钮';
         tip.style.display = 'block';
         setTimeout(() => tip.style.display = 'none', 3000);
         return;
@@ -313,7 +313,7 @@
     };
 
     function getMyLocation(){
-      tip.innerText = "正在获取手机GPS位置..."; tip.style.display = "block";
+      tip.innerText = "正在获取硬件GPS位置..."; tip.style.display = "block";
       const geolocation = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
       geolocation.getCurrentPosition((status, result) => {
         if(status === "complete" && result.position){
@@ -349,7 +349,7 @@
     }
 
     function startNav(type){
-      if(!currentPos){ tip.innerText = "请等待手机定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
       const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; const typeText = type === 'walking' ? '步行' : '骑行';
