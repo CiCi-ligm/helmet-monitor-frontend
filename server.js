@@ -140,16 +140,24 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
 
-        // 获取天气
+        // 获取天气（先用逆地理编码获取城市名）
         let weather = '未知';
         try {
-            const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
-                params: {
-                    key: AMAP_KEY,
-                    city: loc,
-                    extensions: 'base'
-                }
+            const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
+                params: { key: AMAP_KEY, location: loc, output: 'json' }
             });
+            
+            let city = '宜宾';
+            if (geoResp.data.regeocode && geoResp.data.regeocode.addressComponent) {
+                city = geoResp.data.regeocode.addressComponent.city || 
+                       geoResp.data.regeocode.addressComponent.province || '宜宾';
+                city = city.replace('市', '');
+            }
+            
+            const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
+                params: { key: AMAP_KEY, city: city, extensions: 'base' }
+            });
+            
             if (weatherResp.data.lives && weatherResp.data.lives[0]) {
                 const w = weatherResp.data.lives[0];
                 weather = `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
@@ -158,15 +166,8 @@ app.post('/api/ai/ride-check', async (req, res) => {
             console.warn('获取天气失败:', e.message);
         }
 
-        // 传感器数据
-        const sensors = {
-            spo2: 98,
-            heart_rate: 72,
-            temperature: 28,
-            light: 35000
-        };
+        const sensors = { spo2: 98, heart_rate: 72, temperature: 28, light: 35000 };
 
-        // AI 综合分析
         const prompt = `你是一个专业的骑行顾问。请根据以下数据分析是否适合骑行并给出建议：
 - 天气：${weather}
 - 环境温度：${sensors.temperature}°C
@@ -216,11 +217,9 @@ app.post('/api/ai/risk', async (req, res) => {
         let address = '未知位置';
         const loc = userLocation || '104.5647,28.7658';
         try {
-            console.log('开始逆地理编码，坐标:', loc);
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
                 params: { key: AMAP_KEY, location: loc, output: 'json' }
             });
-            console.log('逆地理编码原始返回:', JSON.stringify(geoResp.data));
             if (geoResp.data.status === '1' && geoResp.data.regeocode) {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
             }
@@ -229,7 +228,6 @@ app.post('/api/ai/risk', async (req, res) => {
         }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        console.log('准备发送微信通知...');
         await sendWeChat('骑行安全警报', wechatMsg);
 
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
