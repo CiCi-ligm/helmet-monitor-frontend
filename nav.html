@@ -101,6 +101,7 @@
     <input id="addressInput" placeholder="输入目的地（或点击下方语音按钮）" />
     <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音输入)</button>
     <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
+    <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%; padding:10px; background:#FF9800; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🚴 骑行前综合评估</button>
     <div class="btn-group">
       <button onclick="startNav('walking')">步行导航</button>
       <button onclick="startNav('riding')">骑行导航</button>
@@ -163,7 +164,7 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音按钮：按住说话，松开解析 ==========
+    // ========== 语音按钮 ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待硬件定位成功后再点击语音按钮';
@@ -188,17 +189,11 @@
       setTimeout(() => {
         const destination = '星巴克(宜宾万象汇店)';
         const lnglat = [104.6432, 28.7518];
-        
         addressInput.value = destination;
         targetPos = lnglat;
-        
         tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
         tip.style.display = 'block';
-
-        setTimeout(() => {
-          startNav('walking');
-          resetVoiceUI();
-        }, 1500);
+        setTimeout(() => { startNav('walking'); resetVoiceUI(); }, 1500);
       }, 1500);
     });
 
@@ -209,15 +204,8 @@
       }
     });
 
-    voiceBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      voiceBtn.dispatchEvent(new Event('mousedown'));
-    });
-
-    voiceBtn.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      voiceBtn.dispatchEvent(new Event('mouseup'));
-    });
+    voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); voiceBtn.dispatchEvent(new Event('mousedown')); });
+    voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); voiceBtn.dispatchEvent(new Event('mouseup')); });
 
     function resetVoiceUI() {
       voiceBtn.innerText = '🎤 按住说话 (语音输入)';
@@ -225,22 +213,16 @@
       voiceBtn.classList.remove('recording-btn');
     }
 
-    // ========== 模拟摔倒检测（带用户位置） ==========
+    // ========== 模拟摔倒检测 ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，AI正在研判...';
       tip.style.display = 'block';
-
       const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
-
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            event: '摔倒',
-            data: '加速度8.5g, 倾角75度, 持续2秒',
-            userLocation: loc
-          })
+          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度, 持续2秒', userLocation: loc })
         });
         const data = await resp.json();
         if (data.success) {
@@ -254,14 +236,36 @@
       }
     }
 
+    // ========== 骑行前综合评估 ==========
+    async function checkRideCondition() {
+      tip.innerText = '🚴 AI正在分析骑行条件...';
+      tip.style.display = 'block';
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          const emoji = data.suitable ? '✅' : '⚠️';
+          tip.innerText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
+          tip.style.display = 'block';
+          setTimeout(() => tip.style.display = 'none', 10000);
+        }
+      } catch (e) {
+        tip.innerText = '评估失败';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
+    }
+
     // ========== 自然语言解析 + 导航 ==========
     async function resolveNaturalLanguage(spokenText) {
       tip.innerText = '🧠 AI正在理解...';
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: spokenText })
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: spokenText })
         });
         const data = await resp.json();
         if (data.success) {
@@ -283,11 +287,7 @@
     async function callAIBackend(destination, status) {
       try {
         const response = await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ destination, status }),
-          cache: 'no-store',
-          mode: 'cors'
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destination, status }), cache: 'no-store', mode: 'cors'
         });
         const data = await response.json();
         if (data.success) {
@@ -301,10 +301,7 @@
     }
 
     window.onload = function(){
-      if(localStorage.getItem('isLogin') !== '1'){
-        location.href = 'login.html';
-        return;
-      }
+      if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       satelliteLayer = new AMap.TileLayer.Satellite();
       initAutoComplete();
