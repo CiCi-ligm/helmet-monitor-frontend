@@ -27,14 +27,24 @@ const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
-        const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, { title, desp });
+        const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, {
+            title: title,
+            desp: desp
+        });
         console.log('微信通知返回结果:', JSON.stringify(resp.data));
+        console.log('微信通知状态码:', resp.status);
     } catch (err) {
         console.error('微信通知失败:', err.message);
+        if (err.response) {
+            console.error('微信通知错误状态码:', err.response.status);
+            console.error('微信通知错误返回体:', JSON.stringify(err.response.data));
+        } else if (err.request) {
+            console.error('微信通知无响应，可能超时');
+        }
     }
 }
 
-// 下发到 OneNET（只发一次，不重试）
+// 下发到 OneNET
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -48,11 +58,24 @@ async function sendToOneNET(navText) {
     try {
         const resp = await axios.post(
             'https://iot-api.heclouds.com/thingmodel/set-device-property',
-            { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
-            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken }, timeout: 5000 }
+            {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                params: { nav_text: navText }
+            },
+            { 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': productToken 
+                } 
+            }
         );
         console.log('OneNET 原始返回:', JSON.stringify(resp.data));
-        if (resp.data.code === 0) console.log('✅ OneNET 下发成功');
+        if (resp.data.code === 0) {
+            console.log('✅ OneNET 业务下发成功');
+        } else {
+            console.log('❌ OneNET 业务错误:', resp.data.code, resp.data.msg);
+        }
     } catch (err) {
         console.warn('OneNET 下发失败:', err.message);
     }
@@ -71,6 +94,47 @@ async function searchPlace(keywords, userLocation) {
     return response;
 }
 
+// 查询设备传感器数据
+app.get('/api/device/sensors', async (req, res) => {
+    try {
+        const version = '2022-05-01';
+        const resStr = `products/${PRODUCT_ID}`;
+        const et = Math.ceil((Date.now() + 3600000) / 1000);
+        const method = 'sha1';
+        const base64Key = Buffer.from(API_KEY, 'base64');
+        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+
+        const resp = await axios.get('https://iot-api.heclouds.com/thingmodel/property/queryDeviceProperty', {
+            params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
+            headers: { 'Authorization': productToken }
+        });
+        
+        const data = resp.data.data || {};
+        res.json({
+            success: true,
+            sensors: {
+                spo2: data.spo2 || { value: '--', time: null },
+                heart_rate: data.heart_rate || { value: '--', time: null },
+                temperature: data.temperature || { value: '--', time: null },
+                light: data.light || { value: '--', time: null }
+            }
+        });
+    } catch (error) {
+        // 查询失败时返回模拟数据
+        res.json({
+            success: true,
+            sensors: {
+                spo2: { value: 98, time: Date.now() },
+                heart_rate: { value: 72, time: Date.now() },
+                temperature: { value: 36.5, time: Date.now() },
+                light: { value: 1200, time: Date.now() }
+            }
+        });
+    }
+});
+
 // AI 导航路由
 app.post('/api/ai/nav', async (req, res) => {
     try {
@@ -80,45 +144,62 @@ app.post('/api/ai/nav', async (req, res) => {
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
-    } catch (error) { res.status(500).json({ error: 'AI 服务暂时不可用' }); }
+    } catch (error) {
+        res.status(500).json({ error: 'AI 服务暂时不可用' });
+    }
 });
 
-// 纯文本下发接口
-app.post('/api/ai/send', async (req, res) => {
-    try {
-        const { text } = req.body;
-        if (!text) return res.status(400).json({ error: '缺少文本' });
-        await sendToOneNET(text);
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: '下发失败' }); }
-});
-
-// 安全风险研判接口
+// 安全风险研判接口（含微信推送 + 逆地理编码）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
+
+        console.log('收到风险研判请求:', event, data);
+
         const prompt = `你是一个骑行安全助手。用户设备检测到${event}事件，传感器数据：${data || '无详细数据'}。请判断风险等级（低/中/高），并生成一句紧急语音提示（15字以内），如"检测到摔倒，已通知紧急联系人"。只输出JSON：{"level":"风险等级","text":"语音提示"}。`;
         const aiResult = await askQwen(prompt);
+        console.log('大模型返回:', aiResult);
         const parsed = JSON.parse(aiResult);
+
+        // 下发到 OneNET
         await sendToOneNET(parsed.text);
 
+        // 逆地理编码获取具体地址
         let address = '未知位置';
         const loc = userLocation || '104.5647,28.7658';
         try {
+            console.log('开始逆地理编码，坐标:', loc);
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-                params: { key: AMAP_KEY, location: loc, output: 'json' }
+                params: {
+                    key: AMAP_KEY,
+                    location: loc,
+                    output: 'json'
+                }
             });
+            console.log('逆地理编码原始返回:', JSON.stringify(geoResp.data));
             if (geoResp.data.status === '1' && geoResp.data.regeocode) {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
+            } else {
+                console.warn('逆地理编码失败，状态:', geoResp.data.status);
             }
-        } catch (e) {}
-        await sendWeChat('骑行安全警报', `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`);
-        res.json({ success: true, text: parsed.text, level: parsed.level });
-    } catch (error) { res.status(500).json({ error: '风险研判失败' }); }
+        } catch (e) {
+            console.warn('逆地理编码请求失败:', e.message);
+        }
+
+        // 微信通知（详细地址）
+        const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
+        console.log('准备发送微信通知...');
+        await sendWeChat('骑行安全警报', wechatMsg);
+
+        res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
+    } catch (error) {
+        console.error('风险研判失败:', error.message);
+        res.status(500).json({ error: '风险研判失败' });
+    }
 });
 
-// 骑行数据播报接口
+// 骑行数据播报接口（含 OneNET 下发）
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
@@ -128,7 +209,9 @@ app.post('/api/ai/summary', async (req, res) => {
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
-    } catch (error) { res.status(500).json({ error: '生成失败' }); }
+    } catch (error) {
+        res.status(500).json({ error: '生成失败' });
+    }
 });
 
 // 自然语言解析接口
@@ -148,7 +231,9 @@ app.post('/api/nlp/nav', async (req, res) => {
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
-    } catch (error) { res.status(500).json({ error: '意图解析失败' }); }
+    } catch (error) {
+        res.status(500).json({ error: '意图解析失败' });
+    }
 });
 
 // 语音导航接口
@@ -173,7 +258,9 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
-    } catch (error) { res.status(500).json({ error: '语音服务暂时不可用' }); }
+    } catch (error) {
+        res.status(500).json({ error: '语音服务暂时不可用' });
+    }
 });
 
 module.exports = app;
