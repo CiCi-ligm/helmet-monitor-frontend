@@ -38,6 +38,16 @@
             background:#2196F3;color:#fff;border:none;border-radius:12px;
             font-size:15px;cursor:pointer
         }
+        .ride-check-btn{
+            width:calc(100% - 30px);margin:0 15px 15px;padding:12px;
+            background:#FF9800;color:#fff;border:none;border-radius:12px;
+            font-size:15px;cursor:pointer
+        }
+        .check-result{
+            width:calc(100% - 30px);margin:0 15px 15px;padding:15px;
+            background:#fff;border-radius:12px;font-size:14px;
+            color:#333;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.03)
+        }
 
         .tab-bar{
             position:fixed;bottom:0;left:0;right:0;height:60px;
@@ -116,6 +126,8 @@
     </div>
 
     <button class="refresh-btn" onclick="fetchSensorData()">🔄 刷新传感器数据</button>
+    <button class="ride-check-btn" onclick="checkRideCondition()">🚴 骑行前综合评估</button>
+    <div id="checkResult" class="check-result"></div>
 
     <div class="tab-bar">
         <a href="nav.html" class="tab-item"><span class="icon">🗺️</span><span>导航</span></a>
@@ -150,6 +162,35 @@
             } catch (e) {
                 console.error('获取传感器数据失败:', e);
             }
+        }
+
+        async function checkRideCondition() {
+            const btn = document.querySelector('.ride-check-btn');
+            const resultDiv = document.getElementById('checkResult');
+            
+            btn.innerText = '⏳ AI正在分析骑行条件...';
+            btn.disabled = true;
+            resultDiv.style.display = 'none';
+            
+            try {
+                const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userLocation: '104.5647,28.7658' })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    const emoji = data.suitable ? '✅' : '⚠️';
+                    resultDiv.innerHTML = `${emoji} <b>[${data.level}]</b> ${data.advice}<br><br>📋 ${data.detail}<br><br>🌤 天气：${data.weather}`;
+                    resultDiv.style.display = 'block';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '评估失败，请重试';
+                resultDiv.style.display = 'block';
+            }
+            
+            btn.innerText = '🚴 骑行前综合评估';
+            btn.disabled = false;
         }
 
         function formatTime(timestamp) {
