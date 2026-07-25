@@ -27,24 +27,14 @@ const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
-        const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, {
-            title: title,
-            desp: desp
-        });
+        const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, { title, desp });
         console.log('微信通知返回结果:', JSON.stringify(resp.data));
-        console.log('微信通知状态码:', resp.status);
     } catch (err) {
         console.error('微信通知失败:', err.message);
-        if (err.response) {
-            console.error('微信通知错误状态码:', err.response.status);
-            console.error('微信通知错误返回体:', JSON.stringify(err.response.data));
-        } else if (err.request) {
-            console.error('微信通知无响应，可能超时');
-        }
     }
 }
 
-// 下发到 OneNET
+// 下发到 OneNET（带重试机制）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -55,17 +45,19 @@ async function sendToOneNET(navText) {
     const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
     const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
-    try {
-        const resp = await axios.post(
-            'https://iot-api.heclouds.com/thingmodel/set-device-property',
-            { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
-            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
-        );
-        console.log('OneNET 原始返回:', JSON.stringify(resp.data));
-        if (resp.data.code === 0) console.log('✅ OneNET 下发成功');
-        else console.log('❌ OneNET 业务错误:', resp.data.code, resp.data.msg);
-    } catch (err) {
-        console.warn('OneNET 下发失败:', err.message);
+    for (let i = 0; i < 3; i++) {
+        try {
+            const resp = await axios.post(
+                'https://iot-api.heclouds.com/thingmodel/set-device-property',
+                { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
+                { headers: { 'Content-Type': 'application/json', 'Authorization': productToken }, timeout: 5000 }
+            );
+            console.log('OneNET 原始返回:', JSON.stringify(resp.data));
+            if (resp.data.code === 0) { console.log('✅ OneNET 下发成功'); return; }
+        } catch (err) {
+            console.warn(`OneNET 下发失败 (第${i+1}次):`, err.message);
+            if (i < 2) await new Promise(r => setTimeout(r, 1000));
+        }
     }
 }
 
@@ -91,21 +83,17 @@ app.post('/api/ai/nav', async (req, res) => {
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
-    } catch (error) {
-        res.status(500).json({ error: 'AI 服务暂时不可用' });
-    }
+    } catch (error) { res.status(500).json({ error: 'AI 服务暂时不可用' }); }
 });
 
-// 纯文本下发接口（不经过 AI）
+// 纯文本下发接口
 app.post('/api/ai/send', async (req, res) => {
     try {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: '缺少文本' });
         await sendToOneNET(text);
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: '下发失败' });
-    }
+    } catch (error) { res.status(500).json({ error: '下发失败' }); }
 });
 
 // 安全风险研判接口
@@ -128,13 +116,9 @@ app.post('/api/ai/risk', async (req, res) => {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
             }
         } catch (e) {}
-
-        const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        await sendWeChat('骑行安全警报', wechatMsg);
-        res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
-    } catch (error) {
-        res.status(500).json({ error: '风险研判失败' });
-    }
+        await sendWeChat('骑行安全警报', `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`);
+        res.json({ success: true, text: parsed.text, level: parsed.level });
+    } catch (error) { res.status(500).json({ error: '风险研判失败' }); }
 });
 
 // 骑行数据播报接口
@@ -147,9 +131,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
-    } catch (error) {
-        res.status(500).json({ error: '生成失败' });
-    }
+    } catch (error) { res.status(500).json({ error: '生成失败' }); }
 });
 
 // 自然语言解析接口
@@ -169,9 +151,7 @@ app.post('/api/nlp/nav', async (req, res) => {
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
-    } catch (error) {
-        res.status(500).json({ error: '意图解析失败' });
-    }
+    } catch (error) { res.status(500).json({ error: '意图解析失败' }); }
 });
 
 // 语音导航接口
@@ -196,9 +176,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
-    } catch (error) {
-        res.status(500).json({ error: '语音服务暂时不可用' });
-    }
+    } catch (error) { res.status(500).json({ error: '语音服务暂时不可用' }); }
 });
 
 module.exports = app;
