@@ -186,10 +186,10 @@
       tip.style.display = 'block';
 
       // 下发：大模型正在分析
-      fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
+      fetch(`${AI_BACKEND_URL}/api/ai/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination: '语音分析', status: '大模型正在分析您的语音' })
+        body: JSON.stringify({ text: '大模型正在分析您的语音' })
       });
 
       setTimeout(() => {
@@ -203,10 +203,10 @@
         tip.style.display = 'block';
 
         // 下发：已识别目的地
-        fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
+        fetch(`${AI_BACKEND_URL}/api/ai/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ destination: '已识别', status: '即将导航到星巴克万象汇店' })
+          body: JSON.stringify({ text: '即将导航到星巴克万象汇店' })
         });
 
         setTimeout(() => {
