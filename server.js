@@ -44,7 +44,7 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 下发到 OneNET（使用 MQTT 属性设置接口）
+// 下发到 OneNET（使用已验证的 set-device-property 接口）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -57,13 +57,18 @@ async function sendToOneNET(navText) {
 
     try {
         const resp = await axios.post(
-            'https://iot-api.heclouds.com/mqtt/thing/property/set',
+            'https://iot-api.heclouds.com/thingmodel/set-device-property',
             {
                 product_id: PRODUCT_ID,
                 device_name: DEVICE_NAME,
                 params: { nav_text: navText }
             },
-            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
+            { 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': productToken 
+                } 
+            }
         );
         console.log('OneNET 原始返回:', JSON.stringify(resp.data));
         if (resp.data.code === 0) {
