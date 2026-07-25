@@ -44,7 +44,7 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 下发到 OneNET（使用自定义消息，无需设备应答）
+// 下发到 OneNET【自定义单向消息，无需设备应答】
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}/devices/${DEVICE_NAME}`;
@@ -57,11 +57,11 @@ async function sendToOneNET(navText) {
 
     try {
         const resp = await axios.post(
-            'https://iot-api.heclouds.com/mqtt/thing/pub',
+            'https://iot-api.heclouds.com/mqtt/device/message/publish',
             {
                 product_id: PRODUCT_ID,
                 device_name: DEVICE_NAME,
-                topic: `$sys/${PRODUCT_ID}/${DEVICE_NAME}/down`,
+                topic: 'down',
                 payload: JSON.stringify({ nav_text: navText, timestamp: Date.now() })
             },
             { 
@@ -79,6 +79,9 @@ async function sendToOneNET(navText) {
         }
     } catch (err) {
         console.warn('OneNET 下发失败:', err.message);
+        if (err.response) {
+            console.warn('错误详情:', err.response.data);
+        }
     }
 }
 
