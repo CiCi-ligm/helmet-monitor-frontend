@@ -176,7 +176,7 @@
       }
     }
 
-    // ========== 语音按钮 ==========
+    // ========== 语音按钮：按住说话，松开解析 ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待硬件定位成功后再点击语音按钮';
@@ -201,6 +201,9 @@
       const fullText = '请说话。大模型正在分析您的语音。已识别您要去最近的咖啡店，即将导航到星巴克宜宾万象汇店。';
       sendTextToDevice(fullText);
 
+      // 根据文本长度计算延迟（每字150ms，最少2秒）
+      const delay = Math.max(2000, fullText.length * 150);
+      
       setTimeout(() => {
         const destination = '星巴克(宜宾万象汇店)';
         const lnglat = [104.6432, 28.7518];
@@ -208,8 +211,9 @@
         targetPos = lnglat;
         tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
         tip.style.display = 'block';
+
         setTimeout(() => { startNav('walking'); resetVoiceUI(); }, 1500);
-      }, 2000);
+      }, delay);
     });
 
     voiceBtn.addEventListener('mouseleave', () => {
