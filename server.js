@@ -45,7 +45,7 @@ async function sendWeChat(title, desp, imageUrl) {
     }
 }
 
-// 下发到 OneNET（使用昨天成功的 MQTT 接口 + 分段下发）
+// 下发到 OneNET（一次性发送完整文本）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -56,35 +56,29 @@ async function sendToOneNET(navText) {
     const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
     const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
-    // 按句号分段
-    const sentences = navText.split('。').filter(s => s.trim().length > 0);
-    
-    for (let i = 0; i < sentences.length; i++) {
-        const sentence = sentences[i].trim() + '。';
-        try {
-            const resp = await axios.post(
-                'https://iot-api.heclouds.com/mqtt/thing/property/set',
-                {
-                    product_id: PRODUCT_ID,
-                    device_name: DEVICE_NAME,
-                    params: { nav_text: sentence }
-                },
-                { 
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': productToken 
-                    } 
-                }
-            );
-            console.log(`OneNET 下发第${i+1}段:`, sentence);
-            console.log('OneNET 原始返回:', JSON.stringify(resp.data));
-            
-            if (i < sentences.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+        const resp = await axios.post(
+            'https://iot-api.heclouds.com/thingmodel/set-device-property',
+            {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                params: { nav_text: navText }
+            },
+            { 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': productToken 
+                } 
             }
-        } catch (err) {
-            console.warn(`OneNET 下发第${i+1}段失败:`, err.message);
+        );
+        console.log('OneNET 原始返回:', JSON.stringify(resp.data));
+        if (resp.data.code === 0) {
+            console.log('✅ OneNET 业务下发成功');
+        } else {
+            console.log('❌ OneNET 业务错误:', resp.data.code, resp.data.msg);
         }
+    } catch (err) {
+        console.warn('OneNET 下发失败:', err.message);
     }
 }
 
