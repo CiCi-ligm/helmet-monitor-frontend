@@ -119,7 +119,7 @@ app.get('/api/device/sensors', async (req, res) => {
             success: true,
             sensors: {
                 spo2: { value: 98, time: Date.now() },
-                heart_rate: { value: 60, time: Date.now() },
+                heart_rate: { value: 70, time: Date.now() },
                 temperature: { value: 36.5, time: Date.now() },
                 light: { value: 1200, time: Date.now() }
             }
@@ -127,7 +127,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口
+// 骑行前综合评估接口（静息心率改为 70）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -154,7 +154,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
             console.warn('获取天气失败:', e.message);
         }
 
-        const sensors = { spo2: 98, heart_rate: 60, temperature: 28, light: 35000 };
+        const sensors = { spo2: 98, heart_rate: 70, temperature: 28, light: 35000 };
         const prompt = `你是一位资深的运动健康专家和骑行教练。请像一个负责任的医生和教练一样，综合分析以下多维数据，为你的学员提供专业、令人信服的骑行前评估报告：
 
 【环境数据】
@@ -179,7 +179,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
 3. 综合环境和生理数据，给出是否适合骑行的明确判断，以及推荐的运动强度和时长。
 4. 给出2-3条具体、可执行的针对性建议。
 
-以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "简明扼要的总结建议（40字以内）", "detail": "详细的交叉分析报告（120字以内，必须包含具体的标准对比，如'您的静息心率60bpm，属运动喜好者水平，意味着心肺功能良好'）"}。只输出JSON，不要任何解释。`;
+以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "简明扼要的总结建议（40字以内）", "detail": "详细的交叉分析报告（120字以内，必须包含具体的标准对比，如'您的静息心率70bpm，属正常成年人水平，意味着心肺功能良好'）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
@@ -234,7 +234,6 @@ app.post('/api/ai/risk', async (req, res) => {
         }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        // 更新为新图片链接
         const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
         await sendWeChat('骑行安全警报', fullMsg);
