@@ -210,7 +210,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（图片已更新）
+// 安全风险研判接口（图片链接已更新）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -234,8 +234,8 @@ app.post('/api/ai/risk', async (req, res) => {
         }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        // 更新为新的图片链接
-        const imageUrl = 'https://imgchr.com/i/pmRuhXq';
+        // 更新为新图片链接
+        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_193204.png';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
         await sendWeChat('骑行安全警报', fullMsg);
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
