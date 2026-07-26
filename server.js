@@ -23,13 +23,14 @@ const DEVICE_NAME = 'gps';
 const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
 const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 
-// 发送微信通知
-async function sendWeChat(title, desp) {
+// 发送微信通知（支持图片）
+async function sendWeChat(title, desp, imageUrl) {
     console.log('开始发送微信通知:', title);
     try {
+        const content = imageUrl ? `${desp}\n\n![图片](${imageUrl})` : desp;
         const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, {
             title: title,
-            desp: desp
+            desp: content
         });
         console.log('微信通知返回结果:', JSON.stringify(resp.data));
         console.log('微信通知状态码:', resp.status);
@@ -219,7 +220,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送 + 逆地理编码）
+// 安全风险研判接口（含微信推送图片 + 逆地理编码）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -248,7 +249,8 @@ app.post('/api/ai/risk', async (req, res) => {
         }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        await sendWeChat('骑行安全警报', wechatMsg);
+        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/camera/2026-07-24/gps_1784901155.jpg';
+        await sendWeChat('骑行安全警报', wechatMsg, imageUrl);
 
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
