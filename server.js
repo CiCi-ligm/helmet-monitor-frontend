@@ -44,8 +44,44 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 下发到 OneNET
+// 全局发送锁，确保消息排队发送，不会互相覆盖
+let sendLock = Promise.resolve();
+
+// 下发到 OneNET（自动分段，长文本按句号分割，段间间隔3秒）
 async function sendToOneNET(navText) {
+    // 判断是否需要分段：超过80字或句号超过2个
+    const sentences = navText.split('。').filter(s => s.trim().length > 0);
+    const needSplit = navText.length > 80 || sentences.length > 2;
+
+    // 如果不需分段，直接发送一条
+    if (!needSplit) {
+        return new Promise((resolve) => {
+            sendLock = sendLock.then(async () => {
+                await sendSingleMessage(navText);
+                await new Promise(r => setTimeout(r, 3000)); // 发送后等待3秒
+                resolve();
+            });
+        });
+    }
+
+    // 需要分段：逐句发送
+    return new Promise((resolve) => {
+        sendLock = sendLock.then(async () => {
+            for (let i = 0; i < sentences.length; i++) {
+                const sentence = sentences[i].trim() + '。';
+                await sendSingleMessage(sentence);
+                if (i < sentences.length - 1) {
+                    await new Promise(r => setTimeout(r, 3000)); // 段间间隔3秒
+                }
+            }
+            await new Promise(r => setTimeout(r, 3000)); // 最后一段播完后额外等待3秒
+            resolve();
+        });
+    });
+}
+
+// 发送单条消息到OneNET
+async function sendSingleMessage(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
     const et = Math.ceil((Date.now() + 3600000) / 1000);
@@ -63,11 +99,11 @@ async function sendToOneNET(navText) {
                 device_name: DEVICE_NAME,
                 params: { nav_text: navText }
             },
-            { 
-                headers: { 
+            {
+                headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': productToken 
-                } 
+                    'Authorization': productToken
+                }
             }
         );
         console.log('OneNET 下发成功:', navText.substring(0, 30));
@@ -105,7 +141,7 @@ app.get('/api/device/sensors', async (req, res) => {
             params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
             headers: { 'Authorization': productToken }
         });
-        
+
         const data = resp.data.data || {};
         res.json({
             success: true,
@@ -140,18 +176,18 @@ app.post('/api/ai/ride-check', async (req, res) => {
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
                 params: { key: AMAP_KEY, location: loc, output: 'json' }
             });
-            
+
             let city = '宜宾';
             if (geoResp.data.regeocode && geoResp.data.regeocode.addressComponent) {
-                city = geoResp.data.regeocode.addressComponent.city || 
+                city = geoResp.data.regeocode.addressComponent.city ||
                        geoResp.data.regeocode.addressComponent.province || '宜宾';
                 city = city.replace('市', '');
             }
-            
+
             const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
                 params: { key: AMAP_KEY, city: city, extensions: 'base' }
             });
-            
+
             if (weatherResp.data.lives && weatherResp.data.lives[0]) {
                 const w = weatherResp.data.lives[0];
                 weather = `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
@@ -190,6 +226,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
+        // 合并建议和分析后发送（sendToOneNET 会自动分段）
         await sendToOneNET(parsed.advice + '。' + parsed.detail);
 
         res.json({ success: true, weather, sensors, ...parsed });
@@ -203,13 +240,13 @@ app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
         if (!destination) return res.status(400).json({ error: '缺少目的地参数' });
-        
+
         // 如果状态是"语音播报"，直接下发原文
         if (status === '语音播报') {
             await sendToOneNET(destination);
             return res.json({ success: true, text: destination });
         }
-        
+
         const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
