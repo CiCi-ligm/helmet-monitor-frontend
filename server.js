@@ -44,45 +44,8 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 全局发送锁
-let sendLock = Promise.resolve();
-
-// 下发到 OneNET（自动分段，长文本按句号分割，动态延时）
+// 下发到 OneNET（单条发送，不排队，不延时）
 async function sendToOneNET(navText) {
-    const sentences = navText.split('。').filter(s => s.trim().length > 0);
-    const needSplit = navText.length > 80 || sentences.length > 2;
-
-    if (!needSplit) {
-        return new Promise((resolve) => {
-            sendLock = sendLock.then(async () => {
-                await sendSingleMessage(navText);
-                // 动态等待：每字 150ms，最少 3 秒
-                const waitTime = Math.max(3000, navText.length * 150);
-                await new Promise(r => setTimeout(r, waitTime));
-                resolve();
-            });
-        });
-    }
-
-    return new Promise((resolve) => {
-        sendLock = sendLock.then(async () => {
-            for (let i = 0; i < sentences.length; i++) {
-                const sentence = sentences[i].trim() + '。';
-                await sendSingleMessage(sentence);
-                const waitTime = Math.max(3000, sentence.length * 150);
-                if (i < sentences.length - 1) {
-                    await new Promise(r => setTimeout(r, waitTime));
-                }
-            }
-            // 最后一段播完后额外等待
-            const lastSentence = sentences[sentences.length - 1].trim() + '。';
-            await new Promise(r => setTimeout(r, Math.max(3000, lastSentence.length * 150)));
-            resolve();
-        });
-    });
-}
-
-async function sendSingleMessage(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
     const et = Math.ceil((Date.now() + 3600000) / 1000);
@@ -227,7 +190,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 发送完整评估（会自动分段和动态延时）
+        // 单条发送完整文本
         await sendToOneNET(parsed.advice + '。' + parsed.detail);
 
         res.json({ success: true, weather, sensors, ...parsed });
