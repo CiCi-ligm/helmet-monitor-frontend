@@ -23,14 +23,13 @@ const DEVICE_NAME = 'gps';
 const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
 const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 
-// 发送微信通知（支持图片）
-async function sendWeChat(title, desp, imageUrl) {
+// 发送微信通知
+async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
-        const content = imageUrl ? `${desp}\n\n![图片](${imageUrl})` : desp;
         const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, {
             title: title,
-            desp: content
+            desp: desp
         });
         console.log('微信通知返回结果:', JSON.stringify(resp.data));
         console.log('微信通知状态码:', resp.status);
@@ -45,45 +44,36 @@ async function sendWeChat(title, desp, imageUrl) {
     }
 }
 
-// 发送队列
-let sendQueue = Promise.resolve();
-
-// 下发到 OneNET（排队发送，避免互相覆盖）
+// 下发到 OneNET
 async function sendToOneNET(navText) {
-    sendQueue = sendQueue.then(async () => {
-        const version = '2022-05-01';
-        const resStr = `products/${PRODUCT_ID}`;
-        const et = Math.ceil((Date.now() + 3600000) / 1000);
-        const method = 'sha1';
-        const base64Key = Buffer.from(API_KEY, 'base64');
-        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
-        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
-        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+    const version = '2022-05-01';
+    const resStr = `products/${PRODUCT_ID}`;
+    const et = Math.ceil((Date.now() + 3600000) / 1000);
+    const method = 'sha1';
+    const base64Key = Buffer.from(API_KEY, 'base64');
+    const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+    const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+    const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
-        try {
-            const resp = await axios.post(
-                'https://iot-api.heclouds.com/thingmodel/set-device-property',
-                {
-                    product_id: PRODUCT_ID,
-                    device_name: DEVICE_NAME,
-                    params: { nav_text: navText }
-                },
-                { 
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': productToken 
-                    } 
-                }
-            );
-            console.log('OneNET 下发成功:', navText.substring(0, 30));
-        } catch (err) {
-            console.warn('OneNET 下发失败:', err.message);
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 1500));
-    });
-    
-    return sendQueue;
+    try {
+        const resp = await axios.post(
+            'https://iot-api.heclouds.com/thingmodel/set-device-property',
+            {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                params: { nav_text: navText }
+            },
+            { 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': productToken 
+                } 
+            }
+        );
+        console.log('OneNET 下发成功:', navText.substring(0, 30));
+    } catch (err) {
+        console.warn('OneNET 下发失败:', err.message);
+    }
 }
 
 // 搜索函数
@@ -139,7 +129,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口（播报完整内容）
+// 骑行前综合评估接口
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -208,11 +198,18 @@ app.post('/api/ai/ride-check', async (req, res) => {
     }
 });
 
-// AI 导航路由
+// AI 导航路由（支持直接下发语音播报文本）
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
         if (!destination) return res.status(400).json({ error: '缺少目的地参数' });
+        
+        // 如果状态是"语音播报"，直接下发原文
+        if (status === '语音播报') {
+            await sendToOneNET(destination);
+            return res.json({ success: true, text: destination });
+        }
+        
         const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
@@ -222,17 +219,14 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（含微信推送图片 + 逆地理编码）
+// 安全风险研判接口
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
 
-        console.log('收到风险研判请求:', event, data);
-
         const prompt = `你是一个骑行安全助手。用户设备检测到${event}事件，传感器数据：${data || '无详细数据'}。请判断风险等级（低/中/高），并生成一句紧急语音提示（15字以内），如"检测到摔倒，已通知紧急联系人"。只输出JSON：{"level":"风险等级","text":"语音提示"}。`;
         const aiResult = await askQwen(prompt);
-        console.log('大模型返回:', aiResult);
         const parsed = JSON.parse(aiResult);
 
         await sendToOneNET(parsed.text);
@@ -251,12 +245,10 @@ app.post('/api/ai/risk', async (req, res) => {
         }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/camera/2026-07-24/gps_1784901155.jpg';
-        await sendWeChat('骑行安全警报', wechatMsg, imageUrl);
+        await sendWeChat('骑行安全警报', wechatMsg);
 
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
-        console.error('风险研判失败:', error.message);
         res.status(500).json({ error: '风险研判失败' });
     }
 });
