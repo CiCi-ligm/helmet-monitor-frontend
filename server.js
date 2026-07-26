@@ -135,7 +135,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口（专业运动健康专家交叉分析）
+// 骑行前综合评估接口（播报完整内容）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -197,8 +197,8 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 下发到 OneNET
-        await sendToOneNET(parsed.advice);
+        // 下发完整内容到 OneNET（建议 + 详细分析）
+        await sendToOneNET(parsed.advice + '。' + parsed.detail);
 
         res.json({ success: true, weather, sensors, ...parsed });
     } catch (error) {
