@@ -45,7 +45,7 @@ async function sendWeChat(title, desp, imageUrl) {
     }
 }
 
-// 下发到 OneNET（支持长文本按句号分段下发）
+// 下发到 OneNET（使用昨天成功的 MQTT 接口 + 分段下发）
 async function sendToOneNET(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -56,14 +56,14 @@ async function sendToOneNET(navText) {
     const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
     const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
-    // 按句号分段，每段单独下发
+    // 按句号分段
     const sentences = navText.split('。').filter(s => s.trim().length > 0);
     
     for (let i = 0; i < sentences.length; i++) {
         const sentence = sentences[i].trim() + '。';
         try {
             const resp = await axios.post(
-                'https://iot-api.heclouds.com/thingmodel/set-device-property',
+                'https://iot-api.heclouds.com/mqtt/thing/property/set',
                 {
                     product_id: PRODUCT_ID,
                     device_name: DEVICE_NAME,
@@ -79,7 +79,6 @@ async function sendToOneNET(navText) {
             console.log(`OneNET 下发第${i+1}段:`, sentence);
             console.log('OneNET 原始返回:', JSON.stringify(resp.data));
             
-            // 段与段之间延迟1.5秒
             if (i < sentences.length - 1) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
             }
@@ -148,7 +147,6 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
 
-        // 获取天气
         let weather = '未知';
         try {
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
@@ -204,7 +202,6 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 下发完整内容到 OneNET（建议 + 详细分析）
         await sendToOneNET(parsed.advice + '。' + parsed.detail);
 
         res.json({ success: true, weather, sensors, ...parsed });
