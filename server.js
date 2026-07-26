@@ -27,63 +27,57 @@ const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
-        const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, {
-            title: title,
-            desp: desp
-        });
+        const resp = await axios.post(`https://sctapi.ftqq.com/${SENDKEY}.send`, { title, desp });
         console.log('微信通知返回结果:', JSON.stringify(resp.data));
-        console.log('微信通知状态码:', resp.status);
     } catch (err) {
         console.error('微信通知失败:', err.message);
-        if (err.response) {
-            console.error('微信通知错误状态码:', err.response.status);
-            console.error('微信通知错误返回体:', JSON.stringify(err.response.data));
-        } else if (err.request) {
-            console.error('微信通知无响应，可能超时');
-        }
     }
 }
 
-// 下发到 OneNET（单条发送，不排队，不延时）
-async function sendToOneNET(navText) {
-    const version = '2022-05-01';
-    const resStr = `products/${PRODUCT_ID}`;
-    const et = Math.ceil((Date.now() + 3600000) / 1000);
-    const method = 'sha1';
-    const base64Key = Buffer.from(API_KEY, 'base64');
-    const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
-    const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
-    const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+// 全局发送队列，保证同一设备消息顺序发送，间隔 5 秒
+let sendQueue = Promise.resolve();
 
-    try {
-        const resp = await axios.post(
-            'https://iot-api.heclouds.com/thingmodel/set-device-property',
-            {
-                product_id: PRODUCT_ID,
-                device_name: DEVICE_NAME,
-                params: { nav_text: navText }
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': productToken
-                }
-            }
-        );
-        console.log('OneNET 下发成功:', navText.substring(0, 30));
-    } catch (err) {
-        console.warn('OneNET 下发失败:', err.message);
-    }
+async function sendToOneNET(navText) {
+    sendQueue = sendQueue.then(async () => {
+        const version = '2022-05-01';
+        const resStr = `products/${PRODUCT_ID}`;
+        const et = Math.ceil((Date.now() + 3600000) / 1000);
+        const method = 'sha1';
+        const base64Key = Buffer.from(API_KEY, 'base64');
+        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+
+        try {
+            const resp = await axios.post(
+                'https://iot-api.heclouds.com/thingmodel/set-device-property',
+                {
+                    product_id: PRODUCT_ID,
+                    device_name: DEVICE_NAME,
+                    params: { nav_text: navText }
+                },
+                { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
+            );
+            console.log('OneNET 下发成功:', navText.substring(0, 30));
+        } catch (err) {
+            console.warn('OneNET 下发失败:', err.message);
+        }
+
+        // 固定等待 5 秒，确保 ESP32 播报完成
+        await new Promise(resolve => setTimeout(resolve, 5000));
+    });
+
+    return sendQueue;
 }
 
 // 搜索函数
 async function searchPlace(keywords, userLocation) {
     let response = await axios.get('https://restapi.amap.com/v3/place/text', {
-        params: { key: AMAP_KEY, keywords: keywords, city: '宜宾' }
+        params: { key: AMAP_KEY, keywords, city: '宜宾' }
     });
     if (!response.data.pois || response.data.pois.length === 0) {
         response = await axios.get('https://restapi.amap.com/v3/place/around', {
-            params: { key: AMAP_KEY, keywords: keywords, location: userLocation || '104.5647,28.7658', radius: 5000, offset: 1 }
+            params: { key: AMAP_KEY, keywords, location: userLocation || '104.5647,28.7658', radius: 5000, offset: 1 }
         });
     }
     return response;
@@ -105,7 +99,6 @@ app.get('/api/device/sensors', async (req, res) => {
             params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
             headers: { 'Authorization': productToken }
         });
-
         const data = resp.data.data || {};
         res.json({
             success: true,
@@ -129,7 +122,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口
+// 骑行前综合评估接口（已将“爱好者”改为“喜好者”）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -140,18 +133,14 @@ app.post('/api/ai/ride-check', async (req, res) => {
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
                 params: { key: AMAP_KEY, location: loc, output: 'json' }
             });
-
             let city = '宜宾';
             if (geoResp.data.regeocode && geoResp.data.regeocode.addressComponent) {
-                city = geoResp.data.regeocode.addressComponent.city ||
-                       geoResp.data.regeocode.addressComponent.province || '宜宾';
+                city = geoResp.data.regeocode.addressComponent.city || geoResp.data.regeocode.addressComponent.province || '宜宾';
                 city = city.replace('市', '');
             }
-
             const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
-                params: { key: AMAP_KEY, city: city, extensions: 'base' }
+                params: { key: AMAP_KEY, city, extensions: 'base' }
             });
-
             if (weatherResp.data.lives && weatherResp.data.lives[0]) {
                 const w = weatherResp.data.lives[0];
                 weather = `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
@@ -175,7 +164,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
 
 【科学参考标准】
 - 普通成年人静息心率：60～100次/分钟
-- 体能优秀的运动爱好者静息心率：50～70次/分钟（说明心脏泵血能力更强）
+- 体能优秀的运动喜好者静息心率：50～70次/分钟（说明心脏泵血能力更强）
 - 血氧饱和度正常范围：95%～100%
 - 环境温度超过28°C时，运动需警惕中暑风险。湿度超过70%会影响汗液蒸发，加重心脏负担。
 - 光照强度超过50000lux为烈日，需做好防晒和护目。
@@ -186,11 +175,10 @@ app.post('/api/ai/ride-check', async (req, res) => {
 3. 综合环境和生理数据，给出是否适合骑行的明确判断，以及推荐的运动强度和时长。
 4. 给出2-3条具体、可执行的针对性建议。
 
-以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "简明扼要的总结建议（40字以内）", "detail": "详细的交叉分析报告（120字以内，必须包含具体的标准对比，如'您的静息心率60bpm，属运动爱好者水平，意味着心肺功能良好'）"}。只输出JSON，不要任何解释。`;
+以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "简明扼要的总结建议（40字以内）", "detail": "详细的交叉分析报告（120字以内，必须包含具体的标准对比，如'您的静息心率60bpm，属运动喜好者水平，意味着心肺功能良好'）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 单条发送完整文本
         await sendToOneNET(parsed.advice + '。' + parsed.detail);
 
         res.json({ success: true, weather, sensors, ...parsed });
@@ -199,17 +187,15 @@ app.post('/api/ai/ride-check', async (req, res) => {
     }
 });
 
-// AI 导航路由（支持直接下发语音播报文本）
+// AI 导航路由（支持语音播报）
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
         if (!destination) return res.status(400).json({ error: '缺少目的地参数' });
-
         if (status === '语音播报') {
             await sendToOneNET(destination);
             return res.json({ success: true, text: destination });
         }
-
         const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
@@ -224,11 +210,9 @@ app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
-
         const prompt = `你是一个骑行安全助手。用户设备检测到${event}事件，传感器数据：${data || '无详细数据'}。请判断风险等级（低/中/高），并生成一句紧急语音提示（15字以内），如"检测到摔倒，已通知紧急联系人"。只输出JSON：{"level":"风险等级","text":"语音提示"}。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
-
         await sendToOneNET(parsed.text);
 
         let address = '未知位置';
@@ -246,7 +230,6 @@ app.post('/api/ai/risk', async (req, res) => {
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         await sendWeChat('骑行安全警报', wechatMsg);
-
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
         res.status(500).json({ error: '风险研判失败' });
@@ -281,7 +264,7 @@ app.post('/api/nlp/nav', async (req, res) => {
         const geoResp = await searchPlace(parsed.destination, userLocation);
         if (geoResp.data.pois && geoResp.data.pois.length > 0) {
             const location = geoResp.data.pois[0].location;
-            res.json({ success: true, destination: parsed.destination, detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination, instruction: parsed.instruction || '', mode: parsed.mode || 'riding', location: location });
+            res.json({ success: true, destination: parsed.destination, detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination, instruction: parsed.instruction || '', mode: parsed.mode || 'riding', location });
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
@@ -290,7 +273,7 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// 语音导航接口
+// 语音导航接口（预留）
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
@@ -308,7 +291,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
         if (geoResp.data.pois && geoResp.data.pois.length > 0) {
             const location = geoResp.data.pois[0].location;
-            res.json({ success: true, destination: parsed.destination, detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination, instruction: parsed.instruction || '', mode: parsed.mode || 'riding', location: location });
+            res.json({ success: true, destination: parsed.destination, detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination, instruction: parsed.instruction || '', mode: parsed.mode || 'riding', location });
         } else {
             res.json({ success: false, error: `找不到"${parsed.destination}"` });
         }
