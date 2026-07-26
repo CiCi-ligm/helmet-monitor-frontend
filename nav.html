@@ -158,13 +158,7 @@
       }catch(e){ console.error("MQTT 连接异常", e); }
     }
 
-    function sendNavTextToCloud(text) {
-      if (!mqttClient || !mqttClient.connected) return;
-      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-      mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
-    }
-
-    // ========== 语音按钮 ==========
+    // ========== 语音按钮：按住说话，松开解析 ==========
     voiceBtn.addEventListener('mousedown', () => {
       if (!currentPos) {
         tip.innerText = '请等待硬件定位成功后再点击语音按钮';
@@ -238,7 +232,7 @@
 
     // ========== 骑行前综合评估 ==========
     async function checkRideCondition() {
-      tip.innerText = '🚴 AI正在分析骑行条件...';
+      tip.innerText = '🚴 大模型正在分析骑行条件...';
       tip.style.display = 'block';
       const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
       try {
@@ -355,9 +349,7 @@
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
         route.search(currentPos, targetPos, (status, res) => {
           if(status === "complete" && res.routes && res.routes.length>0){
-            const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
-            const navText = `开始${typeText}导航，${firstStep}`;
-            sendNavTextToCloud(navText); callAIBackend(addressInput.value, '开始' + typeText);
+            callAIBackend(addressInput.value, '开始' + typeText);
           } else if (type === 'riding') {
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
