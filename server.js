@@ -34,22 +34,18 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 全局发送队列，保证同一设备消息顺序发送，间隔 8 秒
+// 全局发送队列，间隔 10 秒
 let sendQueue = Promise.resolve();
 
 async function sendToOneNET(navText) {
-    // 统一按句号拆分，每段独立发送，段间间隔 8 秒
     const sentences = navText.split('。').filter(s => s.trim().length > 0);
-    
     sendQueue = sendQueue.then(async () => {
         for (let i = 0; i < sentences.length; i++) {
             const sentence = sentences[i].trim() + '。';
             await sendSingleMessage(sentence);
-            // 每段之间等待 8 秒，最后一段播完后同样等待 8 秒
-            await new Promise(resolve => setTimeout(resolve, 8000));
+            await new Promise(resolve => setTimeout(resolve, 10000));
         }
     });
-
     return sendQueue;
 }
 
@@ -131,7 +127,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口（天气已包含在下发文本中）
+// 骑行前综合评估接口
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -159,7 +155,6 @@ app.post('/api/ai/ride-check', async (req, res) => {
         }
 
         const sensors = { spo2: 98, heart_rate: 60, temperature: 28, light: 35000 };
-
         const prompt = `你是一位资深的运动健康专家和骑行教练。请像一个负责任的医生和教练一样，综合分析以下多维数据，为你的学员提供专业、令人信服的骑行前评估报告：
 
 【环境数据】
@@ -188,7 +183,6 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 将天气信息拼接到下发文本中，确保 ESP32 能播报天气
         const fullText = parsed.advice + '。' + parsed.detail + '。当前天气：' + weather + '。';
         await sendToOneNET(fullText);
 
@@ -198,7 +192,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
     }
 });
 
-// AI 导航路由（支持语音播报）
+// AI 导航路由
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
@@ -216,7 +210,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口
+// 安全风险研判接口（图片已更新）
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -240,7 +234,10 @@ app.post('/api/ai/risk', async (req, res) => {
         }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        await sendWeChat('骑行安全警报', wechatMsg);
+        // 更新为新的图片链接
+        const imageUrl = 'https://imgchr.com/i/pmRuhXq';
+        const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
+        await sendWeChat('骑行安全警报', fullMsg);
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
     } catch (error) {
         res.status(500).json({ error: '风险研判失败' });
