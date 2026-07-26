@@ -235,7 +235,7 @@ app.post('/api/ai/risk', async (req, res) => {
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         // 更新为新图片链接
-        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_193204.png';
+        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
         await sendWeChat('骑行安全警报', fullMsg);
         res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
