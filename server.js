@@ -44,43 +44,44 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 全局发送锁，确保消息排队发送，不会互相覆盖
+// 全局发送锁
 let sendLock = Promise.resolve();
 
-// 下发到 OneNET（自动分段，长文本按句号分割，段间间隔3秒）
+// 下发到 OneNET（自动分段，长文本按句号分割，动态延时）
 async function sendToOneNET(navText) {
-    // 判断是否需要分段：超过80字或句号超过2个
     const sentences = navText.split('。').filter(s => s.trim().length > 0);
     const needSplit = navText.length > 80 || sentences.length > 2;
 
-    // 如果不需分段，直接发送一条
     if (!needSplit) {
         return new Promise((resolve) => {
             sendLock = sendLock.then(async () => {
                 await sendSingleMessage(navText);
-                await new Promise(r => setTimeout(r, 3000)); // 发送后等待3秒
+                // 动态等待：每字 150ms，最少 3 秒
+                const waitTime = Math.max(3000, navText.length * 150);
+                await new Promise(r => setTimeout(r, waitTime));
                 resolve();
             });
         });
     }
 
-    // 需要分段：逐句发送
     return new Promise((resolve) => {
         sendLock = sendLock.then(async () => {
             for (let i = 0; i < sentences.length; i++) {
                 const sentence = sentences[i].trim() + '。';
                 await sendSingleMessage(sentence);
+                const waitTime = Math.max(3000, sentence.length * 150);
                 if (i < sentences.length - 1) {
-                    await new Promise(r => setTimeout(r, 3000)); // 段间间隔3秒
+                    await new Promise(r => setTimeout(r, waitTime));
                 }
             }
-            await new Promise(r => setTimeout(r, 3000)); // 最后一段播完后额外等待3秒
+            // 最后一段播完后额外等待
+            const lastSentence = sentences[sentences.length - 1].trim() + '。';
+            await new Promise(r => setTimeout(r, Math.max(3000, lastSentence.length * 150)));
             resolve();
         });
     });
 }
 
-// 发送单条消息到OneNET
 async function sendSingleMessage(navText) {
     const version = '2022-05-01';
     const resStr = `products/${PRODUCT_ID}`;
@@ -226,7 +227,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 合并建议和分析后发送（sendToOneNET 会自动分段）
+        // 发送完整评估（会自动分段和动态延时）
         await sendToOneNET(parsed.advice + '。' + parsed.detail);
 
         res.json({ success: true, weather, sensors, ...parsed });
@@ -241,7 +242,6 @@ app.post('/api/ai/nav', async (req, res) => {
         const { destination, status } = req.body;
         if (!destination) return res.status(400).json({ error: '缺少目的地参数' });
 
-        // 如果状态是"语音播报"，直接下发原文
         if (status === '语音播报') {
             await sendToOneNET(destination);
             return res.json({ success: true, text: destination });
