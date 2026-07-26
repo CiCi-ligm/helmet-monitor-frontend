@@ -34,40 +34,49 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 全局发送队列，保证同一设备消息顺序发送，间隔 5 秒
+// 全局发送队列，保证同一设备消息顺序发送，间隔 8 秒
 let sendQueue = Promise.resolve();
 
 async function sendToOneNET(navText) {
+    // 统一按句号拆分，每段独立发送，段间间隔 8 秒
+    const sentences = navText.split('。').filter(s => s.trim().length > 0);
+    
     sendQueue = sendQueue.then(async () => {
-        const version = '2022-05-01';
-        const resStr = `products/${PRODUCT_ID}`;
-        const et = Math.ceil((Date.now() + 3600000) / 1000);
-        const method = 'sha1';
-        const base64Key = Buffer.from(API_KEY, 'base64');
-        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
-        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
-        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
-
-        try {
-            const resp = await axios.post(
-                'https://iot-api.heclouds.com/thingmodel/set-device-property',
-                {
-                    product_id: PRODUCT_ID,
-                    device_name: DEVICE_NAME,
-                    params: { nav_text: navText }
-                },
-                { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
-            );
-            console.log('OneNET 下发成功:', navText.substring(0, 30));
-        } catch (err) {
-            console.warn('OneNET 下发失败:', err.message);
+        for (let i = 0; i < sentences.length; i++) {
+            const sentence = sentences[i].trim() + '。';
+            await sendSingleMessage(sentence);
+            // 每段之间等待 8 秒，最后一段播完后同样等待 8 秒
+            await new Promise(resolve => setTimeout(resolve, 8000));
         }
-
-        // 固定等待 5 秒，确保 ESP32 播报完成
-        await new Promise(resolve => setTimeout(resolve, 5000));
     });
 
     return sendQueue;
+}
+
+async function sendSingleMessage(navText) {
+    const version = '2022-05-01';
+    const resStr = `products/${PRODUCT_ID}`;
+    const et = Math.ceil((Date.now() + 3600000) / 1000);
+    const method = 'sha1';
+    const base64Key = Buffer.from(API_KEY, 'base64');
+    const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+    const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+    const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+
+    try {
+        const resp = await axios.post(
+            'https://iot-api.heclouds.com/thingmodel/set-device-property',
+            {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                params: { nav_text: navText }
+            },
+            { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
+        );
+        console.log('OneNET 下发成功:', navText.substring(0, 30));
+    } catch (err) {
+        console.warn('OneNET 下发失败:', err.message);
+    }
 }
 
 // 搜索函数
@@ -122,7 +131,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口（已将“爱好者”改为“喜好者”）
+// 骑行前综合评估接口（天气已包含在下发文本中）
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -179,7 +188,9 @@ app.post('/api/ai/ride-check', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        await sendToOneNET(parsed.advice + '。' + parsed.detail);
+        // 将天气信息拼接到下发文本中，确保 ESP32 能播报天气
+        const fullText = parsed.advice + '。' + parsed.detail + '。当前天气：' + weather + '。';
+        await sendToOneNET(fullText);
 
         res.json({ success: true, weather, sensors, ...parsed });
     } catch (error) {
