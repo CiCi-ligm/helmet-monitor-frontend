@@ -118,7 +118,7 @@ app.get('/api/device/sensors', async (req, res) => {
             }
         });
     } catch (error) {
-        const lightValues = [201, 241, 231, 241];
+        const lightValues = [20, 24, 23, 22];
         const currentLight = lightValues[lightCounter % lightValues.length];
         lightCounter++;
 
@@ -126,7 +126,7 @@ app.get('/api/device/sensors', async (req, res) => {
             success: true,
             sensors: {
                 spo2: { value: 98, time: Date.now() },
-                heart_rate: { value: 60, time: Date.now() },
+                heart_rate: { value: 70, time: Date.now() },
                 temperature: { value: 36.5, time: Date.now() },
                 light: { value: currentLight, time: Date.now() }
             }
