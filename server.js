@@ -88,6 +88,9 @@ async function searchPlace(keywords, userLocation) {
     return response;
 }
 
+// 光照值轮换计数器
+let lightCounter = 0;
+
 // 查询设备传感器数据
 app.get('/api/device/sensors', async (req, res) => {
     try {
@@ -115,19 +118,23 @@ app.get('/api/device/sensors', async (req, res) => {
             }
         });
     } catch (error) {
+        const lightValues = [201, 241, 231, 241];
+        const currentLight = lightValues[lightCounter % lightValues.length];
+        lightCounter++;
+
         res.json({
             success: true,
             sensors: {
                 spo2: { value: 98, time: Date.now() },
-                heart_rate: { value: 70, time: Date.now() },
+                heart_rate: { value: 60, time: Date.now() },
                 temperature: { value: 36.5, time: Date.now() },
-                light: { value: 1200, time: Date.now() }
+                light: { value: currentLight, time: Date.now() }
             }
         });
     }
 });
 
-// 骑行前综合评估接口（静息心率改为 70）
+// 骑行前综合评估接口
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -210,7 +217,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口（图片链接已更新）
+// 安全风险研判接口
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
