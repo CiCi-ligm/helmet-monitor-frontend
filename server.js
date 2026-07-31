@@ -293,7 +293,21 @@ app.post('/api/voice/command', async (req, res) => {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        const prompt = `用户说：${text}。请分析这句话的意图。如果是导航请求，请提取出具体的目的地名称（如"星巴克"、"宜宾学院"），并判断出行方式（步行/骑行）。同时生成一句简短的语音回复（15字以内）。以JSON格式返回：{"destination":"具体地点名","mode":"walking或riding","reply":"语音回复"}。注意：destination必须是具体的、可搜索的地点名，不要返回"目的地"这样的泛词。如果用户说的是"最近的咖啡店"，destination应该返回"星巴克"或"咖啡店"。只输出JSON，不要任何解释。`;
+        const prompt = `你是一个智能骑行导航助手。用户说："${text}"。请分析意图：
+
+1. 如果是具体的导航请求（包含明确地点或可推理的品类），提取具体目的地：
+   - "带我去万达广场" → destination="万达广场"
+   - "最近的咖啡店" → destination="星巴克"（咖啡店品类常见选择）
+   - "我要去宜宾学院" → destination="宜宾学院"
+   注意：destination 必须是高德地图能搜索到的具体名称。
+
+2. 如果是完全模糊的请求（如"附近有什么好吃的"、"有什么玩的"），不要猜测地点，destination 返回空字符串，reply 引导用户补充信息，如"请说具体想去哪里，比如火锅店或商场"。
+
+3. 如果是询问天气，destination 为空，reply 回复"请查看手机天气"。
+
+4. 如果是其他对话，destination 为空，reply 给出简短友好回复。
+
+以JSON格式返回：{"destination":"具体地点名（非导航则为空）","mode":"walking或riding","reply":"语音回复（15字以内）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
