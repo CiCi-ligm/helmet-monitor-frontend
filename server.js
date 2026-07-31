@@ -293,27 +293,34 @@ app.post('/api/voice/command', async (req, res) => {
         const { text, history, userLocation } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        let prompt;
+        let parsed;
+
         if (history && history.length > 0) {
-            const lastReply = history[history.length - 1].reply;
+            // 第二轮：直接拼接目的地，大模型只生成 reply
             const destination = text + "店";
-            prompt = `用户说："${text}"，想去${destination}。请直接返回JSON：{"destination":"${destination}","mode":"riding","reply":"好的，正在导航到${destination}"}。只输出JSON。`;
+            const prompt = `请生成一句简短的确认回复，用户想去${destination}。返回JSON：{"reply":"确认回复（15字以内）"}。只输出JSON。`;
+            const aiResult = await askQwen(prompt);
+            const aiParsed = JSON.parse(aiResult);
+            parsed = {
+                destination: destination,
+                mode: "riding",
+                reply: aiParsed.reply
+            };
         } else {
-            prompt = `用户说："${text}"。请分析并返回JSON：
+            // 第一轮：大模型分析意图
+            const prompt = `用户说："${text}"。请分析并返回JSON：
 1. 如果有明确地点（如"万达广场"），destination直接提取。
 2. 如果是可推理的品类（如"最近的咖啡店"），destination推理为"星巴克"。
 3. 如果完全无法确定（如"附近有什么好吃的"），destination为空，reply反问用户（如"想吃什么类型的？火锅、烧烤还是甜品？"）。
 返回格式：{"destination":"地点或空","mode":"riding","reply":"回复"}。只输出JSON。`;
+            const aiResult = await askQwen(prompt);
+            parsed = JSON.parse(aiResult);
         }
-
-        const aiResult = await askQwen(prompt);
-        const parsed = JSON.parse(aiResult);
 
         if (parsed.destination) {
             try {
                 let geoResp;
                 if (userLocation) {
-                    // 有用户坐标时，直接用周边搜索
                     geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
                         params: { key: AMAP_KEY, keywords: parsed.destination, location: userLocation, radius: 5000, offset: 1 }
                     });
