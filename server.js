@@ -287,21 +287,26 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 语音命令处理接口（供 ESP32 调用） ==========
+// ========== 语音命令处理接口（支持多轮对话） ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, history } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        const prompt = `用户说："${text}"。请分析意图并返回JSON：
+        let prompt;
+        if (history && history.length > 0) {
+            // 有历史对话，说明这是用户的补充回答
+            const lastReply = history[history.length - 1].reply;
+            prompt = `之前的对话：助手问"${lastReply}"，用户回答："${text}"。请根据上下文提取用户想去的目的地。例如助手问"想吃什么"，用户说"火锅"，目的地应为"火锅店"。返回JSON：{"destination":"具体地点或品类名","mode":"riding","reply":"简短回复"}。只输出JSON。`;
+        } else {
+            // 第一轮对话
+            prompt = `用户说："${text}"。请分析并返回JSON：
+1. 如果有明确地点（如"万达广场"），destination直接提取。
+2. 如果是可推理的品类（如"最近的咖啡店"），destination推理为"星巴克"。
+3. 如果完全无法确定（如"附近有什么好吃的"），destination为空，reply反问用户（如"想吃什么类型的？火锅、烧烤还是甜品？"）。
+返回格式：{"destination":"地点或空","mode":"riding","reply":"回复"}。只输出JSON。`;
+        }
 
-规则：
-1. 如果用户明确说出了具体地点（如"万达广场"、"宜宾学院"），destination 直接提取该地点。
-2. 如果用户说的是可推理的品类（如"最近的咖啡店"、"附近的加油站"），请推理出一个具体的、常见的目的地名称（如"星巴克"、"中石油加油站"）。
-3. 如果用户的话完全无法确定具体地点（如"附近有什么好吃的"、"有什么玩的"），destination 返回空字符串，reply 引导用户补充信息（如"请说具体想吃什么"）。
-4. mode 默认为 "riding"。
-
-返回格式：{"destination":"具体地点名或空","mode":"walking或riding","reply":"简短语音回复（15字以内）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
