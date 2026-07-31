@@ -295,11 +295,9 @@ app.post('/api/voice/command', async (req, res) => {
 
         let prompt;
         if (history && history.length > 0) {
-            // 有历史对话，说明这是用户的补充回答
             const lastReply = history[history.length - 1].reply;
-            prompt = `之前的对话：助手问"${lastReply}"，用户回答："${text}"。请根据上下文提取用户想去的目的地。例如助手问"想吃什么"，用户说"火锅"，目的地应为"火锅店"。返回JSON：{"destination":"具体地点或品类名","mode":"riding","reply":"简短回复"}。只输出JSON。`;
+            prompt = `之前助手问用户："${lastReply}"，用户现在回答："${text}"。请根据用户的选择，确定一个具体的目的地品类名称。例如：用户说"火锅" → destination="火锅店"；用户说"甜品" → destination="甜品店"；用户说"烧烤" → destination="烧烤店"。然后生成一句简短的确认回复。返回JSON：{"destination":"具体品类名","mode":"riding","reply":"确认回复（15字以内）"}。只输出JSON。`;
         } else {
-            // 第一轮对话
             prompt = `用户说："${text}"。请分析并返回JSON：
 1. 如果有明确地点（如"万达广场"），destination直接提取。
 2. 如果是可推理的品类（如"最近的咖啡店"），destination推理为"星巴克"。
@@ -310,7 +308,6 @@ app.post('/api/voice/command', async (req, res) => {
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
-        // 如果包含目的地，附加高德搜索的坐标
         if (parsed.destination) {
             try {
                 const geoResp = await searchPlace(parsed.destination);
