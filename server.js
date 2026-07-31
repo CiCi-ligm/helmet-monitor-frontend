@@ -287,16 +287,16 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 语音命令处理接口（支持多轮对话） ==========
+// ========== 语音命令处理接口（支持多轮对话 + 动态坐标搜索） ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
-        const { text, history } = req.body;
+        const { text, history, userLocation } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
         let prompt;
         if (history && history.length > 0) {
             const lastReply = history[history.length - 1].reply;
-            prompt = `之前助手问用户："${lastReply}"，用户现在回答："${text}"。请根据用户的选择，确定一个具体的目的地品类名称。例如：用户说"火锅" → destination="火锅店"；用户说"甜品" → destination="甜品店"；用户说"烧烤" → destination="烧烤店"。然后生成一句简短的确认回复。返回JSON：{"destination":"具体品类名","mode":"riding","reply":"确认回复（15字以内）"}。只输出JSON。`;
+            prompt = `用户想要去"${text}"类型的店铺。请直接以"${text}店"作为destination，生成一句简短的确认回复。返回JSON：{"destination":"${text}店","mode":"riding","reply":"确认回复"}。只输出JSON。`;
         } else {
             prompt = `用户说："${text}"。请分析并返回JSON：
 1. 如果有明确地点（如"万达广场"），destination直接提取。
@@ -310,7 +310,7 @@ app.post('/api/voice/command', async (req, res) => {
 
         if (parsed.destination) {
             try {
-                const geoResp = await searchPlace(parsed.destination);
+                const geoResp = await searchPlace(parsed.destination, userLocation);
                 if (geoResp.data.pois && geoResp.data.pois.length > 0) {
                     parsed.location = geoResp.data.pois[0].location;
                 }
