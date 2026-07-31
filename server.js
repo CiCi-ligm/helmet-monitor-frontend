@@ -287,7 +287,7 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 语音命令处理接口（支持多轮对话 + 真实店名返回） ==========
+// ========== 语音命令处理接口（多轮对话 + 真实店名 + 自动导航） ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
         const { text, history, userLocation } = req.body;
@@ -324,6 +324,27 @@ app.post('/api/voice/command', async (req, res) => {
                 reply: aiParsed.reply,
                 location: realLocation
             };
+
+            // 自动附加导航指令
+            if (realLocation && userLocation) {
+                try {
+                    const navResp = await axios.get('https://restapi.amap.com/v3/direction/walking', {
+                        params: {
+                            key: AMAP_KEY,
+                            origin: userLocation,
+                            destination: realLocation
+                        }
+                    });
+                    if (navResp.data.status === '1' && navResp.data.route.paths.length > 0) {
+                        const steps = navResp.data.route.paths[0].steps;
+                        parsed.navText = steps.map(s => s.instruction).join('。');
+                        parsed.distance = navResp.data.route.paths[0].distance;
+                        parsed.duration = navResp.data.route.paths[0].duration;
+                    }
+                } catch (e) {
+                    console.warn('自动路径规划失败:', e.message);
+                }
+            }
         } else {
             const prompt = `用户说："${text}"。请分析并返回JSON：
 1. 如果有明确地点（如"万达广场"），destination直接提取。
@@ -354,7 +375,7 @@ app.post('/api/voice/command', async (req, res) => {
     }
 });
 
-// ========== 路径规划接口（返回导航指令文本） ==========
+// ========== 路径规划接口（独立调用） ==========
 app.post('/api/voice/navigate', async (req, res) => {
     try {
         const { origin, destination } = req.body;
@@ -373,7 +394,6 @@ app.post('/api/voice/navigate', async (req, res) => {
             const instructions = steps.map(s => s.instruction);
             const navText = instructions.join('。');
 
-            // 下发导航指令到 OneNET
             await sendToOneNET(navText);
 
             res.json({
