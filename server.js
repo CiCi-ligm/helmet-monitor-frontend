@@ -287,13 +287,13 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 新增：语音命令处理接口（供 ESP32 调用） ==========
+// ========== 语音命令处理接口（供 ESP32 调用） ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        const prompt = `用户说：${text}。请分析这句话的意图，如果是导航请求，提取目的地和出行方式（步行/骑行），以JSON格式返回：{"destination":"地点","mode":"walking或riding","reply":"一句简短的语音回复（15字以内）"}。如果只是一般对话或询问，返回合适的回答，reply字段包含回答内容。只输出JSON，不要任何解释。`;
+        const prompt = `用户说：${text}。请分析这句话的意图。如果是导航请求，请提取出具体的目的地名称（如"星巴克"、"宜宾学院"），并判断出行方式（步行/骑行）。同时生成一句简短的语音回复（15字以内）。以JSON格式返回：{"destination":"具体地点名","mode":"walking或riding","reply":"语音回复"}。注意：destination必须是具体的、可搜索的地点名，不要返回"目的地"这样的泛词。如果用户说的是"最近的咖啡店"，destination应该返回"星巴克"或"咖啡店"。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
 
