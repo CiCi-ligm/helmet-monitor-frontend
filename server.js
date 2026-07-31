@@ -296,7 +296,8 @@ app.post('/api/voice/command', async (req, res) => {
         let prompt;
         if (history && history.length > 0) {
             const lastReply = history[history.length - 1].reply;
-            prompt = `用户想要去"${text}"类型的店铺。请直接以"${text}店"作为destination，生成一句简短的确认回复。返回JSON：{"destination":"${text}店","mode":"riding","reply":"确认回复"}。只输出JSON。`;
+            const destination = text + "店";
+            prompt = `用户说："${text}"，想去${destination}。请直接返回JSON：{"destination":"${destination}","mode":"riding","reply":"好的，正在导航到${destination}"}。只输出JSON。`;
         } else {
             prompt = `用户说："${text}"。请分析并返回JSON：
 1. 如果有明确地点（如"万达广场"），destination直接提取。
@@ -310,7 +311,15 @@ app.post('/api/voice/command', async (req, res) => {
 
         if (parsed.destination) {
             try {
-                const geoResp = await searchPlace(parsed.destination, userLocation);
+                let geoResp;
+                if (userLocation) {
+                    // 有用户坐标时，直接用周边搜索
+                    geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
+                        params: { key: AMAP_KEY, keywords: parsed.destination, location: userLocation, radius: 5000, offset: 1 }
+                    });
+                } else {
+                    geoResp = await searchPlace(parsed.destination);
+                }
                 if (geoResp.data.pois && geoResp.data.pois.length > 0) {
                     parsed.location = geoResp.data.pois[0].location;
                 }
