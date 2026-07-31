@@ -287,27 +287,44 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 语音命令处理接口（支持多轮对话 + 动态坐标搜索） ==========
+// ========== 语音命令处理接口（支持多轮对话 + 真实店名返回） ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
         const { text, history, userLocation } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
 
-        let parsed;
+        let parsed = {};
 
         if (history && history.length > 0) {
-            // 第二轮：直接拼接目的地，大模型只生成 reply
             const destination = text + "店";
-            const prompt = `请生成一句简短的确认回复，用户想去${destination}。返回JSON：{"reply":"确认回复（15字以内）"}。只输出JSON。`;
+            
+            let realName = destination;
+            let realLocation = null;
+            if (userLocation) {
+                try {
+                    const geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
+                        params: { key: AMAP_KEY, keywords: destination, location: userLocation, radius: 5000, offset: 1 }
+                    });
+                    if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+                        realName = geoResp.data.pois[0].name;
+                        realLocation = geoResp.data.pois[0].location;
+                    }
+                } catch (e) {
+                    console.warn('高德搜索失败:', e.message);
+                }
+            }
+            
+            const prompt = `生成一句简短的语音确认回复（15字以内），告诉用户正在导航到${realName}。返回JSON：{"reply":"你的回复"}。只输出JSON。`;
             const aiResult = await askQwen(prompt);
             const aiParsed = JSON.parse(aiResult);
+            
             parsed = {
-                destination: destination,
+                destination: realName,
                 mode: "riding",
-                reply: aiParsed.reply
+                reply: aiParsed.reply,
+                location: realLocation
             };
         } else {
-            // 第一轮：大模型分析意图
             const prompt = `用户说："${text}"。请分析并返回JSON：
 1. 如果有明确地点（如"万达广场"），destination直接提取。
 2. 如果是可推理的品类（如"最近的咖啡店"），destination推理为"星巴克"。
@@ -315,23 +332,18 @@ app.post('/api/voice/command', async (req, res) => {
 返回格式：{"destination":"地点或空","mode":"riding","reply":"回复"}。只输出JSON。`;
             const aiResult = await askQwen(prompt);
             parsed = JSON.parse(aiResult);
-        }
-
-        if (parsed.destination) {
-            try {
-                let geoResp;
-                if (userLocation) {
-                    geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
+            
+            if (parsed.destination && userLocation) {
+                try {
+                    const geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
                         params: { key: AMAP_KEY, keywords: parsed.destination, location: userLocation, radius: 5000, offset: 1 }
                     });
-                } else {
-                    geoResp = await searchPlace(parsed.destination);
+                    if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+                        parsed.location = geoResp.data.pois[0].location;
+                    }
+                } catch (e) {
+                    console.warn('高德搜索失败:', e.message);
                 }
-                if (geoResp.data.pois && geoResp.data.pois.length > 0) {
-                    parsed.location = geoResp.data.pois[0].location;
-                }
-            } catch (e) {
-                console.warn('高德搜索失败:', e.message);
             }
         }
 
