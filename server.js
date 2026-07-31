@@ -305,6 +305,7 @@ app.post('/api/voice/command', async (req, res) => {
                     const geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
                         params: { key: AMAP_KEY, keywords: destination, location: userLocation, radius: 5000, offset: 1 }
                     });
+                    console.log('高德搜索返回:', JSON.stringify(geoResp.data));
                     if (geoResp.data.pois && geoResp.data.pois.length > 0) {
                         realName = geoResp.data.pois[0].name;
                         realLocation = geoResp.data.pois[0].location;
@@ -314,7 +315,7 @@ app.post('/api/voice/command', async (req, res) => {
                 }
             }
             
-            const prompt = `生成一句简短的语音确认回复（15字以内），告诉用户正在导航到${realName}。返回JSON：{"reply":"你的回复"}。只输出JSON。`;
+            const prompt = `请生成一句简短的语音确认回复（15字以内），告诉用户即将开始导航。返回JSON：{"reply":"确认回复"}。只输出JSON。`;
             const aiResult = await askQwen(prompt);
             const aiParsed = JSON.parse(aiResult);
             
