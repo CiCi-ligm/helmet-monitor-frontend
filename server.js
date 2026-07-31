@@ -305,7 +305,6 @@ app.post('/api/voice/command', async (req, res) => {
                     const geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
                         params: { key: AMAP_KEY, keywords: destination, location: userLocation, radius: 5000, offset: 1 }
                     });
-                    console.log('高德搜索返回:', JSON.stringify(geoResp.data));
                     if (geoResp.data.pois && geoResp.data.pois.length > 0) {
                         realName = geoResp.data.pois[0].name;
                         realLocation = geoResp.data.pois[0].location;
@@ -352,6 +351,44 @@ app.post('/api/voice/command', async (req, res) => {
     } catch (error) {
         console.error('语音命令处理失败:', error);
         res.status(500).json({ error: '处理失败' });
+    }
+});
+
+// ========== 路径规划接口（返回导航指令文本） ==========
+app.post('/api/voice/navigate', async (req, res) => {
+    try {
+        const { origin, destination } = req.body;
+        if (!origin || !destination) return res.status(400).json({ error: '缺少起终点坐标' });
+
+        const resp = await axios.get('https://restapi.amap.com/v3/direction/walking', {
+            params: {
+                key: AMAP_KEY,
+                origin: origin,
+                destination: destination
+            }
+        });
+
+        if (resp.data.status === '1' && resp.data.route.paths.length > 0) {
+            const steps = resp.data.route.paths[0].steps;
+            const instructions = steps.map(s => s.instruction);
+            const navText = instructions.join('。');
+
+            // 下发导航指令到 OneNET
+            await sendToOneNET(navText);
+
+            res.json({
+                success: true,
+                instructions: instructions,
+                navText: navText,
+                distance: resp.data.route.paths[0].distance,
+                duration: resp.data.route.paths[0].duration
+            });
+        } else {
+            res.json({ success: false, error: '路线规划失败' });
+        }
+    } catch (error) {
+        console.error('路线规划失败:', error);
+        res.status(500).json({ error: '路线规划服务异常' });
     }
 });
 
