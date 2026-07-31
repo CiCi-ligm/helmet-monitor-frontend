@@ -287,6 +287,35 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
+// ========== 新增：语音命令处理接口（供 ESP32 调用） ==========
+app.post('/api/voice/command', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ error: '缺少语音文本' });
+
+        const prompt = `用户说：${text}。请分析这句话的意图，如果是导航请求，提取目的地和出行方式（步行/骑行），以JSON格式返回：{"destination":"地点","mode":"walking或riding","reply":"一句简短的语音回复（15字以内）"}。如果只是一般对话或询问，返回合适的回答，reply字段包含回答内容。只输出JSON，不要任何解释。`;
+        const aiResult = await askQwen(prompt);
+        const parsed = JSON.parse(aiResult);
+
+        // 如果包含目的地，附加高德搜索的坐标
+        if (parsed.destination) {
+            try {
+                const geoResp = await searchPlace(parsed.destination);
+                if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+                    parsed.location = geoResp.data.pois[0].location;
+                }
+            } catch (e) {
+                console.warn('高德搜索失败:', e.message);
+            }
+        }
+
+        res.json({ success: true, ...parsed });
+    } catch (error) {
+        console.error('语音命令处理失败:', error);
+        res.status(500).json({ error: '处理失败' });
+    }
+});
+
 // 语音导航接口（预留）
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
