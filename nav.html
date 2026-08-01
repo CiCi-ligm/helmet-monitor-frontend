@@ -98,8 +98,11 @@
   <div id="container"></div>
 
   <div class="input-box">
-    <input id="addressInput" placeholder="输入目的地（或点击下方语音按钮）" />
-    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音输入)</button>
+    <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
+    <!-- 网页端真实录音按钮 -->
+    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (真实录音)</button>
+    <!-- 硬件语音识别测试按钮（模拟ESP32调用） -->
+    <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%; padding:10px; background:#2196F3; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎙️ 硬件语音识别测试</button>
     <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
     <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%; padding:10px; background:#FF9800; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🚴 骑行前综合评估</button>
     <div class="btn-group">
@@ -146,6 +149,8 @@
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
+    let recorder;
+
     function connectCloud() {
       try{
         if(typeof mqtt === "undefined"){ console.error("mqtt库加载失败"); return; }
@@ -164,72 +169,135 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    async function sendTextToDevice(text) {
+    // ========== 网页端真实录音（/api/voice/nav） ==========
+    voiceBtn.addEventListener('mousedown', startRecording);
+    voiceBtn.addEventListener('touchstart', startRecording);
+    voiceBtn.addEventListener('mouseup', stopRecording);
+    voiceBtn.addEventListener('touchend', stopRecording);
+    voiceBtn.addEventListener('mouseleave', stopRecording);
+
+    async function startRecording(e) {
+      e.preventDefault();
+      if (recorder) return;
       try {
-        await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ destination: text, status: '语音播报' })
-        });
-      } catch (e) {
-        console.error('下发失败:', e);
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recorder = new RecordRTC(stream, { type: 'audio', mimeType: 'audio/wav' });
+        recorder.startRecording();
+        voiceBtn.classList.add('recording-btn');
+        voiceBtn.innerText = '🎤 正在聆听... 松手结束';
+        voiceBtn.style.background = '#f44336';
+        tip.innerText = '🎙️ 请说话...';
+        tip.style.display = 'block';
+        recorder.stream = stream;
+      } catch (err) {
+        console.error('无法获取麦克风权限:', err);
+        tip.innerText = '❌ 麦克风权限被拒绝';
+        setTimeout(() => tip.style.display = 'none', 3000);
       }
     }
 
-    // ========== 语音按钮：按住说话，松开解析 ==========
-    voiceBtn.addEventListener('mousedown', () => {
-      if (!currentPos) {
-        tip.innerText = '请等待硬件定位成功后再点击语音按钮';
-        tip.style.display = 'block';
-        setTimeout(() => tip.style.display = 'none', 3000);
-        return;
-      }
-      voiceBtn.classList.add('recording-btn');
-      voiceBtn.innerText = '🎤 正在聆听... 松手解析';
-      voiceBtn.style.background = '#f44336';
-      tip.innerText = '🎙️ 请说话...';
-      tip.style.display = 'block';
-    });
-
-    voiceBtn.addEventListener('mouseup', () => {
+    function stopRecording() {
+      if (!recorder) return;
       voiceBtn.classList.remove('recording-btn');
-      voiceBtn.innerText = '🧠 大模型正在理解您的意图...';
+      voiceBtn.innerText = '🧠 AI 正在识别语音...';
       voiceBtn.style.background = '#FF9800';
-      tip.innerText = '🧠 大模型正在分析您的语音...';
+      tip.innerText = '🧠 大模型正在分析语音并规划路线...';
       tip.style.display = 'block';
-
-      const fullText = '请说话。大模型正在分析您的语音。已识别您要去最近的咖啡店，即将导航到星巴克宜宾万象汇店。';
-      sendTextToDevice(fullText);
-
-      // 根据文本长度计算延迟（每字150ms，最少2秒）
-      const delay = Math.max(2000, fullText.length * 150);
       
-      setTimeout(() => {
-        const destination = '星巴克(宜宾万象汇店)';
-        const lnglat = [104.6432, 28.7518];
-        addressInput.value = destination;
-        targetPos = lnglat;
-        tip.innerText = '✅ 已识别您要去最近的咖啡店，即将导航到星巴克(宜宾万象汇店)';
-        tip.style.display = 'block';
+      recorder.stopRecording(() => {
+        const blob = recorder.getBlob();
+        const formData = new FormData();
+        formData.append('audio', blob, 'voice.wav');
+        
+        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+        formData.append('userLocation', loc);
 
-        setTimeout(() => { startNav('walking'); resetVoiceUI(); }, 1500);
-      }, delay);
-    });
+        fetch(`${AI_BACKEND_URL}/api/voice/nav`, {
+          method: 'POST',
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            if (data.destination && data.location) {
+              const lnglat = data.location.split(',').map(Number);
+              targetPos = lnglat;
+              addressInput.value = data.destination;
+              tip.innerText = `✅ 识别结果：${data.destination}\n${data.navText || ''}`;
+              tip.style.display = 'block';
+              if (data.location) {
+                startNav(data.mode || 'riding');
+              }
+              setTimeout(() => tip.style.display = 'none', 8000);
+            } else if (data.reply) {
+              tip.innerText = '🤔 ' + data.reply;
+              tip.style.display = 'block';
+              setTimeout(() => tip.style.display = 'none', 5000);
+            }
+          } else {
+            tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
+            setTimeout(() => tip.style.display = 'none', 3000);
+          }
+          resetVoiceUI();
+        })
+        .catch(err => {
+          console.error('语音上传失败:', err);
+          tip.innerText = '🌐 网络错误，请检查连接';
+          setTimeout(() => tip.style.display = 'none', 3000);
+          resetVoiceUI();
+        });
 
-    voiceBtn.addEventListener('mouseleave', () => {
-      if (voiceBtn.classList.contains('recording-btn')) {
-        voiceBtn.classList.remove('recording-btn');
-        resetVoiceUI();
-      }
-    });
-
-    voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); voiceBtn.dispatchEvent(new Event('mousedown')); });
-    voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); voiceBtn.dispatchEvent(new Event('mouseup')); });
+        recorder.stream.getTracks().forEach(track => track.stop());
+        recorder = null;
+      });
+    }
 
     function resetVoiceUI() {
-      voiceBtn.innerText = '🎤 按住说话 (语音输入)';
+      voiceBtn.innerText = '🎤 按住说话 (真实录音)';
       voiceBtn.style.background = '#4CAF50';
       voiceBtn.classList.remove('recording-btn');
+    }
+
+    // ========== 硬件语音识别测试（模拟ESP32调用 /api/voice/command） ==========
+    async function simulateHardwareVoice() {
+      const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
+      if (!testText) return;
+
+      tip.innerText = '🎙️ 硬件模拟：正在处理语音指令...';
+      tip.style.display = 'block';
+
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: testText, userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          if (data.destination && data.location) {
+            const lnglat = data.location.split(',').map(Number);
+            targetPos = lnglat;
+            addressInput.value = data.destination;
+            tip.innerText = `✅ 硬件识别：${data.destination}\n导航指令：${data.navText || '请继续下一轮对话'}`;
+            tip.style.display = 'block';
+            if (data.location) {
+              startNav(data.mode || 'riding');
+            }
+            setTimeout(() => tip.style.display = 'none', 8000);
+          } else if (data.reply) {
+            tip.innerText = '🤔 硬件反问：' + data.reply;
+            tip.style.display = 'block';
+            setTimeout(() => tip.style.display = 'none', 5000);
+          }
+        } else {
+          tip.innerText = '❌ 硬件识别失败: ' + (data.error || '请重试');
+          setTimeout(() => tip.style.display = 'none', 3000);
+        }
+      } catch (e) {
+        tip.innerText = '🌐 网络错误';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
     }
 
     // ========== 模拟摔倒检测 ==========
