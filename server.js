@@ -395,14 +395,14 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口（修复坐标传递） ==========
+// ========== 语音导航接口（修复坐标传递 + 调试日志） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
         const audioBase64 = req.file.buffer.toString('base64');
         const audioUrl = `data:audio/wav;base64,${audioBase64}`;
-        // 优先从 URL query 获取坐标
         const userLocation = req.query.userLocation || req.body.userLocation;
+        console.log('接收到的用户坐标:', userLocation);
 
         const response = await axios.post(
             'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
