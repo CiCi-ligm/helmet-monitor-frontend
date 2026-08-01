@@ -209,7 +209,7 @@
         
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
 
-        fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${encodeURIComponent(loc)}`, {
+        fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`, {
           method: 'POST',
           body: formData
         })
