@@ -99,9 +99,7 @@
 
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
-    <!-- 真实录音按钮 -->
     <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (录音上传)</button>
-    <!-- 硬件语音测试按钮 -->
     <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%; padding:10px; background:#2196F3; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎙️ 硬件语音识别测试</button>
     <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
     <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%; padding:10px; background:#FF9800; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🚴 骑行前综合评估</button>
@@ -210,9 +208,8 @@
         formData.append('audio', blob, 'voice.wav');
         
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
-        formData.append('userLocation', loc);
 
-        fetch(`${AI_BACKEND_URL}/api/voice/nav`, {
+        fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${encodeURIComponent(loc)}`, {
           method: 'POST',
           body: formData
         })
