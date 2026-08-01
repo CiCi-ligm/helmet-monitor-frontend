@@ -395,12 +395,14 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口（彻底修复 JSON 解析和完整地名） ==========
+// ========== 语音导航接口（修复坐标传递） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
         const audioBase64 = req.file.buffer.toString('base64');
         const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+        // 优先从 URL query 获取坐标
+        const userLocation = req.query.userLocation || req.body.userLocation;
 
         const response = await axios.post(
             'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
@@ -426,13 +428,9 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         );
 
         const aiOutput = response.data.output.choices[0].message.content[0].text;
-        
         let cleanJson = aiOutput.trim();
         cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '');
         cleanJson = cleanJson.replace(/^['"]|['"]$/g, '');
-        
-        console.log('AI 原始返回:', aiOutput);
-        console.log('清理后的 JSON:', cleanJson);
         
         let parsed;
         try {
@@ -449,7 +447,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         let location = null;
         let realName = parsed.destination;
         try {
-            const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
+            const geoResp = await searchPlace(parsed.destination, userLocation);
             if (geoResp.data.pois && geoResp.data.pois.length > 0) {
                 location = geoResp.data.pois[0].location;
                 realName = geoResp.data.pois[0].name;
