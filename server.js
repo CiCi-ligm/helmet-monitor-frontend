@@ -412,30 +412,73 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// 语音导航接口（预留）
+// ========== 语音导航接口（增强容错） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
         const audioBase64 = req.file.buffer.toString('base64');
         const audioUrl = `data:audio/wav;base64,${audioBase64}`;
-        const prompt = '你是一个专业的骑行导航助手。请分析这段语音，以JSON格式返回：{"destination":"具体地点名","detail":"检测到的最近的具体地点","mode":"walking或riding","instruction":"一句简短的导航起始指令"}。只输出JSON，不要任何解释。';
-        const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
-            model: 'qwen-omni-turbo', input: { messages: [{ role: 'user', content: [{ "audio": audioUrl }, { "text": prompt }] }] }
-        }, { headers: { 'Authorization': `Bearer ${QWEN_API_KEY}`, 'Content-Type': 'application/json' } });
+
+        const response = await axios.post(
+            'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+            {
+                model: 'qwen-omni-turbo',
+                input: {
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { "audio": audioUrl },
+                            { "text": "请将这段语音识别成文字，并提取目的地和出行方式。返回JSON：{\"text\":\"识别文字\",\"destination\":\"地点\",\"mode\":\"walking或riding\"}" }
+                        ]
+                    }]
+                }
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${QWEN_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000
+            }
+        );
+
         let aiOutput;
-        try { aiOutput = response.data.output.choices[0].message.content[0].text; } catch (e) { return res.status(500).json({ error: 'AI返回格式异常' }); }
-        let parsed;
-        try { parsed = JSON.parse(aiOutput); } catch (e) { return res.status(500).json({ error: 'AI输出格式错误', raw: aiOutput }); }
-        if (!parsed.destination) return res.json({ success: false, error: '未识别到目的地' });
-        const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
-        if (geoResp.data.pois && geoResp.data.pois.length > 0) {
-            const location = geoResp.data.pois[0].location;
-            res.json({ success: true, destination: parsed.destination, detail: parsed.detail || geoResp.data.pois[0].name || parsed.destination, instruction: parsed.instruction || '', mode: parsed.mode || 'riding', location });
-        } else {
-            res.json({ success: false, error: `找不到"${parsed.destination}"` });
+        try {
+            const content = response.data.output.choices[0].message.content;
+            if (Array.isArray(content)) {
+                aiOutput = content.map(c => c.text || '').join('');
+            } else {
+                aiOutput = content.text || content;
+            }
+        } catch (e) {
+            console.error('提取AI返回内容失败:', e);
+            return res.status(500).json({ error: 'AI返回格式异常' });
         }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(aiOutput);
+        } catch (e) {
+            console.warn('JSON解析失败，直接使用文本:', aiOutput);
+            parsed = { text: aiOutput, destination: aiOutput, mode: 'riding' };
+        }
+
+        if (parsed.destination) {
+            try {
+                const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
+                if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+                    parsed.location = geoResp.data.pois[0].location;
+                    parsed.destination = geoResp.data.pois[0].name;
+                }
+            } catch (e) {
+                console.warn('高德搜索失败:', e.message);
+            }
+        }
+
+        res.json({ success: true, ...parsed });
     } catch (error) {
-        res.status(500).json({ error: '语音服务暂时不可用' });
+        console.error('语音识别失败:', error.response?.data || error.message);
+        res.status(500).json({ error: '语音服务暂时不可用，请稍后重试' });
     }
 });
 
