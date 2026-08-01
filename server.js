@@ -325,15 +325,10 @@ app.post('/api/voice/command', async (req, res) => {
                 location: realLocation
             };
 
-            // 自动附加导航指令
             if (realLocation && userLocation) {
                 try {
                     const navResp = await axios.get('https://restapi.amap.com/v3/direction/walking', {
-                        params: {
-                            key: AMAP_KEY,
-                            origin: userLocation,
-                            destination: realLocation
-                        }
+                        params: { key: AMAP_KEY, origin: userLocation, destination: realLocation }
                     });
                     if (navResp.data.status === '1' && navResp.data.route.paths.length > 0) {
                         const steps = navResp.data.route.paths[0].steps;
@@ -382,27 +377,15 @@ app.post('/api/voice/navigate', async (req, res) => {
         if (!origin || !destination) return res.status(400).json({ error: '缺少起终点坐标' });
 
         const resp = await axios.get('https://restapi.amap.com/v3/direction/walking', {
-            params: {
-                key: AMAP_KEY,
-                origin: origin,
-                destination: destination
-            }
+            params: { key: AMAP_KEY, origin: origin, destination: destination }
         });
 
         if (resp.data.status === '1' && resp.data.route.paths.length > 0) {
             const steps = resp.data.route.paths[0].steps;
             const instructions = steps.map(s => s.instruction);
             const navText = instructions.join('。');
-
             await sendToOneNET(navText);
-
-            res.json({
-                success: true,
-                instructions: instructions,
-                navText: navText,
-                distance: resp.data.route.paths[0].distance,
-                duration: resp.data.route.paths[0].duration
-            });
+            res.json({ success: true, instructions, navText, distance: resp.data.route.paths[0].distance, duration: resp.data.route.paths[0].duration });
         } else {
             res.json({ success: false, error: '路线规划失败' });
         }
@@ -412,7 +395,7 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口（增强容错） ==========
+// ========== 语音导航接口（彻底修复 JSON 解析和完整地名） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
@@ -428,7 +411,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
                         role: 'user',
                         content: [
                             { "audio": audioUrl },
-                            { "text": "请将这段语音识别成文字，并提取目的地和出行方式。返回JSON：{\"text\":\"识别文字\",\"destination\":\"地点\",\"mode\":\"walking或riding\"}" }
+                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说“去万达广场”，destination应该是“万达广场”；用户说“最近的咖啡店”，destination应该是“星巴克”。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
                         ]
                     }]
                 }
@@ -442,40 +425,46 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
             }
         );
 
-        let aiOutput;
-        try {
-            const content = response.data.output.choices[0].message.content;
-            if (Array.isArray(content)) {
-                aiOutput = content.map(c => c.text || '').join('');
-            } else {
-                aiOutput = content.text || content;
-            }
-        } catch (e) {
-            console.error('提取AI返回内容失败:', e);
-            return res.status(500).json({ error: 'AI返回格式异常' });
-        }
-
+        const aiOutput = response.data.output.choices[0].message.content[0].text;
+        
+        let cleanJson = aiOutput.trim();
+        cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '');
+        cleanJson = cleanJson.replace(/^['"]|['"]$/g, '');
+        
+        console.log('AI 原始返回:', aiOutput);
+        console.log('清理后的 JSON:', cleanJson);
+        
         let parsed;
         try {
-            parsed = JSON.parse(aiOutput);
+            parsed = JSON.parse(cleanJson);
         } catch (e) {
-            console.warn('JSON解析失败，直接使用文本:', aiOutput);
-            parsed = { text: aiOutput, destination: aiOutput, mode: 'riding' };
+            console.error('JSON 解析彻底失败，返回错误');
+            return res.status(500).json({ error: '语音识别结果解析失败，请重试' });
         }
 
-        if (parsed.destination) {
-            try {
-                const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
-                if (geoResp.data.pois && geoResp.data.pois.length > 0) {
-                    parsed.location = geoResp.data.pois[0].location;
-                    parsed.destination = geoResp.data.pois[0].name;
-                }
-            } catch (e) {
-                console.warn('高德搜索失败:', e.message);
+        if (!parsed.destination) {
+            return res.json({ success: true, text: parsed.text, reply: '未识别到目的地，请重新说一遍' });
+        }
+
+        let location = null;
+        let realName = parsed.destination;
+        try {
+            const geoResp = await searchPlace(parsed.destination, req.body.userLocation);
+            if (geoResp.data.pois && geoResp.data.pois.length > 0) {
+                location = geoResp.data.pois[0].location;
+                realName = geoResp.data.pois[0].name;
             }
+        } catch (e) {
+            console.warn('高德搜索失败:', e.message);
         }
 
-        res.json({ success: true, ...parsed });
+        res.json({
+            success: true,
+            text: parsed.text,
+            destination: realName,
+            mode: parsed.mode || 'riding',
+            location: location
+        });
     } catch (error) {
         console.error('语音识别失败:', error.response?.data || error.message);
         res.status(500).json({ error: '语音服务暂时不可用，请稍后重试' });
