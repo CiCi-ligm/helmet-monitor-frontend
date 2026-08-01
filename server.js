@@ -75,17 +75,16 @@ async function sendSingleMessage(navText) {
     }
 }
 
-// 搜索函数
+// 搜索函数（修复：有用户坐标时直接用周边搜索，不限定城市）
 async function searchPlace(keywords, userLocation) {
-    let response = await axios.get('https://restapi.amap.com/v3/place/text', {
-        params: { key: AMAP_KEY, keywords, city: '宜宾' }
-    });
-    if (!response.data.pois || response.data.pois.length === 0) {
-        response = await axios.get('https://restapi.amap.com/v3/place/around', {
-            params: { key: AMAP_KEY, keywords, location: userLocation || '104.5647,28.7658', radius: 5000, offset: 1 }
+    if (userLocation) {
+        return await axios.get('https://restapi.amap.com/v3/place/around', {
+            params: { key: AMAP_KEY, keywords, location: userLocation, radius: 5000, offset: 1 }
         });
     }
-    return response;
+    return await axios.get('https://restapi.amap.com/v3/place/around', {
+        params: { key: AMAP_KEY, keywords, location: '104.5647,28.7658', radius: 5000, offset: 1 }
+    });
 }
 
 // 光照值轮换计数器
