@@ -98,9 +98,7 @@
 
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
-    <!-- 浏览器原生高精度语音识别按钮 -->
     <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音识别)</button>
-    <!-- 硬件语音识别测试按钮 -->
     <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%; padding:10px; background:#2196F3; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎙️ 硬件语音识别测试</button>
     <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
     <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%; padding:10px; background:#FF9800; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🚴 骑行前综合评估</button>
@@ -168,15 +166,26 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 浏览器原生高精度语音识别 ==========
+    // ========== 浏览器原生高精度语音识别（修复松手停止问题） ==========
     voiceBtn.addEventListener('mousedown', startListening);
-    voiceBtn.addEventListener('touchstart', startListening);
+    voiceBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startListening(e);
+    });
     voiceBtn.addEventListener('mouseup', stopListening);
-    voiceBtn.addEventListener('touchend', stopListening);
+    voiceBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopListening(e);
+    });
+    voiceBtn.addEventListener('mouseleave', stopListening);
+    voiceBtn.addEventListener('touchcancel', stopListening);
 
     function startListening(e) {
-        e.preventDefault();
-        if (recognition) return;
+        if (e) e.preventDefault();
+        if (recognition) {
+            recognition.abort();
+            recognition = null;
+        }
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器');
@@ -210,6 +219,7 @@
         };
 
         recognition.onerror = (event) => {
+            console.error('语音识别错误:', event.error);
             tip.innerText = '❌ 识别失败: ' + event.error;
             setTimeout(() => tip.style.display = 'none', 3000);
             resetVoiceUI();
@@ -222,9 +232,16 @@
         recognition.start();
     }
 
-    function stopListening() {
+    function stopListening(e) {
+        if (e) e.preventDefault();
         if (recognition) {
             recognition.stop();
+            setTimeout(() => {
+                if (recognition) {
+                    recognition.abort();
+                    resetVoiceUI();
+                }
+            }, 1000);
         }
     }
 
@@ -468,16 +485,4 @@
       });
     }
 
-    function switchSatellite(){
-      if(!isSatellite){ map.add(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换普通地图"; isSatellite = true; }
-      else{ map.remove(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换卫星图"; isSatellite = false; }
-    }
-
-    function clearAll(){
-      addressInput.value = ""; targetPos = null;
-      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
-      suggestList.style.display = "none";
-    }
-  </script>
-</body>
-</html>
+    
