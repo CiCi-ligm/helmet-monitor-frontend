@@ -412,7 +412,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
                         role: 'user',
                         content: [
                             { "audio": audioUrl },
-                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说"去万达广场"，destination应该是"万达广场"；用户说"最近的咖啡店"，destination应该是"星巴克"。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
+                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说'去万达广场'，destination应该是'万达广场'；用户说'最近的咖啡店'，destination应该是'星巴克'。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
                         ]
                     }]
                 }
@@ -468,7 +468,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     }
 });
 
-// ========== OneNET 摔倒推送中转（路径带 /api 前缀） ==========
+// ========== OneNET 摔倒推送中转 ==========
 app.get('/api/fall', (req, res) => {
   res.send(req.query.msg || '');
 });
