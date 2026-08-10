@@ -21,7 +21,7 @@ const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QF
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
-const SENDKEY = 'SCT384452ThU4fzIdKTYNJk7rduQ9EZGwk';
+const SENDKEY = 'SCT384452T1uN1Lq5R2P5ZrEabTNmyImaA';
 
 // 发送微信通知
 async function sendWeChat(title, desp) {
