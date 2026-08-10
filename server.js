@@ -75,7 +75,7 @@ async function sendSingleMessage(navText) {
     }
 }
 
-// 搜索函数（修复：有用户坐标时直接用周边搜索，不限定城市）
+// 搜索函数
 async function searchPlace(keywords, userLocation) {
     if (userLocation) {
         return await axios.get('https://restapi.amap.com/v3/place/around', {
@@ -286,7 +286,7 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 语音命令处理接口（多轮对话 + 真实店名 + 自动导航） ==========
+// ========== 语音命令处理接口 ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
         const { text, history, userLocation } = req.body;
@@ -369,7 +369,7 @@ app.post('/api/voice/command', async (req, res) => {
     }
 });
 
-// ========== 路径规划接口（独立调用） ==========
+// ========== 路径规划接口 ==========
 app.post('/api/voice/navigate', async (req, res) => {
     try {
         const { origin, destination } = req.body;
@@ -394,7 +394,7 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口（修复坐标传递 + 调试日志） ==========
+// ========== 语音导航接口 ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
@@ -412,7 +412,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
                         role: 'user',
                         content: [
                             { "audio": audioUrl },
-                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说“去万达广场”，destination应该是“万达广场”；用户说“最近的咖啡店”，destination应该是“星巴克”。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
+                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说"去万达广场"，destination应该是"万达广场"；用户说"最近的咖啡店"，destination应该是"星巴克"。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
                         ]
                     }]
                 }
@@ -466,6 +466,28 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         console.error('语音识别失败:', error.response?.data || error.message);
         res.status(500).json({ error: '语音服务暂时不可用，请稍后重试' });
     }
+});
+
+// ========== OneNET 摔倒推送中转 ==========
+
+// GET 请求：返回 msg 参数，通过 OneNET 验证
+app.get('/api/fall', (req, res) => {
+  res.send(req.query.msg || '');
+});
+
+// POST 请求：收到摔倒数据，转发给 Server 酱
+app.post('/api/fall', async (req, res) => {
+  console.log('收到摔倒推送:', JSON.stringify(req.body));
+  try {
+    await sendWeChat(
+      '【智能头盔-摔倒警报】',
+      '设备触发摔倒上报，上报数据：' + JSON.stringify(req.body)
+    );
+    res.status(200).send('success');
+  } catch (err) {
+    console.error('摔倒推送失败:', err.message);
+    res.status(200).send('ok');
+  }
 });
 
 module.exports = app;
