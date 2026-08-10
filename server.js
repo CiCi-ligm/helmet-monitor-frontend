@@ -468,15 +468,12 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     }
 });
 
-// ========== OneNET 摔倒推送中转 ==========
-
-// GET 请求：返回 msg 参数，通过 OneNET 验证
-app.get('/api/fall', (req, res) => {
+// ========== OneNET 摔倒推送中转（注意：路径不带 /api 前缀） ==========
+app.get('/fall', (req, res) => {
   res.send(req.query.msg || '');
 });
 
-// POST 请求：收到摔倒数据，转发给 Server 酱
-app.post('/api/fall', async (req, res) => {
+app.post('/fall', async (req, res) => {
   console.log('收到摔倒推送:', JSON.stringify(req.body));
   try {
     await sendWeChat(
