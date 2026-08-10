@@ -468,12 +468,12 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     }
 });
 
-// ========== OneNET 摔倒推送中转（注意：路径不带 /api 前缀） ==========
-app.get('/fall', (req, res) => {
+// ========== OneNET 摔倒推送中转（路径带 /api 前缀） ==========
+app.get('/api/fall', (req, res) => {
   res.send(req.query.msg || '');
 });
 
-app.post('/fall', async (req, res) => {
+app.post('/api/fall', async (req, res) => {
   console.log('收到摔倒推送:', JSON.stringify(req.body));
   try {
     await sendWeChat(
