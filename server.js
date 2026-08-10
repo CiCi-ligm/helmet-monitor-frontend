@@ -476,29 +476,31 @@ app.get('/api/fall', (req, res) => {
 app.post('/api/fall', async (req, res) => {
   console.log('收到摔倒推送:', JSON.stringify(req.body));
   try {
-    // 尝试从多种可能的位置提取图片 URL
-    let imageUrl = '';
-    const body = req.body;
-    
-    if (body.image && typeof body.image === 'string') {
-      imageUrl = body.image;
-    }
-    else if (body.params && body.params.image && body.params.image.value) {
-      imageUrl = body.params.image.value;
-    }
-    else if (body.data && body.data.image) {
-      imageUrl = body.data.image;
-    }
+    const imageUrl = req.body.image || '';
+    const lat = req.body.lat || req.body.latitude || '';
+    const lng = req.body.lng || req.body.longitude || '';
     
     let desp = '## ⚠️ 头盔检测到摔倒\n\n';
     desp += '- 设备：gps\n';
     desp += '- 产品ID：G2ddPjoILg\n';
-    desp += '- 摔倒状态：fall_down = ' + (body.fall_down || body.body?.fall_down || '1') + '\n';
+    
+    if (lat && lng) {
+      desp += '- 坐标：' + lat + ', ' + lng + '\n';
+      try {
+        const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
+          params: { key: AMAP_KEY, location: lng + ',' + lat, output: 'json' }
+        });
+        if (geoResp.data.status === '1' && geoResp.data.regeocode) {
+          const addr = geoResp.data.regeocode.formatted_address || '未知地址';
+          desp += '- 地址：' + addr + '\n';
+        }
+      } catch (e) {
+        desp += '- 地址：获取失败\n';
+      }
+    }
     
     if (imageUrl) {
       desp += '\n![现场图片](' + imageUrl + ')\n';
-    } else {
-      desp += '\n> 暂无现场图片\n';
     }
     
     await sendWeChat('【智能头盔-摔倒警报】', desp);
