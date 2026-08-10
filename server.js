@@ -493,4 +493,20 @@ app.post('/api/fall', async (req, res) => {
     let desp = '## ⚠️ 头盔检测到摔倒\n\n';
     desp += '- 设备：gps\n';
     desp += '- 产品ID：G2ddPjoILg\n';
-    desp += '-
+    desp += '- 摔倒状态：fall_down = ' + (body.fall_down || body.body?.fall_down || '1') + '\n';
+    
+    if (imageUrl) {
+      desp += '\n![现场图片](' + imageUrl + ')\n';
+    } else {
+      desp += '\n> 暂无现场图片\n';
+    }
+    
+    await sendWeChat('【智能头盔-摔倒警报】', desp);
+    res.status(200).send('success');
+  } catch (err) {
+    console.error('摔倒推送失败:', err.message);
+    res.status(200).send('ok');
+  }
+});
+
+module.exports = app;
