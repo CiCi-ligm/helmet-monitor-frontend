@@ -6,10 +6,6 @@
       "use": "@vercel/node"
     },
     {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "*.html",
       "use": "@vercel/static"
     },
@@ -18,7 +14,7 @@
       "use": "@vercel/static"
     },
     {
-      "src": "!(api)/*.js",
+      "src": "!(*.html|*.css|server.js)",
       "use": "@vercel/static"
     }
   ],
