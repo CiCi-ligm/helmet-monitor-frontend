@@ -162,10 +162,6 @@
     }
 
     function sendNavTextToCloud(text) {
-      if (mqttClient && mqttClient.connected) {
-        const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-        mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
-      }
       fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
