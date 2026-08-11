@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/CiCi-ligm/helmet-monitor-frontend#readme",
   "dependencies": {
+    "@alicloud/nls": "^1.0.0",
     "axios": "^1.18.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
