@@ -17,11 +17,16 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
-const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
+const QWEN_API_KEY = process.env.QWEN_API_KEY || '';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
-const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
-const SENDKEY = 'SCT384452T1uN1Lq5R2P5ZrEabTNmyImaA';
+const AMAP_KEY = process.env.AMAP_KEY || '';
+const SENDKEY = process.env.SENDKEY || '';
+
+// 阿里云语音识别配置
+const ALI_ACCESS_KEY_ID = process.env.ALI_ACCESS_KEY_ID || '';
+const ALI_ACCESS_KEY_SECRET = process.env.ALI_ACCESS_KEY_SECRET || '';
+const ALI_APP_KEY = process.env.ALI_APP_KEY || '';
 
 // 修正常见语音识别错误
 const DEST_FIX_MAP = {
@@ -406,59 +411,44 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口（带识别修正） ==========
+// ========== 语音导航接口（阿里云语音识别 + 修正） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
+        
         const audioBase64 = req.file.buffer.toString('base64');
-        const audioUrl = `data:audio/wav;base64,${audioBase64}`;
         const userLocation = req.query.userLocation || req.body.userLocation;
         console.log('接收到的用户坐标:', userLocation);
 
-        const response = await axios.post(
-            'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-            {
-                model: 'qwen-omni-turbo',
-                input: {
-                    messages: [{
-                        role: 'user',
-                        content: [
-                            { "audio": audioUrl },
-                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说'去万达广场'，destination应该是'万达广场'；用户说'最近的咖啡店'，destination应该是'星巴克'。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
-                        ]
-                    }]
-                }
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${QWEN_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 30000
-            }
-        );
-
-        const aiOutput = response.data.output.choices[0].message.content[0].text;
-        let cleanJson = aiOutput.trim();
-        cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '');
-        cleanJson = cleanJson.replace(/^['"]|['"]$/g, '');
+        const RPCClient = require('@alicloud/pop-core').RPCClient;
         
-        let parsed;
-        try {
-            parsed = JSON.parse(cleanJson);
-        } catch (e) {
-            console.error('JSON 解析彻底失败，返回错误');
-            return res.status(500).json({ error: '语音识别结果解析失败，请重试' });
-        }
+        const client = new RPCClient({
+            accessKeyId: ALI_ACCESS_KEY_ID,
+            accessKeySecret: ALI_ACCESS_KEY_SECRET,
+            endpoint: 'https://nls-gateway.cn-shanghai.aliyuncs.com',
+            apiVersion: '2019-02-28'
+        });
 
-        // 修正常见识别错误
+        const result = await client.request('SpeechRecognizer', {
+            appKey: ALI_APP_KEY,
+            format: 'wav',
+            sampleRate: 16000,
+            enablePunctuation: true
+        }, { audio: audioBase64 });
+
+        const recognizedText = result.Result || '';
+        console.log('阿里云识别结果:', recognizedText);
+
+        const prompt = `请从以下语音识别文本中提取目的地名称。例如"去万达广场"→"万达广场"，"最近的咖啡店"→"星巴克"。返回JSON：{"destination":"目的地","mode":"riding"}。只输出JSON。文本：${recognizedText}`;
+        const aiResult = await askQwen(prompt);
+        let parsed = JSON.parse(aiResult);
+
         if (parsed.destination && DEST_FIX_MAP[parsed.destination]) {
-            console.log('修正识别结果:', parsed.destination, '→', DEST_FIX_MAP[parsed.destination]);
             parsed.destination = DEST_FIX_MAP[parsed.destination];
         }
 
         if (!parsed.destination) {
-            return res.json({ success: true, text: parsed.text, reply: '未识别到目的地，请重新说一遍' });
+            return res.json({ success: true, text: recognizedText, reply: '未识别到目的地，请重新说一遍' });
         }
 
         let location = null;
@@ -475,13 +465,13 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
 
         res.json({
             success: true,
-            text: parsed.text,
+            text: recognizedText,
             destination: realName,
             mode: parsed.mode || 'riding',
             location: location
         });
     } catch (error) {
-        console.error('语音识别失败:', error.response?.data || error.message);
+        console.error('语音识别失败:', error.message);
         res.status(500).json({ error: '语音服务暂时不可用，请稍后重试' });
     }
 });
