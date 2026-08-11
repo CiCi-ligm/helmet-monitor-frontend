@@ -70,6 +70,13 @@
       padding:10px 20px;border-radius:20px;font-size:15px;
     }
 
+    #navStatus {
+      position:fixed;bottom:70px;left:10px;right:10px;z-index:9998;
+      background:rgba(0,0,0,0.8);color:#fff;
+      padding:8px 12px;border-radius:8px;font-size:13px;
+      text-align:center;display:none;
+    }
+
     .recording-btn {
       animation: pulse 1.5s infinite;
       transition: all 0.3s ease;
@@ -113,6 +120,7 @@
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
   <div id="tip">正在获取硬件GPS位置...</div>
+  <div id="navStatus"></div>
 
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active">
@@ -141,6 +149,7 @@
     let mqttClient = null;
 
     const tip = document.getElementById('tip');
+    const navStatus = document.getElementById('navStatus');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
@@ -161,7 +170,14 @@
       }catch(e){ console.error("MQTT 连接异常", e); }
     }
 
+    function showNavStatus(text) {
+      navStatus.innerText = '📢 ' + text;
+      navStatus.style.display = 'block';
+      setTimeout(() => { navStatus.style.display = 'none'; }, 5000);
+    }
+
     function sendNavTextToCloud(text) {
+      showNavStatus(text);
       fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -346,31 +362,6 @@
       }
     }
 
-    // ========== 自然语言解析 + 导航 ==========
-    async function resolveNaturalLanguage(spokenText) {
-      tip.innerText = '🧠 大模型正在理解...';
-      sendNavTextToCloud('大模型正在分析您的语言');
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: spokenText })
-        });
-        const data = await resp.json();
-        if (data.success) {
-          targetPos = data.location.split(',').map(Number);
-          addressInput.value = data.destination;
-          sendNavTextToCloud('已识别您要去' + data.destination);
-          startNav(data.mode || 'riding');
-        } else {
-          tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
-          setTimeout(() => tip.style.display = 'none', 5000);
-        }
-      } catch (e) {
-        tip.innerText = '🌐 网络错误';
-        setTimeout(() => tip.style.display = 'none', 5000);
-      }
-    }
-
     // ========== AI 导航指令 ==========
     async function callAIBackend(destination, status) {
       try {
@@ -380,10 +371,7 @@
         });
         const data = await response.json();
         if (data.success) {
-          tip.innerText = '📢 ' + data.text;
-          tip.style.display = 'block';
           sendNavTextToCloud(data.text);
-          setTimeout(() => tip.style.display = 'none', 5000);
         }
       } catch (error) { console.error('AI 接口调用失败:', error); }
     }
