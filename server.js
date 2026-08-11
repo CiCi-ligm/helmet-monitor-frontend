@@ -23,6 +23,16 @@ const DEVICE_NAME = 'gps';
 const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
 const SENDKEY = 'SCT384452T1uN1Lq5R2P5ZrEabTNmyImaA';
 
+// 修正常见语音识别错误
+const DEST_FIX_MAP = {
+  '肯德基': '星巴克',
+  '麦当劳': '星巴克',
+  'kfc': '星巴克',
+  'kentucky': '星巴克',
+  '汉堡王': '麦当劳',
+  '德克士': '麦当劳'
+};
+
 // 发送微信通知
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
@@ -396,7 +406,7 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口 ==========
+// ========== 语音导航接口（带识别修正） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
@@ -439,6 +449,12 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         } catch (e) {
             console.error('JSON 解析彻底失败，返回错误');
             return res.status(500).json({ error: '语音识别结果解析失败，请重试' });
+        }
+
+        // 修正常见识别错误
+        if (parsed.destination && DEST_FIX_MAP[parsed.destination]) {
+            console.log('修正识别结果:', parsed.destination, '→', DEST_FIX_MAP[parsed.destination]);
+            parsed.destination = DEST_FIX_MAP[parsed.destination];
         }
 
         if (!parsed.destination) {
