@@ -340,10 +340,12 @@ app.post('/api/voice/command', async (req, res) => {
                 }
             }
         } else {
-            const prompt = `用户说："${text}"。请分析并返回JSON：
-1. 如果有明确地点（如"万达广场"），destination直接提取。
-2. 如果是可推理的品类（如"最近的咖啡店"），destination推理为"星巴克"。
-3. 如果完全无法确定（如"附近有什么好吃的"），destination为空，reply反问用户（如"想吃什么类型的？火锅、烧烤还是甜品？"）。
+            const prompt = `你是一个骑行导航助手。用户说："${text}"。请分析并返回JSON：
+1. 如果用户说"最近的咖啡店"、"附近的咖啡店"、"咖啡"，destination固定为"星巴克"。
+2. 如果用户说"最近的快餐"、"附近的汉堡"、"汉堡"，destination固定为"麦当劳"。
+3. 如果用户说"最近的超市"、"附近的商场"，destination固定为"万达广场"。
+4. 如果有明确地点名（如"宜宾万达广场"），destination直接提取。
+5. 如果完全无法确定，destination为空，reply反问用户。
 返回格式：{"destination":"地点或空","mode":"riding","reply":"回复"}。只输出JSON。`;
             const aiResult = await askQwen(prompt);
             parsed = JSON.parse(aiResult);
