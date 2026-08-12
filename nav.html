@@ -212,53 +212,47 @@
     let recorder;
     let speechRecognition = null;
 
-    // ========== 本地固定目的地映射（直接匹配，无复杂逻辑） ==========
-    const LOCAL_FIX_MAP = [
-      // 咖啡店（只要包含“咖啡”或“瑞幸”即命中，优先级最高）
-      { keywords: ['咖啡', '瑞幸'], dest: '瑞幸咖啡（桂林理工大学屏风店）', loc: [110.315876, 25.280612] },
-      // 超市
-      { keywords: ['超市', '赵一鸣', '省钱超市', '便利店'], dest: '赵一鸣省钱超市(广西桂林建干路理工店)', loc: [110.319752, 25.283965] },
-      // 奶茶
-      { keywords: ['奶茶', '蜜雪冰城', '饮品', '喝奶茶'], dest: '蜜雪冰城(学院正门店)', loc: [110.315923, 25.280578] },
-      // 桂林理工大学
-      { keywords: ['桂林理工大学', '理工大学', '屏风校区', '桂工'], dest: '桂林理工大学屏风校区', loc: [110.320143, 25.284221] },
-      // 以下为其他精确地名（保持原样）
-      { keywords: ['国贸天地'], dest: '国贸天地', loc: [110.297074, 25.279430] },
-      { keywords: ['象鼻山'], dest: '象鼻山景区', loc: [110.291860, 25.272124] },
-      { keywords: ['两江四湖', '两江两湖'], dest: '桂林市两江四湖景区', loc: [110.294400, 25.273300] },
-      { keywords: ['日月双塔'], dest: '日月双塔', loc: [110.294826, 25.271420] },
-      { keywords: ['正阳步行街'], dest: '正阳步行街', loc: [110.297810, 25.278470] },
-      { keywords: ['东西巷'], dest: '东西巷', loc: [110.299731, 25.278717] },
-      { keywords: ['叠彩山'], dest: '叠彩山', loc: [110.285730, 25.294250] },
-      { keywords: ['七星公园'], dest: '七星公园', loc: [110.307540, 25.274910] },
-      { keywords: ['植物园', '园林植物园'], dest: '桂林园林植物园', loc: [110.272260, 25.252740] },
-      { keywords: ['桂林博物馆', '博物馆'], dest: '桂林博物馆', loc: [110.254750, 25.281830] },
-      { keywords: ['桂林北站', '北站'], dest: '桂林北站', loc: [110.301731, 25.329019] },
-      { keywords: ['桂林南站', '桂林站', '火车站'], dest: '桂林站', loc: [110.283420, 25.260370] },
-      { keywords: ['机场', '两江机场', '桂林机场'], dest: '桂林两江国际机场', loc: [110.035420, 25.211680] },
-      { keywords: ['人民医院', '市人民医院'], dest: '桂林市人民医院', loc: [110.289340, 25.275210] },
-      { keywords: ['万达', '万达广场'], dest: '桂林高新万达广场', loc: [110.315630, 25.280460] }
-    ];
+    // ========== 精确话术映射（您提供的三个固定话术） ==========
+    const EXACT_FIX_MAP = {
+      '我要去附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', lng: 110.315876, lat: 25.280612 },
+      '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', lng: 110.319752, lat: 25.283965 },
+      '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', lng: 110.315923, lat: 25.280578 }
+    };
 
     /**
-     * 简单匹配：只要文本包含某个关键词，就直接返回对应目的地
-     * 优先级：咖啡/超市/奶茶 > 其他
+     * 匹配逻辑：优先检查精确话术，其次使用原有模糊关键词匹配（保留其他地名）
      */
     function matchLocalFix(text) {
       if (!text) return null;
-      const clean = text.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
+      const clean = text.trim();
       
-      // 先检查高优先级需求（咖啡、超市、奶茶）
-      const priority = LOCAL_FIX_MAP.filter(item => 
-        item.keywords.some(k => ['咖啡','瑞幸','超市','赵一鸣','省钱超市','便利店','奶茶','蜜雪冰城','饮品','喝奶茶'].includes(k))
-      );
-      const normal = LOCAL_FIX_MAP.filter(item => !priority.includes(item));
-      
-      for (let item of [...priority, ...normal]) {
-        if (item.keywords.some(keyword => clean.includes(keyword))) {
-          return { name: item.dest, location: item.loc };
-        }
+      // 1. 精确话术匹配（完全一致）
+      if (EXACT_FIX_MAP[clean]) {
+        const item = EXACT_FIX_MAP[clean];
+        return { name: item.name, location: [item.lng, item.lat] };
       }
+      
+      // 2. 保留其他地名的模糊匹配（桂林理工、万达等）
+      const lowerClean = clean.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
+      if (lowerClean.includes('桂林理工大学') || lowerClean.includes('理工大学') || lowerClean.includes('屏风校区') || lowerClean.includes('桂工')) {
+        return { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] };
+      }
+      if (lowerClean.includes('国贸天地')) return { name: '国贸天地', location: [110.297074, 25.279430] };
+      if (lowerClean.includes('象鼻山')) return { name: '象鼻山景区', location: [110.291860, 25.272124] };
+      if (lowerClean.includes('两江四湖') || lowerClean.includes('两江两湖')) return { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] };
+      if (lowerClean.includes('日月双塔')) return { name: '日月双塔', location: [110.294826, 25.271420] };
+      if (lowerClean.includes('正阳步行街')) return { name: '正阳步行街', location: [110.297810, 25.278470] };
+      if (lowerClean.includes('东西巷')) return { name: '东西巷', location: [110.299731, 25.278717] };
+      if (lowerClean.includes('叠彩山')) return { name: '叠彩山', location: [110.285730, 25.294250] };
+      if (lowerClean.includes('七星公园')) return { name: '七星公园', location: [110.307540, 25.274910] };
+      if (lowerClean.includes('植物园') || lowerClean.includes('园林植物园')) return { name: '桂林园林植物园', location: [110.272260, 25.252740] };
+      if (lowerClean.includes('桂林博物馆') || lowerClean.includes('博物馆')) return { name: '桂林博物馆', location: [110.254750, 25.281830] };
+      if (lowerClean.includes('桂林北站') || lowerClean.includes('北站')) return { name: '桂林北站', location: [110.301731, 25.329019] };
+      if (lowerClean.includes('桂林南站') || lowerClean.includes('桂林站') || lowerClean.includes('火车站')) return { name: '桂林站', location: [110.283420, 25.260370] };
+      if (lowerClean.includes('机场') || lowerClean.includes('两江机场') || lowerClean.includes('桂林机场')) return { name: '桂林两江国际机场', location: [110.035420, 25.211680] };
+      if (lowerClean.includes('人民医院') || lowerClean.includes('市人民医院')) return { name: '桂林市人民医院', location: [110.289340, 25.275210] };
+      if (lowerClean.includes('万达') || lowerClean.includes('万达广场')) return { name: '桂林高新万达广场', location: [110.315630, 25.280460] };
+      
       return null;
     }
 
@@ -381,7 +375,7 @@
       recorder.stopRecording(() => {
         const blob = recorder.getBlob();
         
-        // 1. 优先用本地语音识别文本直接匹配
+        // 1. 优先用本地语音识别文本直接匹配（精确话术优先）
         if (localText) {
           const match = matchLocalFix(localText);
           if (match) {
@@ -393,7 +387,7 @@
           }
         }
 
-        // 2. 若本地无匹配，上传AI，但在AI返回后也尝试匹配
+        // 2. 若本地无匹配，上传AI，并在拿到结果后再次尝试匹配
         const formData = new FormData();
         formData.append('audio', blob, 'voice.wav');
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
@@ -452,7 +446,7 @@
       voiceBtn.classList.remove('recording-btn');
     }
 
-    // 硬件语音模拟（同样用本地匹配优先）
+    // 硬件语音模拟（同样用精确匹配优先）
     async function simulateHardwareVoice() {
       const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有没有什么奶茶店');
       if (!testText) return;
