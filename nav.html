@@ -224,7 +224,7 @@
         .then(data => {
           if (data.success && data.destination && data.location) {
             const lnglat = data.location.split(',').map(Number);
-            targetPos = lnglat;
+            targetPos = [lnglat[0], lnglat[1]]; // 确保是数组
             addressInput.value = data.destination;
             tip.innerText = `✅ 识别结果：${data.destination}`;
             tip.style.display = 'block';
