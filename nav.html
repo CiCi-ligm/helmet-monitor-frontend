@@ -10,7 +10,8 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <!-- 👇 换回旧的前端 Key -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
@@ -458,8 +459,6 @@
         clearTimeout(timer);
         timer = setTimeout(()=>{
           autoComplete.search(keyword, (status, res) => {
-            // 调试弹窗
-            alert('AutoComplete 状态: ' + status + '\n结果数量: ' + (res && res.tips ? res.tips.length : 0) + '\n关键字: ' + keyword);
             if(status === "complete" && res.tips && res.tips.length > 0){
               suggestList.innerHTML = "";
               res.tips.forEach(tip => { 
@@ -476,7 +475,6 @@
               });
               suggestList.style.display = "block";
             } else {
-              alert('没有找到结果或请求失败');
               suggestList.style.display = "none";
             }
           });
@@ -497,6 +495,7 @@
       const dest = targetPos[0] + ',' + targetPos[1];
       const typeText = type === 'walking' ? '步行' : '骑行';
       const apiPath = type === 'walking' ? 'walking' : 'riding';
+      // 👇 这里使用 Web 服务 Key 调用 API，保持不变
       const apiUrl = `https://restapi.amap.com/v3/direction/${apiPath}?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
 
       sendNavTextToCloud('正在规划路径');
