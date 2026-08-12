@@ -223,8 +223,9 @@
         .then(res => res.json())
         .then(data => {
           if (data.success && data.destination && data.location) {
-            const lnglat = data.location.split(',').map(Number);
-            targetPos = [lnglat[0], lnglat[1]]; // 确保是数组
+            // 确保 targetPos 是 [lng, lat] 数组
+            const parts = data.location.split(',').map(Number);
+            targetPos = [parts[0], parts[1]];
             addressInput.value = data.destination;
             tip.innerText = `✅ 识别结果：${data.destination}`;
             tip.style.display = 'block';
@@ -391,19 +392,23 @@
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(walkingRoute) walkingRoute.clear();
+
+      // 强制确保坐标格式为 [lng, lat]
+      const origin = [currentPos.lng, currentPos.lat];
+      const dest = [targetPos[0], targetPos[1]];
+
       const typeText = type === 'walking' ? '步行' : '骑行';
       sendNavTextToCloud('正在规划路径');
+
       AMap.plugin('AMap.Walking', function(){
         const walking = new AMap.Walking({ map: map, autoFitView: true });
-        walking.search(currentPos, targetPos, function(status, result) {
+        walking.search(origin, dest, function(status, result) {
           if (status === 'complete' && result.info === 'OK') {
             tip.innerText = typeText + '路线规划成功';
             setTimeout(() => tip.style.display = 'none', 2000);
-            const firstStep = result.routes[0].steps[0]?.instruction || '开始' + typeText + '导航';
-            sendNavTextToCloud('开始' + typeText + '导航，' + firstStep);
           } else {
-            tip.innerText = '路线规划失败';
-            setTimeout(() => tip.style.display = 'none', 2000);
+            tip.innerText = '路线规划失败 (' + status + ')';
+            setTimeout(() => tip.style.display = 'none', 3000);
           }
         });
       });
