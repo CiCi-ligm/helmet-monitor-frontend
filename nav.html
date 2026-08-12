@@ -387,32 +387,74 @@
       addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
-    function startNav(type){
+    // ✅ 新 startNav：直接使用 HTTP API 获取路线并用 Polyline 绘制，彻底绕过 Walking 插件
+    async function startNav(type){
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
-      if(walkingRoute) walkingRoute.clear();
+      
+      // 清除之前的路线
+      if(walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
+      if(ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
 
-      const origin = [currentPos.lng, currentPos.lat];
-      const dest = [targetPos[0], targetPos[1]];
-
-      alert('起点: ' + JSON.stringify(origin) + '\n终点: ' + JSON.stringify(dest));
-
+      const origin = currentPos.lng + ',' + currentPos.lat;
+      const dest = targetPos[0] + ',' + targetPos[1];
       const typeText = type === 'walking' ? '步行' : '骑行';
+      // 根据类型选择不同 API（walking 或 riding）
+      const apiPath = type === 'walking' ? 'walking' : 'riding';
+      const apiUrl = `https://restapi.amap.com/v3/direction/${apiPath}?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
+
       sendNavTextToCloud('正在规划路径');
 
-      AMap.plugin('AMap.Walking', function(){
-        const walking = new AMap.Walking({ map: map, autoFitView: true });
-        walking.search(origin, dest, function(status, result) {
-          if (status === 'complete' && result.info === 'OK') {
-            tip.innerText = typeText + '路线规划成功';
-            setTimeout(() => tip.style.display = 'none', 2000);
+      try {
+        const resp = await fetch(apiUrl);
+        const data = await resp.json();
+        if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
+          const steps = data.route.paths[0].steps;
+          // 将每一步的 polyline 解析为坐标点数组
+          const path = [];
+          steps.forEach(step => {
+            const polyline = step.polyline;
+            if (!polyline) return;
+            const points = polyline.split(';');
+            points.forEach(p => {
+              const [lng, lat] = p.split(',');
+              if (lng && lat) path.push(new AMap.LngLat(parseFloat(lng), parseFloat(lat)));
+            });
+          });
+
+          // 绘制路线
+          const routeColor = type === 'walking' ? '#1677ff' : '#ff6b35';
+          if (type === 'walking') {
+            walkingRoute = new AMap.Polyline({
+              map: map,
+              path: path,
+              strokeColor: routeColor,
+              strokeWeight: 6,
+              strokeOpacity: 0.8
+            });
           } else {
-            alert('失败状态: ' + status + '\n信息: ' + (result ? result.info : '无'));
-            tip.innerText = '路线规划失败 (' + status + ')';
-            setTimeout(() => tip.style.display = 'none', 3000);
+            ridingRoute = new AMap.Polyline({
+              map: map,
+              path: path,
+              strokeColor: routeColor,
+              strokeWeight: 6,
+              strokeOpacity: 0.8
+            });
           }
-        });
-      });
+          map.setFitView(null, false, [60, 60, 60, 60]);
+
+          tip.innerText = typeText + '路线规划成功';
+          setTimeout(() => tip.style.display = 'none', 2000);
+          const firstStep = steps[0]?.instruction || '开始' + typeText + '导航';
+          sendNavTextToCloud('开始' + typeText + '导航，' + firstStep);
+        } else {
+          tip.innerText = '路线规划失败';
+          setTimeout(() => tip.style.display = 'none', 3000);
+        }
+      } catch (e) {
+        tip.innerText = '路线规划失败（网络错误）';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
     }
 
     function switchSatellite(){
@@ -422,7 +464,8 @@
 
     function clearAll(){
       addressInput.value = ""; targetPos = null;
-      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      if(walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
+      if(ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
       suggestList.style.display = "none";
     }
   </script>
