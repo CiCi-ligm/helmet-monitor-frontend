@@ -7,7 +7,7 @@
   <script>
     window._AMapSecurityConfig = { securityJsCode: "fc5eab52eb041ff4874aba0dd149d954" };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.Geolocation"></script>
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <style>
@@ -89,7 +89,6 @@
     let map, myMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
-    let autoComplete;
 
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
@@ -451,16 +450,6 @@
     function initAutoComplete(){
       console.log('初始化自动完成...');
       
-      if (typeof AMap.AutoComplete === 'function') {
-        autoComplete = new AMap.AutoComplete({ 
-          city: "桂林",
-          citylimit: true
-        });
-        console.log('AutoComplete已创建');
-      } else {
-        console.error('AMap.AutoComplete不可用');
-      }
-      
       let timer = null;
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
@@ -468,15 +457,19 @@
         
         clearTimeout(timer);
         timer = setTimeout(() => {
-          if (autoComplete) {
-            console.log('开始搜索:', keyword);
-            autoComplete.search(keyword, (status, res) => {
-              console.log('搜索状态:', status);
-              console.log('搜索结果:', res);
-              if (status === "complete" && res.tips && res.tips.length > 0) {
+          // 直接使用高德输入提示API
+          const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(keyword)}&city=桂林&citylimit=true&key=85a9a797b358573152302861e5a7dd05`;
+          
+          console.log('请求URL:', url);
+          
+          fetch(url)
+            .then(r => r.json())
+            .then(data => {
+              console.log('输入提示返回:', data);
+              if (data.tips && data.tips.length > 0) {
                 suggestList.innerHTML = "";
-                res.tips.forEach(tipItem => {
-                  if (!tipItem.location) return;
+                data.tips.forEach(tipItem => {
+                  if (!tipItem.location || tipItem.location.length === 0) return;
                   const div = document.createElement('div');
                   div.className = "item";
                   const name = tipItem.name;
@@ -484,19 +477,23 @@
                   div.innerHTML = `<div>${name}</div>${address ? `<div style="font-size:12px;color:#999">${address}</div>` : ''}`;
                   div.onclick = () => { 
                     addressInput.value = name;
-                    targetPos = tipItem.location;
+                    const lnglat = tipItem.location.split(',').map(Number);
+                    targetPos = lnglat;
                     suggestList.style.display = "none"; 
                   };
                   suggestList.appendChild(div);
                 });
                 suggestList.style.display = "block";
-                console.log('下拉列表已显示');
+                console.log('下拉列表已显示，数量:', data.tips.length);
               } else {
                 suggestList.style.display = "none";
-                console.log('无搜索结果');
+                console.log('无结果');
               }
+            })
+            .catch(err => {
+              console.error('输入提示请求失败:', err);
+              suggestList.style.display = "none";
             });
-          }
         }, 300);
       });
       
