@@ -92,32 +92,22 @@
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
     let recorder;
-    let speechRecognition = null;
 
     const LOCAL_FIX_MAP = {
-      '我要去附近的咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      '附近的咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
       '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
+      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
       '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
-      '附近的超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
       '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
       '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
-      '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
-      '附近的奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
-      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '奶茶': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
+      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '蜜雪冰城': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '桂林理工大学': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
-      '象鼻山景区': { name: '象鼻山景区', location: [110.291860, 25.272124] },
       '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
-      '桂林市两江四湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
       '两江四湖': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
-      '两江两湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
       '日月双塔': { name: '日月双塔', location: [110.294826, 25.271420] },
       '正阳步行街': { name: '正阳步行街', location: [110.297810, 25.278470] },
       '东西巷': { name: '东西巷', location: [110.299731, 25.278717] },
@@ -126,13 +116,9 @@
       '桂林园林植物园': { name: '桂林园林植物园', location: [110.272260, 25.252740] },
       '桂林博物馆': { name: '桂林博物馆', location: [110.254750, 25.281830] },
       '桂林北站': { name: '桂林北站', location: [110.301731, 25.329019] },
-      '桂林南站': { name: '桂林站', location: [110.283420, 25.260370] },
       '桂林站': { name: '桂林站', location: [110.283420, 25.260370] },
-      '桂林两江国际机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
       '桂林机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
       '桂林市人民医院': { name: '桂林市人民医院', location: [110.289340, 25.275210] },
-      '桂林万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
-      '桂林高新万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
       '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
     };
 
@@ -141,28 +127,13 @@
     function matchLocalFix(text) {
       if (!text) return null;
       const cleanText = text.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
-      // 核心关键词优先匹配，确保“咖啡”“奶茶”“超市”不会被其他长词干扰
-      if (cleanText.includes('咖啡')) return LOCAL_FIX_MAP['咖啡'];
-      if (cleanText.includes('奶茶')) return LOCAL_FIX_MAP['奶茶'];
-      if (cleanText.includes('超市')) return LOCAL_FIX_MAP['超市'];
       for (const key of SORTED_MAP_KEYS) {
         const cleanKey = key.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
         if (cleanText.includes(cleanKey)) {
-          const item = LOCAL_FIX_MAP[key];
-          return item;
+          return LOCAL_FIX_MAP[key];
         }
       }
       return null;
-    }
-
-    function initSpeechRecognition() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return null;
-      const rec = new SR();
-      rec.lang = 'zh-CN';
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-      return rec;
     }
 
     function connectCloud() {
@@ -213,7 +184,7 @@
       setTimeout(() => tip.style.display = 'none', 3000);
     }
 
-    // ---------- 语音处理 ----------
+    // ---------- 录音上传逻辑（不使用浏览器语音识别） ----------
     voiceBtn.addEventListener('mousedown', startRec);
     voiceBtn.addEventListener('touchstart', startRec);
     voiceBtn.addEventListener('mouseup', stopRec);
@@ -232,16 +203,6 @@
         voiceBtn.style.background = '#f44336';
         tip.innerText = '🎙️ 请说话...'; tip.style.display = 'block';
         recorder.stream = stream;
-        if (!speechRecognition) speechRecognition = initSpeechRecognition();
-        if (speechRecognition) {
-          speechRecognition.onresult = (ev) => {
-            const t = ev.results[0][0].transcript.trim();
-            console.log('本地识别:', t);
-            recorder.localText = t;
-          };
-          speechRecognition.onerror = (e) => console.warn('语音识别错误:', e.error);
-          speechRecognition.start();
-        }
       } catch(err) {
         tip.innerText = '❌ 麦克风权限被拒绝';
         setTimeout(() => tip.style.display = 'none', 3000);
@@ -255,22 +216,9 @@
       voiceBtn.style.background = '#FF9800';
       tip.innerText = '🧠 正在处理...';
       tip.style.display = 'block';
-      if (speechRecognition) { try { speechRecognition.stop(); } catch(e) {} }
-      const localText = recorder.localText || null;
 
       recorder.stopRecording(() => {
         const blob = recorder.getBlob();
-        if (localText) {
-          const match = matchLocalFix(localText);
-          if (match) {
-            setDestinationAndNavigate(match.name, match.location);
-            resetUI();
-            recorder.stream.getTracks().forEach(t => t.stop());
-            recorder = null;
-            return;
-          }
-        }
-
         const form = new FormData();
         form.append('audio', blob, 'voice.wav');
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
@@ -278,10 +226,17 @@
         fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`, { method: 'POST', body: form })
         .then(r => r.json())
         .then(data => {
-          if (data.success && data.location) {
-            const parts = data.location.split(',').map(Number);
-            if (parts.length === 2) {
-              setDestinationAndNavigate(data.destination || 'AI目的地', parts);
+          // 1. 云端识别成功
+          if (data.success && data.destination) {
+            const localMatch = matchLocalFix(data.destination);
+            // 2. 本地映射优先
+            if (localMatch) {
+              setDestinationAndNavigate(localMatch.name, localMatch.location);
+            } else if (data.location) {
+              const parts = data.location.split(',').map(Number);
+              if (parts.length === 2) {
+                setDestinationAndNavigate(data.destination, parts);
+              }
             } else {
               tip.innerText = '❌ 坐标解析错误';
               setTimeout(() => tip.style.display = 'none', 3000);
@@ -300,17 +255,13 @@
           setTimeout(() => tip.style.display = 'none', 3000);
         })
         .finally(() => {
-          resetUI();
+          voiceBtn.innerText = '🎤 按住说话 (语音识别)';
+          voiceBtn.style.background = '#4CAF50';
+          voiceBtn.classList.remove('recording-btn');
           recorder.stream.getTracks().forEach(t => t.stop());
           recorder = null;
         });
       });
-    }
-
-    function resetUI() {
-      voiceBtn.innerText = '🎤 按住说话 (语音识别)';
-      voiceBtn.style.background = '#4CAF50';
-      voiceBtn.classList.remove('recording-btn');
     }
 
     async function simulateHardwareVoice() {
@@ -334,9 +285,6 @@
         if (data.success && data.location) {
           const parts = data.location.split(',').map(Number);
           if (parts.length === 2) setDestinationAndNavigate(data.destination || 'AI目的地', parts);
-        } else if (data.reply) {
-          tip.innerText = '🤔 ' + data.reply;
-          setTimeout(() => tip.style.display = 'none', 5000);
         }
       } catch (e) {
         tip.innerText = '🌐 网络错误';
@@ -400,7 +348,6 @@
       initAutoComplete();
       if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) getMyLocation();
       connectCloud();
-      speechRecognition = initSpeechRecognition();
     };
 
     function getMyLocation(){
