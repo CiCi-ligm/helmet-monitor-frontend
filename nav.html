@@ -39,6 +39,14 @@
     .tab-item{display:flex;flex-direction:column;align-items:center;font-size:12px;color:#666;text-decoration:none;gap:4px}
     .tab-item.active{color:#2563eb}
     .tab-item .icon{font-size:22px}
+    /* 确认弹窗样式 */
+    #confirmModal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;background:#fff;border-radius:12px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:none;width:90%;max-width:400px}
+    #confirmModal .title{font-size:18px;font-weight:bold;margin-bottom:10px;color:#333}
+    #confirmModal .content{font-size:15px;margin-bottom:20px;color:#666;line-height:1.6}
+    #confirmModal .modal-btns{display:flex;gap:10px}
+    #confirmModal .modal-btns button{flex:1;padding:12px;border:none;border-radius:6px;font-size:16px;cursor:pointer}
+    #confirmModal .btn-confirm{background:#1677ff;color:#fff}
+    #confirmModal .btn-cancel{background:#f0f0f0;color:#333}
   </style>
 </head>
 <body>
@@ -63,6 +71,17 @@
     <button class="close-btn" onclick="document.getElementById('navStepsPanel').style.display='none'">✕</button>
     <div id="navStepsContent"></div>
   </div>
+  
+  <!-- 确认弹窗 -->
+  <div id="confirmModal">
+    <div class="title">📍 目的地确认</div>
+    <div class="content" id="confirmContent"></div>
+    <div class="modal-btns">
+      <button class="btn-confirm" onclick="confirmNavigation()">确认导航</button>
+      <button class="btn-cancel" onclick="cancelNavigation()">取消</button>
+    </div>
+  </div>
+  
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active"><span class="icon">🗺️</span><span>导航</span></a>
     <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
@@ -75,6 +94,7 @@
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
     let autoComplete;
+    let pendingNavigation = null; // 存储待确认的导航信息
 
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
@@ -89,27 +109,22 @@
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmContent = document.getElementById('confirmContent');
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
     let recorder;
 
     const LOCAL_FIX_MAP = {
-      // 咖啡店相关 - 保持不变（成功的例子）
-      '星巴克': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
-      '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
-      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
-      '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
-      
-      // 超市相关 - 使用高德能搜索到的简单名称
-      '超市': { name: '赵一鸣省钱超市' },
-      '赵一鸣': { name: '赵一鸣省钱超市' },
-      
-      // 奶茶店相关 - 使用高德能搜索到的简单名称
-      '奶茶': { name: '蜜雪冰城' },
-      '奶茶店': { name: '蜜雪冰城' },
-      '蜜雪冰城': { name: '蜜雪冰城' },
-      
-      // 其他地点保持不变
+      '星巴克': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
+      '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
+      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
+      '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
+      '超市': { name: '赵一鸣省钱超市', type: '超市' },
+      '赵一鸣': { name: '赵一鸣省钱超市', type: '超市' },
+      '奶茶': { name: '蜜雪冰城', type: '奶茶店' },
+      '奶茶店': { name: '蜜雪冰城', type: '奶茶店' },
+      '蜜雪冰城': { name: '蜜雪冰城', type: '奶茶店' },
       '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区' },
       '桂林理工大学': { name: '桂林理工大学屏风校区' },
       '屏风校区': { name: '桂林理工大学屏风校区' },
@@ -182,13 +197,61 @@
       }).catch(() => {});
     }
 
-    function setDestinationAndNavigate(name, loc) {
+    // 显示确认弹窗
+    function showConfirmModal(originalText, matchedName, poiName, location) {
+      const typeText = matchedName.type ? `（${matchedName.type}）` : '';
+      confirmContent.innerHTML = `
+        <p>已识别您要去：<strong>${matchedName.type || '目的地'}</strong></p>
+        <p>为您找到：<strong>${poiName}</strong></p>
+        <p>原始语音：${originalText}</p>
+      `;
+      confirmModal.style.display = 'block';
+      
+      // 语音播报
+      const speakText = `已识别您要去附近的${matchedName.type || '目的地'}，为您找到${poiName}`;
+      sendNavTextToCloud(speakText);
+      speakTextOut(speakText);
+      
+      pendingNavigation = { poiName, location };
+    }
+
+    // 语音播报函数
+    function speakTextOut(text) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1.0;
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    // 确认导航
+    function confirmNavigation() {
+      if (pendingNavigation) {
+        const { poiName, location } = pendingNavigation;
+        confirmModal.style.display = 'none';
+        setDestinationAndNavigate(poiName, location);
+        pendingNavigation = null;
+      }
+    }
+
+    // 取消导航
+    function cancelNavigation() {
+      confirmModal.style.display = 'none';
+      pendingNavigation = null;
+      tip.innerText = '已取消导航';
+      tip.style.display = 'block';
+      setTimeout(() => tip.style.display = 'none', 2000);
+    }
+
+    function setDestinationAndNavigate(name, loc, navType) {
       targetPos = loc;
       addressInput.value = name;
       tip.innerText = '🎯 目的地：' + name;
       tip.style.display = 'block';
       sendNavTextToCloud('前往 ' + name);
-      startNav('walking');
+      // 使用指定的导航类型，默认为步行
+      startNav(navType || 'walking');
       setTimeout(() => tip.style.display = 'none', 3000);
     }
 
@@ -244,7 +307,8 @@
                   if (poiData.pois && poiData.pois.length > 0) {
                     const poi = poiData.pois[0];
                     const lnglat = poi.location.split(',').map(Number);
-                    setDestinationAndNavigate(poi.name, lnglat);
+                    // 显示确认弹窗
+                    showConfirmModal(data.destination, localMatch, poi.name, lnglat);
                   } else {
                     tip.innerText = '❌ 未找到该地点';
                     setTimeout(() => tip.style.display = 'none', 3000);
@@ -298,7 +362,8 @@
             if (poiData.pois && poiData.pois.length > 0) {
               const poi = poiData.pois[0];
               const lnglat = poi.location.split(',').map(Number);
-              setDestinationAndNavigate(poi.name, lnglat);
+              // 显示确认弹窗
+              showConfirmModal(testText, match, poi.name, lnglat);
             }
           });
         return;
@@ -409,21 +474,37 @@
     }
 
     async function startNav(type){
-      if (!currentPos) { tip.innerText = "请等待硬件定位成功"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
+      if (!currentPos) { 
+        // 如果没有硬件定位，使用默认位置（桂林理工大学）
+        currentPos = new AMap.LngLat(110.320, 25.284);
+        tip.innerText = "使用默认位置（桂林理工大学）"; 
+        tip.style.display = 'block'; 
+        setTimeout(() => tip.style.display = 'none', 2000);
+      }
       if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
+      
+      // 清除之前的路线
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
 
       const origin = currentPos.lng + ',' + currentPos.lat;
       const dest = targetPos[0] + ',' + targetPos[1];
-      const apiPath = type === 'walking' ? 'walking' : 'riding';
-      const apiUrl = `https://restapi.amap.com/v3/direction/${apiPath}?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-
-      sendNavTextToCloud('正在规划路径');
+      
+      // 根据导航类型选择API
+      let apiUrl;
+      if (type === 'riding') {
+        apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
+        sendNavTextToCloud('正在规划骑行路线');
+      } else {
+        apiUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
+        sendNavTextToCloud('正在规划步行路线');
+      }
 
       try {
         const resp = await fetch(apiUrl);
         const data = await resp.json();
+        console.log('导航API返回:', data);
+        
         if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
           const path = data.route.paths[0];
           const steps = path.steps.map(s => s.instruction);
@@ -437,24 +518,30 @@
           
           const route = new AMap.Polyline({
             path: polyline,
-            strokeColor: type === 'walking' ? '#1677ff' : '#FF9800',
+            strokeColor: type === 'riding' ? '#FF9800' : '#1677ff',
             strokeWeight: 6,
             strokeOpacity: 0.8
           });
           route.setMap(map);
           
-          if (type === 'walking') walkingRoute = route;
-          else ridingRoute = route;
+          if (type === 'riding') {
+            ridingRoute = route;
+          } else {
+            walkingRoute = route;
+          }
           
           map.setFitView([route]);
-          showNavStatus(`距离：${path.distance}米，预计时间：${Math.round(path.duration/60)}分钟`);
+          const navTypeText = type === 'riding' ? '骑行' : '步行';
+          showNavStatus(`${navTypeText}导航：距离${path.distance}米，预计${Math.round(path.duration/60)}分钟`);
           showNavSteps(steps);
-          sendNavTextToCloud(`距离${path.distance}米，预计${Math.round(path.duration/60)}分钟`);
+          sendNavTextToCloud(`${navTypeText}导航，距离${path.distance}米，预计${Math.round(path.duration/60)}分钟`);
+          speakTextOut(`${navTypeText}导航开始，距离${path.distance}米，预计${Math.round(path.duration/60)}分钟`);
         } else {
           tip.innerText = '❌ 路径规划失败';
           setTimeout(() => tip.style.display = 'none', 3000);
         }
       } catch (e) {
+        console.error('导航请求失败:', e);
         tip.innerText = '❌ 网络错误';
         setTimeout(() => tip.style.display = 'none', 3000);
       }
