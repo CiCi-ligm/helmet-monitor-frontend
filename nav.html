@@ -222,27 +222,20 @@
         })
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
-            if (data.destination && data.location) {
-              const lnglat = data.location.split(',').map(Number);
-              targetPos = lnglat;
-              addressInput.value = data.destination;
-              tip.innerText = `✅ 识别结果：${data.destination}`;
-              tip.style.display = 'block';
-              sendNavTextToCloud('已识别您要去' + data.destination);
-              setTimeout(() => tip.style.display = 'none', 2000);
-              
-              // 直接调用高德地图导航
-              if (currentPos) {
-                const url = `https://uri.amap.com/navigation?from=${currentPos.lng},${currentPos.lat},我的位置&to=${targetPos[0]},${targetPos[1]},${encodeURIComponent(data.destination)}&mode=walk`;
-                window.open(url, '_blank');
-              }
-            } else if (data.reply) {
-              tip.innerText = '🤔 ' + data.reply;
-              tip.style.display = 'block';
-              sendNavTextToCloud(data.reply);
-              setTimeout(() => tip.style.display = 'none', 5000);
-            }
+          if (data.success && data.destination && data.location) {
+            const lnglat = data.location.split(',').map(Number);
+            targetPos = lnglat;
+            addressInput.value = data.destination;
+            tip.innerText = `✅ 识别结果：${data.destination}`;
+            tip.style.display = 'block';
+            sendNavTextToCloud('已识别您要去' + data.destination);
+            setTimeout(() => tip.style.display = 'none', 2000);
+            startNav('walking');
+          } else if (data.reply) {
+            tip.innerText = '🤔 ' + data.reply;
+            tip.style.display = 'block';
+            sendNavTextToCloud(data.reply);
+            setTimeout(() => tip.style.display = 'none', 5000);
           } else {
             tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
             setTimeout(() => tip.style.display = 'none', 3000);
@@ -286,10 +279,7 @@
           tip.innerText = `✅ 硬件识别：${data.destination}`;
           tip.style.display = 'block';
           sendNavTextToCloud('已识别您要去' + data.destination);
-          if (currentPos) {
-            const url = `https://uri.amap.com/navigation?from=${currentPos.lng},${currentPos.lat},我的位置&to=${targetPos[0]},${targetPos[1]},${encodeURIComponent(data.destination)}&mode=walk`;
-            window.open(url, '_blank');
-          }
+          startNav('walking');
           setTimeout(() => tip.style.display = 'none', 8000);
         } else if (data.reply) {
           tip.innerText = '🤔 ' + data.reply;
@@ -395,6 +385,33 @@
         }, 300);
       });
       addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
+    }
+
+    function startNav(type){
+      if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(walkingRoute) walkingRoute.clear();
+      const typeText = type === 'walking' ? '步行' : '骑行';
+      sendNavTextToCloud('正在规划路径');
+      AMap.plugin('AMap.Walking', function(){
+        const walking = new AMap.Walking({ map: map, autoFitView: true });
+        walking.search(currentPos, targetPos, function(status, result) {
+          if (status === 'complete' && result.info === 'OK') {
+            tip.innerText = typeText + '路线规划成功';
+            setTimeout(() => tip.style.display = 'none', 2000);
+            const firstStep = result.routes[0].steps[0]?.instruction || '开始' + typeText + '导航';
+            sendNavTextToCloud('开始' + typeText + '导航，' + firstStep);
+          } else {
+            tip.innerText = '路线规划失败';
+            setTimeout(() => tip.style.display = 'none', 2000);
+          }
+        });
+      });
+    }
+
+    function switchSatellite(){
+      if(!isSatellite){ map.add(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换普通地图"; isSatellite = true; }
+      else{ map.remove(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换卫星图"; isSatellite = false; }
     }
 
     function clearAll(){
