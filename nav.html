@@ -80,7 +80,6 @@
       text-align:center;display:none;
     }
 
-    /* 导航步骤面板 */
     #navStepsPanel {
       position:fixed;bottom:70px;left:10px;right:10px;z-index:9998;
       background:rgba(0,0,0,0.85);color:#fff;
@@ -212,59 +211,53 @@
 
     let recorder;
 
-    // ========== 本地固定目的地映射表（桂林市区） ==========
-    const LOCAL_FIX_MAP = {
-      // --- 周边店铺（精确坐标） ---
-      '我要去附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-      '附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-      '咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-      '咖啡': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-      '瑞幸': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+    // ========== 优化后的本地固定目的地映射表（桂林市区） ==========
+    // 核心位置：广西桂林市七星区建干路桂林理工大学屏风校区周边
+    const LOCAL_FIX_MAP = [
+      // 咖啡店
+      { keywords: ['咖啡', '瑞幸', '咖啡店', '咖啡馆', '喝咖啡'], dest: '瑞幸咖啡（桂林理工大学屏风店）', loc: [110.315876, 25.280612] },
+      // 超市
+      { keywords: ['超市', '赵一鸣', '省钱超市', '百货', '便利店'], dest: '赵一鸣省钱超市(广西桂林建干路理工店)', loc: [110.319752, 25.283965] },
+      // 奶茶
+      { keywords: ['奶茶', '蜜雪冰城', '奶茶店', '饮品', '喝奶茶'], dest: '蜜雪冰城(学院正门店)', loc: [110.315923, 25.280578] },
+      // 桂林理工大学
+      { keywords: ['桂林理工大学', '理工大学', '屏风校区', '桂工'], dest: '桂林理工大学屏风校区', loc: [110.320143, 25.284221] },
+      // 其他景点/地标
+      { keywords: ['国贸天地'], dest: '国贸天地', loc: [110.297074, 25.279430] },
+      { keywords: ['象鼻山', '象鼻山景区'], dest: '象鼻山景区', loc: [110.291860, 25.272124] },
+      { keywords: ['两江四湖', '两江两湖', '四湖'], dest: '桂林市两江四湖景区', loc: [110.294400, 25.273300] },
+      { keywords: ['日月双塔'], dest: '日月双塔', loc: [110.294826, 25.271420] },
+      { keywords: ['正阳步行街', '步行街'], dest: '正阳步行街', loc: [110.297810, 25.278470] },
+      { keywords: ['东西巷'], dest: '东西巷', loc: [110.299731, 25.278717] },
+      { keywords: ['叠彩山'], dest: '叠彩山', loc: [110.285730, 25.294250] },
+      { keywords: ['七星公园'], dest: '七星公园', loc: [110.307540, 25.274910] },
+      { keywords: ['植物园', '园林植物园'], dest: '桂林园林植物园', loc: [110.272260, 25.252740] },
+      { keywords: ['桂林博物馆', '博物馆'], dest: '桂林博物馆', loc: [110.254750, 25.281830] },
+      { keywords: ['桂林北站', '北站'], dest: '桂林北站', loc: [110.301731, 25.329019] },
+      { keywords: ['桂林南站', '桂林站', '火车站'], dest: '桂林站', loc: [110.283420, 25.260370] },
+      { keywords: ['机场', '两江机场', '桂林机场'], dest: '桂林两江国际机场', loc: [110.035420, 25.211680] },
+      { keywords: ['人民医院', '市人民医院'], dest: '桂林市人民医院', loc: [110.289340, 25.275210] },
+      { keywords: ['万达', '万达广场'], dest: '桂林高新万达广场', loc: [110.315630, 25.280460] }
+    ];
 
-      '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
-      '附近的超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
-      '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
-      '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
-
-      '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      '附近的奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      '奶茶': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      '蜜雪冰城': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      
-      // --- 桂林市区景点 ---
-      '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      '桂林理工大学': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      '屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
-      '象鼻山景区': { name: '象鼻山景区', location: [110.291860, 25.272124] },
-      '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
-      '桂林市两江四湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
-      '两江四湖': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
-      '两江两湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
-      '日月双塔': { name: '日月双塔', location: [110.294826, 25.271420] },
-      '正阳步行街': { name: '正阳步行街', location: [110.297810, 25.278470] },
-      '东西巷': { name: '东西巷', location: [110.299731, 25.278717] },
-      '叠彩山': { name: '叠彩山', location: [110.285730, 25.294250] },
-      '七星公园': { name: '七星公园', location: [110.307540, 25.274910] },
-      '桂林园林植物园': { name: '桂林园林植物园', location: [110.272260, 25.252740] },
-      '桂林博物馆': { name: '桂林博物馆', location: [110.254750, 25.281830] },
-      
-      // --- 交通枢纽 ---
-      '桂林北站': { name: '桂林北站', location: [110.301731, 25.329019] },
-      '桂林南站': { name: '桂林站', location: [110.283420, 25.260370] },
-      '桂林站': { name: '桂林站', location: [110.283420, 25.260370] },
-      '桂林两江国际机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
-      '桂林机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
-      
-      // --- 医院 ---
-      '桂林市人民医院': { name: '桂林市人民医院', location: [110.289340, 25.275210] },
-      
-      // --- 商场 ---
-      '桂林万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
-      '桂林高新万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
-      '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
-    };
+    /**
+     * 根据语音文本匹配本地固定目的地
+     * @param {string} text 语音识别文本
+     * @returns {Object|null} { name, location } 或 null
+     */
+    function matchLocalFix(text) {
+      if (!text) return null;
+      const cleanText = text.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
+      // 优先级：完全匹配关键词
+      for (const item of LOCAL_FIX_MAP) {
+        for (const keyword of item.keywords) {
+          if (cleanText.includes(keyword)) {
+            return { name: item.dest, location: item.loc };
+          }
+        }
+      }
+      return null;
+    }
 
     function connectCloud() {
       try{
@@ -350,7 +343,7 @@
         const formData = new FormData();
         formData.append('audio', blob, 'voice.wav');
         
-        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
 
         fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`, {
           method: 'POST',
@@ -359,44 +352,23 @@
         .then(res => res.json())
         .then(data => {
           if (data.success && data.destination) {
-            let finalDest = data.destination;
-            let finalLocation = data.location;
+            // 优先使用本地关键词匹配，覆盖AI返回结果
+            const localMatch = matchLocalFix(data.destination);
+            let finalDest, finalLocation;
 
-            // 优先使用本地映射表（完全匹配 + 模糊匹配）
-            let matched = false;
-            
-            // 1. 完全匹配
-            if (LOCAL_FIX_MAP[finalDest]) {
-              finalDest = LOCAL_FIX_MAP[finalDest].name;
-              finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
-              matched = true;
-            }
-            // 2. 模糊匹配（双向包含）
-            if (!matched) {
-              for (const key of Object.keys(LOCAL_FIX_MAP)) {
-                if (finalDest.includes(key) || key.includes(finalDest)) {
-                  finalDest = LOCAL_FIX_MAP[key].name;
-                  finalLocation = LOCAL_FIX_MAP[key].location.join(',');
-                  matched = true;
-                  break;
-                }
-              }
-            }
-
-            // 3. 如果本地映射都没命中，再用后端返回的原始结果（但提示可能不准）
-            if (!matched) {
-              tip.innerText = '⚠️ 使用AI识别结果：' + finalDest + '\n（如不准确请重新说）';
-              tip.style.display = 'block';
-              setTimeout(() => tip.style.display = 'none', 3000);
-            } else {
+            if (localMatch) {
+              finalDest = localMatch.name;
+              finalLocation = localMatch.location;
               tip.innerText = '🎯 已为您匹配目的地：' + finalDest;
-              tip.style.display = 'block';
-              setTimeout(() => tip.style.display = 'none', 2000);
+            } else {
+              // 若未命中本地，仍使用AI返回（但显示提醒）
+              finalDest = data.destination;
+              finalLocation = data.location ? data.location.split(',').map(Number) : null;
+              tip.innerText = '⚠️ 使用AI识别结果：' + finalDest + '\n（如不准确请重新说）';
             }
 
             if (finalLocation) {
-              const parts = finalLocation.split(',').map(Number);
-              targetPos = [parts[0], parts[1]];
+              targetPos = finalLocation;
               addressInput.value = finalDest;
               sendNavTextToCloud('已识别您要去' + finalDest);
               startNav('walking');
@@ -404,6 +376,8 @@
               tip.innerText = '❌ 无法获取该目的地坐标';
               setTimeout(() => tip.style.display = 'none', 3000);
             }
+            tip.style.display = 'block';
+            setTimeout(() => tip.style.display = 'none', 4000);
           } else if (data.reply) {
             tip.innerText = '🤔 ' + data.reply;
             tip.style.display = 'block';
@@ -435,11 +409,26 @@
 
     // ========== 硬件语音识别测试 ==========
     async function simulateHardwareVoice() {
-      const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
+      const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有没有什么超市');
       if (!testText) return;
       tip.innerText = '🎙️ 硬件模拟：正在处理...';
       tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+      
+      // 先尝试本地关键词匹配
+      const localMatch = matchLocalFix(testText);
+      if (localMatch) {
+        targetPos = localMatch.location;
+        addressInput.value = localMatch.name;
+        tip.innerText = '✅ 本地匹配成功：' + localMatch.name;
+        tip.style.display = 'block';
+        sendNavTextToCloud('已识别您要去' + localMatch.name);
+        startNav('walking');
+        setTimeout(() => tip.style.display = 'none', 5000);
+        return;
+      }
+
+      // 否则发送给AI后端
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -448,24 +437,18 @@
         const data = await resp.json();
 
         if (data.success && data.destination) {
-          let finalDest = data.destination;
-          let finalLocation = data.location;
-
-          if (LOCAL_FIX_MAP[finalDest]) {
-            finalDest = LOCAL_FIX_MAP[finalDest].name;
-            finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
+          // 再次尝试本地匹配（防止AI返回模糊结果）
+          const localMatch2 = matchLocalFix(data.destination);
+          let finalDest, finalLocation;
+          if (localMatch2) {
+            finalDest = localMatch2.name;
+            finalLocation = localMatch2.location;
           } else {
-            for (const key of Object.keys(LOCAL_FIX_MAP)) {
-              if (finalDest.includes(key) || key.includes(finalDest)) {
-                finalDest = LOCAL_FIX_MAP[key].name;
-                finalLocation = LOCAL_FIX_MAP[key].location.join(',');
-                break;
-              }
-            }
+            finalDest = data.destination;
+            finalLocation = data.location ? data.location.split(',').map(Number) : null;
           }
-
           if (finalLocation) {
-            targetPos = finalLocation.split(',').map(Number);
+            targetPos = finalLocation;
             addressInput.value = finalDest;
             tip.innerText = `✅ 硬件识别：${finalDest}`;
             tip.style.display = 'block';
@@ -490,7 +473,7 @@
       tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
       tip.style.display = 'block';
       sendNavTextToCloud('检测到异常加速度，大模型正在研判');
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -514,7 +497,7 @@
       tip.innerText = '🚴 大模型正在分析骑行条件...';
       tip.style.display = 'block';
       sendNavTextToCloud('大模型正在分析骑行条件');
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
       try {
         const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -536,7 +519,7 @@
 
     window.onload = function(){
       if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
-      map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
+      map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [110.320, 25.284] });
       satelliteLayer = new AMap.TileLayer.Satellite();
       initAutoComplete();
       if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) { getMyLocation(); }
@@ -557,7 +540,7 @@
     }
 
     function initAutoComplete(){
-      const autoComplete = new AMap.AutoComplete({ city: "宜宾" }); let timer = null;
+      const autoComplete = new AMap.AutoComplete({ city: "桂林" }); let timer = null;
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim(); if(!keyword){ suggestList.style.display = "none"; return; }
         clearTimeout(timer);
@@ -579,7 +562,6 @@
       addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
-    // ✅ 最终版 startNav：路线 + 格式化文本显示 + 喇叭播报
     async function startNav(type){
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
@@ -601,10 +583,8 @@
         if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
           const steps = data.route.paths[0].steps;
           
-          // 提取所有导航指令
           const instructions = steps.map(step => step.instruction).filter(Boolean);
           
-          // 绘制路线
           const path = [];
           steps.forEach(step => {
             const polyline = step.polyline;
@@ -636,14 +616,11 @@
           }
           map.setFitView(null, false, [60, 60, 60, 60]);
 
-          // 显示格式化的导航步骤面板
           showNavSteps(instructions);
 
-          // 发送给后端让喇叭逐条播报（用换行分隔）
           const fullNavText = instructions.join('\n');
           sendNavTextToCloud(fullNavText);
           
-          // 显示第一条指令在底部状态栏
           if (instructions.length > 0) {
             showNavStatus(instructions[0]);
           }
