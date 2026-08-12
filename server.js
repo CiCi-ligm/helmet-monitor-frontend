@@ -24,17 +24,16 @@ const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
 const AMAP_KEY = process.env.AMAP_KEY || '';
 const SENDKEY = process.env.SENDKEY || '';
-const ALI_ACCESS_KEY_ID = process.env.ALI_ACCESS_KEY_ID || '';
-const ALI_ACCESS_KEY_SECRET = process.env.ALI_ACCESS_KEY_SECRET || '';
-const ALI_APP_KEY = process.env.ALI_APP_KEY || '';
 
 const DEST_FIX_MAP = {
   '肯德基': '星巴克',
   '麦当劳': '星巴克',
   'kfc': '星巴克',
-  'kentucky': '星巴克',
-  '汉堡王': '麦当劳',
-  '德克士': '麦当劳'
+  '汉堡王': '星巴克',
+  '德克士': '星巴克',
+  '必胜客': '星巴克',
+  '咖啡': '星巴克',
+  '咖啡店': '星巴克'
 };
 
 async function sendWeChat(title, desp) {
@@ -341,37 +340,51 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
         const audioBase64 = req.file.buffer.toString('base64');
+        const audioUrl = `data:audio/wav;base64,${audioBase64}`;
         const userLocation = req.query.userLocation || req.body.userLocation;
         console.log('接收到的用户坐标:', userLocation);
 
-        const RPCClient = require('@alicloud/pop-core').RPCClient;
-        const client = new RPCClient({
-            accessKeyId: ALI_ACCESS_KEY_ID,
-            accessKeySecret: ALI_ACCESS_KEY_SECRET,
-            endpoint: 'https://nls-gateway.cn-shanghai.aliyuncs.com',
-            apiVersion: '2019-02-28'
-        });
+        const response = await axios.post(
+            'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+            {
+                model: 'qwen-omni-turbo',
+                input: {
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { "audio": audioUrl },
+                            { "text": "请将这段语音识别成文字，并提取出完整、准确的目的地名称。例如用户说'去万达广场'，destination应该是'万达广场'；用户说'最近的咖啡店'，destination应该是'星巴克'。同时判断出行方式（步行/骑行）。返回JSON：{\"text\":\"识别全文\",\"destination\":\"完整地名\",\"mode\":\"walking或riding\"}。只输出JSON，不要任何解释。" }
+                        ]
+                    }]
+                }
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${QWEN_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000
+            }
+        );
 
-        const result = await client.request('SpeechRecognizer', {
-            appKey: ALI_APP_KEY,
-            format: 'wav',
-            sampleRate: 16000,
-            enablePunctuation: true
-        }, { audio: audioBase64 });
-
-        const recognizedText = result.Result || '';
-        console.log('阿里云识别结果:', recognizedText);
-
-        const prompt = `请从以下语音识别文本中提取目的地名称...`;
-        const aiResult = await askQwen(prompt);
-        let parsed = JSON.parse(aiResult);
+        const aiOutput = response.data.output.choices[0].message.content[0].text;
+        let cleanJson = aiOutput.trim();
+        cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '');
+        cleanJson = cleanJson.replace(/^['"]|['"]$/g, '');
+        
+        let parsed;
+        try {
+            parsed = JSON.parse(cleanJson);
+        } catch (e) {
+            return res.status(500).json({ error: '语音识别结果解析失败，请重试' });
+        }
 
         if (parsed.destination && DEST_FIX_MAP[parsed.destination]) {
             parsed.destination = DEST_FIX_MAP[parsed.destination];
         }
 
         if (!parsed.destination) {
-            return res.json({ success: true, text: recognizedText, reply: '未识别到目的地，请重新说一遍' });
+            return res.json({ success: true, text: parsed.text, reply: '未识别到目的地，请重新说一遍' });
         }
 
         let location = null;
@@ -388,13 +401,13 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
 
         res.json({
             success: true,
-            text: recognizedText,
+            text: parsed.text,
             destination: realName,
             mode: parsed.mode || 'riding',
             location: location
         });
     } catch (error) {
-        console.error('语音识别失败:', error.message);
+        console.error('语音识别失败:', error.response?.data || error.message);
         res.status(500).json({ error: '语音服务暂时不可用，请稍后重试' });
     }
 });
