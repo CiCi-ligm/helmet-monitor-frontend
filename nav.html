@@ -68,6 +68,16 @@
       transform:translate(-50%,-50%);z-index:9999;
       background:rgba(0,0,0,0.7);color:#fff;
       padding:10px 20px;border-radius:20px;font-size:15px;
+      max-width: 90%;
+      white-space: pre-line;
+      text-align: left;
+    }
+
+    #navStatus {
+      position:fixed;bottom:70px;left:10px;right:10px;z-index:9998;
+      background:rgba(0,0,0,0.8);color:#fff;
+      padding:8px 12px;border-radius:8px;font-size:13px;
+      text-align:center;display:none;
     }
 
     .recording-btn {
@@ -113,6 +123,7 @@
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
   <div id="tip">正在获取硬件GPS位置...</div>
+  <div id="navStatus"></div>
 
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active">
@@ -141,6 +152,7 @@
     let mqttClient = null;
 
     const tip = document.getElementById('tip');
+    const navStatus = document.getElementById('navStatus');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
@@ -159,6 +171,12 @@
         mqttClient.on("connect", ()=>{ console.log("✅ MQTT 连接成功"); });
         mqttClient.on("error", (err) => console.warn("MQTT 错误", err));
       }catch(e){ console.error("MQTT 连接异常", e); }
+    }
+
+    function showNavStatus(text) {
+      navStatus.innerText = '📢 ' + text;
+      navStatus.style.display = 'block';
+      setTimeout(() => { navStatus.style.display = 'none'; }, 8000);
     }
 
     function sendNavTextToCloud(text) {
@@ -387,7 +405,7 @@
       addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
-    // 增强调试版 startNav
+    // ✅ 最终版 startNav：路线规划 + 文字显示 + 喇叭播报
     async function startNav(type){
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
@@ -401,17 +419,19 @@
       const apiPath = type === 'walking' ? 'walking' : 'riding';
       const apiUrl = `https://restapi.amap.com/v3/direction/${apiPath}?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
 
-      alert('请求URL: ' + apiUrl);
       sendNavTextToCloud('正在规划路径');
 
       try {
         const resp = await fetch(apiUrl);
-        const text = await resp.text();
-        alert('API 返回内容:\n' + text.substring(0, 500));
-        
-        const data = JSON.parse(text);
+        const data = await resp.json();
         if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
           const steps = data.route.paths[0].steps;
+          
+          // 提取所有导航指令
+          const instructions = steps.map(step => step.instruction).filter(Boolean);
+          const fullNavText = instructions.join('。');
+          
+          // 绘制路线
           const path = [];
           steps.forEach(step => {
             const polyline = step.polyline;
@@ -443,18 +463,24 @@
           }
           map.setFitView(null, false, [60, 60, 60, 60]);
 
-          tip.innerText = typeText + '路线规划成功';
-          setTimeout(() => tip.style.display = 'none', 2000);
-          const firstStep = steps[0]?.instruction || '开始' + typeText + '导航';
-          sendNavTextToCloud('开始' + typeText + '导航，' + firstStep);
-          alert('路线规划成功！');
+          // 显示导航内容在网页上
+          tip.innerText = '🗺️ ' + typeText + '路线\n' + fullNavText;
+          tip.style.display = 'block';
+          // 10秒后自动隐藏
+          setTimeout(() => tip.style.display = 'none', 10000);
+
+          // 发送给后端让喇叭播报
+          sendNavTextToCloud(fullNavText);
+          
+          // 显示第一条指令在底部状态栏
+          if (instructions.length > 0) {
+            showNavStatus(instructions[0]);
+          }
         } else {
-          alert('API 返回状态: ' + data.status + '\n信息: ' + (data.info || data.infocode));
           tip.innerText = '路线规划失败';
           setTimeout(() => tip.style.display = 'none', 3000);
         }
       } catch (e) {
-        alert('网络错误: ' + e.message);
         tip.innerText = '路线规划失败（网络错误）';
         setTimeout(() => tip.style.display = 'none', 3000);
       }
