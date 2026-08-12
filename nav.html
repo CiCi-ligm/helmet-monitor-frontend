@@ -377,7 +377,6 @@
     }
 
     window.onload = function(){
-      if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       satelliteLayer = new AMap.TileLayer.Satellite();
       initAutoComplete();
