@@ -16,12 +16,8 @@
       "dest": "/server.js"
     },
     {
-      "src": "/nav.html",
-      "dest": "/nav.html"
-    },
-    {
-      "src": "/index.html",
-      "dest": "/index.html"
+      "src": "/(.*\\.html)",
+      "dest": "/$1"
     },
     {
       "src": "/(.*)",
