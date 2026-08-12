@@ -184,7 +184,6 @@
       setTimeout(() => tip.style.display = 'none', 3000);
     }
 
-    // ---------- 录音上传逻辑（不使用浏览器语音识别） ----------
     voiceBtn.addEventListener('mousedown', startRec);
     voiceBtn.addEventListener('touchstart', startRec);
     voiceBtn.addEventListener('mouseup', stopRec);
@@ -226,10 +225,8 @@
         fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`, { method: 'POST', body: form })
         .then(r => r.json())
         .then(data => {
-          // 1. 云端识别成功
           if (data.success && data.destination) {
             const localMatch = matchLocalFix(data.destination);
-            // 2. 本地映射优先
             if (localMatch) {
               setDestinationAndNavigate(localMatch.name, localMatch.location);
             } else if (data.location) {
