@@ -212,6 +212,47 @@
 
     let recorder;
 
+    // ========== 本地固定目的地映射表（桂林市区） ==========
+    // 键：用户可能说的口语化表达
+    // 值：{ name: 完整店名/地名, location: [lng, lat] }
+    const LOCAL_FIX_MAP = {
+      // --- 周边店铺 ---
+      '附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.320143, 25.284221] },
+      '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320143, 25.284221] },
+      '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320143, 25.284221] },
+      
+      // --- 桂林市区景点 ---
+      '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
+      '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
+      '象鼻山景区': { name: '象鼻山景区', location: [110.291860, 25.272124] },
+      '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
+      '桂林市两江四湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
+      '两江四湖': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
+      '两江两湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
+      '日月双塔': { name: '日月双塔', location: [110.294826, 25.271420] },
+      '正阳步行街': { name: '正阳步行街', location: [110.297810, 25.278470] },
+      '东西巷': { name: '东西巷', location: [110.299731, 25.278717] },
+      '叠彩山': { name: '叠彩山', location: [110.285730, 25.294250] },
+      '七星公园': { name: '七星公园', location: [110.307540, 25.274910] },
+      '桂林园林植物园': { name: '桂林园林植物园', location: [110.272260, 25.252740] },
+      '桂林博物馆': { name: '桂林博物馆', location: [110.254750, 25.281830] },
+      
+      // --- 交通枢纽 ---
+      '桂林北站': { name: '桂林北站', location: [110.301731, 25.329019] },
+      '桂林南站': { name: '桂林站', location: [110.283420, 25.260370] },
+      '桂林站': { name: '桂林站', location: [110.283420, 25.260370] },
+      '桂林两江国际机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
+      '桂林机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
+      
+      // --- 医院 ---
+      '桂林市人民医院': { name: '桂林市人民医院', location: [110.289340, 25.275210] },
+      
+      // --- 商场 ---
+      '桂林万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
+      '桂林高新万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
+      '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
+    };
+
     function connectCloud() {
       try{
         if(typeof mqtt === "undefined"){ console.error("mqtt库加载失败"); return; }
@@ -304,15 +345,45 @@
         })
         .then(res => res.json())
         .then(data => {
-          if (data.success && data.destination && data.location) {
-            const parts = data.location.split(',').map(Number);
-            targetPos = [parts[0], parts[1]];
-            addressInput.value = data.destination;
-            tip.innerText = `✅ 识别结果：${data.destination}`;
-            tip.style.display = 'block';
-            sendNavTextToCloud('已识别您要去' + data.destination);
-            setTimeout(() => tip.style.display = 'none', 2000);
-            startNav('walking');
+          if (data.success && data.destination) {
+            let finalDest = data.destination;
+            let finalLocation = data.location;
+
+            // 1. 先尝试完全匹配本地映射表
+            if (LOCAL_FIX_MAP[finalDest]) {
+              finalDest = LOCAL_FIX_MAP[finalDest].name;
+              finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
+              tip.innerText = '🎯 已为您匹配固定目的地：' + finalDest;
+              tip.style.display = 'block';
+              setTimeout(() => tip.style.display = 'none', 3000);
+            }
+            // 2. 如果完全匹配没命中，尝试模糊匹配（遍历所有 key）
+            else {
+              for (const key of Object.keys(LOCAL_FIX_MAP)) {
+                if (finalDest.includes(key) || key.includes(finalDest)) {
+                  finalDest = LOCAL_FIX_MAP[key].name;
+                  finalLocation = LOCAL_FIX_MAP[key].location.join(',');
+                  tip.innerText = '🎯 已为您模糊匹配目的地：' + finalDest;
+                  tip.style.display = 'block';
+                  setTimeout(() => tip.style.display = 'none', 3000);
+                  break;
+                }
+              }
+            }
+
+            if (finalLocation) {
+              const parts = finalLocation.split(',').map(Number);
+              targetPos = [parts[0], parts[1]];
+              addressInput.value = finalDest;
+              tip.innerText = `✅ 识别结果：${finalDest}`;
+              tip.style.display = 'block';
+              sendNavTextToCloud('已识别您要去' + finalDest);
+              setTimeout(() => tip.style.display = 'none', 2000);
+              startNav('walking');
+            } else {
+              tip.innerText = '❌ 无法获取该目的地坐标';
+              setTimeout(() => tip.style.display = 'none', 3000);
+            }
           } else if (data.reply) {
             tip.innerText = '🤔 ' + data.reply;
             tip.style.display = 'block';
@@ -355,14 +426,33 @@
           body: JSON.stringify({ text: testText, userLocation: loc })
         });
         const data = await resp.json();
-        if (data.success && data.destination && data.location) {
-          targetPos = data.location.split(',').map(Number);
-          addressInput.value = data.destination;
-          tip.innerText = `✅ 硬件识别：${data.destination}`;
-          tip.style.display = 'block';
-          sendNavTextToCloud('已识别您要去' + data.destination);
-          startNav('walking');
-          setTimeout(() => tip.style.display = 'none', 8000);
+
+        if (data.success && data.destination) {
+          let finalDest = data.destination;
+          let finalLocation = data.location;
+
+          if (LOCAL_FIX_MAP[finalDest]) {
+            finalDest = LOCAL_FIX_MAP[finalDest].name;
+            finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
+          } else {
+            for (const key of Object.keys(LOCAL_FIX_MAP)) {
+              if (finalDest.includes(key) || key.includes(finalDest)) {
+                finalDest = LOCAL_FIX_MAP[key].name;
+                finalLocation = LOCAL_FIX_MAP[key].location.join(',');
+                break;
+              }
+            }
+          }
+
+          if (finalLocation) {
+            targetPos = finalLocation.split(',').map(Number);
+            addressInput.value = finalDest;
+            tip.innerText = `✅ 硬件识别：${finalDest}`;
+            tip.style.display = 'block';
+            sendNavTextToCloud('已识别您要去' + finalDest);
+            startNav('walking');
+            setTimeout(() => tip.style.display = 'none', 8000);
+          }
         } else if (data.reply) {
           tip.innerText = '🤔 ' + data.reply;
           tip.style.display = 'block';
