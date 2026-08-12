@@ -447,21 +447,37 @@
     }
 
     function initAutoComplete(){
-      const autoComplete = new AMap.AutoComplete({ city: "宜宾" }); let timer = null;
+      const autoComplete = new AMap.AutoComplete({ city: "宜宾" }); 
+      let timer = null;
       addressInput.addEventListener('input', function(){
-        const keyword = this.value.trim(); if(!keyword){ suggestList.style.display = "none"; return; }
+        const keyword = this.value.trim(); 
+        if(!keyword){ 
+          suggestList.style.display = "none"; 
+          return; 
+        }
         clearTimeout(timer);
         timer = setTimeout(()=>{
           autoComplete.search(keyword, (status, res) => {
+            // 调试弹窗
+            alert('AutoComplete 状态: ' + status + '\n结果数量: ' + (res && res.tips ? res.tips.length : 0) + '\n关键字: ' + keyword);
             if(status === "complete" && res.tips && res.tips.length > 0){
               suggestList.innerHTML = "";
-              res.tips.forEach(tip => { if(!tip.location) return;
-                const div = document.createElement('div'); div.className = "item";
+              res.tips.forEach(tip => { 
+                if(!tip.location) return;
+                const div = document.createElement('div'); 
+                div.className = "item";
                 div.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
-                div.onclick = () => { addressInput.value = tip.name; targetPos = tip.location; suggestList.style.display = "none"; };
+                div.onclick = () => { 
+                  addressInput.value = tip.name; 
+                  targetPos = tip.location; 
+                  suggestList.style.display = "none"; 
+                };
                 suggestList.appendChild(div);
               });
               suggestList.style.display = "block";
+            } else {
+              alert('没有找到结果或请求失败');
+              suggestList.style.display = "none";
             }
           });
         }, 300);
