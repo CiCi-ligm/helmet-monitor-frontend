@@ -74,6 +74,7 @@
     let map, myMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
+    let autoComplete;
 
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
@@ -93,30 +94,24 @@
     let recorder;
     let speechRecognition = null;
 
-    // ========== 所有地点统一映射表（包含咖啡、超市、奶茶、景点等） ==========
     const LOCAL_FIX_MAP = {
-      // 咖啡
       '我要去附近的咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
       '附近的咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
       '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
       '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
       '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      // 超市
       '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
       '附近的超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
       '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
       '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
-      // 奶茶
       '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '附近的奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '奶茶': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
       '蜜雪冰城': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
-      // 桂林理工
       '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '桂林理工大学': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      // 其他景点
       '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
       '象鼻山景区': { name: '象鼻山景区', location: [110.291860, 25.272124] },
       '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
@@ -141,13 +136,8 @@
       '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
     };
 
-    // 按键长度降序，保证长句优先匹配（例如“我要去附近的咖啡店”优先于“咖啡”）
     const SORTED_MAP_KEYS = Object.keys(LOCAL_FIX_MAP).sort((a, b) => b.length - a.length);
 
-    /**
-     * 统一匹配逻辑：清洗文本后，遍历排序的键，若包含则返回对应目的地。
-     * 和桂林理工大学等地点的匹配方式完全一致。
-     */
     function matchLocalFix(text) {
       if (!text) return null;
       const cleanText = text.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
@@ -266,7 +256,6 @@
 
       recorder.stopRecording(() => {
         const blob = recorder.getBlob();
-        // 1. 本地匹配成功 → 直接导航
         if (localText) {
           const match = matchLocalFix(localText);
           if (match) {
@@ -278,7 +267,6 @@
           }
         }
 
-        // 2. 本地未匹配，上传AI，AI结果不再用本地映射覆盖
         const form = new FormData();
         form.append('audio', blob, 'voice.wav');
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
@@ -287,7 +275,6 @@
         .then(r => r.json())
         .then(data => {
           if (data.success && data.location) {
-            // 直接使用AI返回的坐标，不做本地纠正
             const parts = data.location.split(',').map(Number);
             if (parts.length === 2) {
               setDestinationAndNavigate(data.destination || 'AI目的地', parts);
@@ -353,7 +340,6 @@
       }
     }
 
-    // 其余功能（摔倒、骑行评估等）
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
       tip.style.display = 'block';
@@ -425,6 +411,17 @@
           map.setCenter(currentPos);
           tip.innerText = "定位成功";
           setTimeout(() => tip.style.display = "none", 1500);
+          // 根据定位城市动态设置 AutoComplete
+          if (autoComplete && AMap.Geocoder) {
+            const geocoder = new AMap.Geocoder();
+            geocoder.getAddress(currentPos, (gcStatus, gcResult) => {
+              if (gcStatus === 'complete' && gcResult.regeocode) {
+                const city = gcResult.regeocode.addressComponent.city || gcResult.regeocode.addressComponent.province || '全国';
+                autoComplete.setCity(city);
+                console.log('已切换联想城市:', city);
+              }
+            });
+          }
         } else {
           tip.innerText = "定位失败，请开启手机定位权限";
         }
@@ -432,7 +429,8 @@
     }
 
     function initAutoComplete(){
-      const autoComplete = new AMap.AutoComplete({ city: "桂林" });
+      // 初始不指定城市，定位成功后再动态设置
+      autoComplete = new AMap.AutoComplete();
       let timer = null;
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
