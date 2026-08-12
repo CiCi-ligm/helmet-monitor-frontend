@@ -362,36 +362,43 @@
             let finalDest = data.destination;
             let finalLocation = data.location;
 
+            // 优先使用本地映射表（完全匹配 + 模糊匹配）
+            let matched = false;
+            
             // 1. 完全匹配
             if (LOCAL_FIX_MAP[finalDest]) {
               finalDest = LOCAL_FIX_MAP[finalDest].name;
               finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
-              tip.innerText = '🎯 已为您匹配固定目的地：' + finalDest;
-              tip.style.display = 'block';
-              setTimeout(() => tip.style.display = 'none', 3000);
+              matched = true;
             }
-            // 2. 模糊匹配
-            else {
+            // 2. 模糊匹配（双向包含）
+            if (!matched) {
               for (const key of Object.keys(LOCAL_FIX_MAP)) {
                 if (finalDest.includes(key) || key.includes(finalDest)) {
                   finalDest = LOCAL_FIX_MAP[key].name;
                   finalLocation = LOCAL_FIX_MAP[key].location.join(',');
-                  tip.innerText = '🎯 已为您模糊匹配目的地：' + finalDest;
-                  tip.style.display = 'block';
-                  setTimeout(() => tip.style.display = 'none', 3000);
+                  matched = true;
                   break;
                 }
               }
+            }
+
+            // 3. 如果本地映射都没命中，再用后端返回的原始结果（但提示可能不准）
+            if (!matched) {
+              tip.innerText = '⚠️ 使用AI识别结果：' + finalDest + '\n（如不准确请重新说）';
+              tip.style.display = 'block';
+              setTimeout(() => tip.style.display = 'none', 3000);
+            } else {
+              tip.innerText = '🎯 已为您匹配目的地：' + finalDest;
+              tip.style.display = 'block';
+              setTimeout(() => tip.style.display = 'none', 2000);
             }
 
             if (finalLocation) {
               const parts = finalLocation.split(',').map(Number);
               targetPos = [parts[0], parts[1]];
               addressInput.value = finalDest;
-              tip.innerText = `✅ 识别结果：${finalDest}`;
-              tip.style.display = 'block';
               sendNavTextToCloud('已识别您要去' + finalDest);
-              setTimeout(() => tip.style.display = 'none', 2000);
               startNav('walking');
             } else {
               tip.innerText = '❌ 无法获取该目的地坐标';
