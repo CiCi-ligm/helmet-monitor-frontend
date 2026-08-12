@@ -7,7 +7,6 @@ const { askQwen } = require('./aiService');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 静态文件服务 - 根目录
 app.use(express.static('.'));
 
 app.use((req, res, next) => {
@@ -20,11 +19,11 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
-const QWEN_API_KEY = process.env.QWEN_API_KEY || '';
+const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
-const AMAP_KEY = process.env.AMAP_KEY || '';
-const SENDKEY = process.env.SENDKEY || '';
+const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
+const SENDKEY = 'SCT384452T1uN1Lq5R2P5ZrEabTNmyImaA';
 
 const ALI_ACCESS_KEY_ID = process.env.ALI_ACCESS_KEY_ID || '';
 const ALI_ACCESS_KEY_SECRET = process.env.ALI_ACCESS_KEY_SECRET || '';
@@ -165,31 +164,7 @@ app.post('/api/ai/ride-check', async (req, res) => {
         }
 
         const sensors = { spo2: 98, heart_rate: 70, temperature: 28, light: 35000 };
-        const prompt = `你是一位资深的运动健康专家和骑行教练。请像一个负责任的医生和教练一样，综合分析以下多维数据，为你的学员提供专业、令人信服的骑行前评估报告：
-
-【环境数据】
-- 天气状况：${weather}
-- 环境温度：${sensors.temperature}°C
-- 光照强度：${sensors.light}lux
-
-【生理数据】
-- 血氧饱和度：${sensors.spo2}%
-- 当前静息心率：${sensors.heart_rate}bpm
-
-【科学参考标准】
-- 普通成年人静息心率：60～100次/分钟
-- 体能优秀的运动喜好者静息心率：50～70次/分钟（说明心脏泵血能力更强）
-- 血氧饱和度正常范围：95%～100%
-- 环境温度超过28°C时，运动需警惕中暑风险。湿度超过70%会影响汗液蒸发，加重心脏负担。
-- 光照强度超过50000lux为烈日，需做好防晒和护目。
-
-请按以下逻辑，生成一份专业、有说服力的分析报告，必须引用上述数据进行交叉对比：
-1. 分析当前环境对人体运动的影响（温度、湿度对散热和心率的影响）。
-2. 分析用户生理数据（心率、血氧）与参考标准的对比，判断其体能水平。
-3. 综合环境和生理数据，给出是否适合骑行的明确判断，以及推荐的运动强度和时长。
-4. 给出2-3条具体、可执行的针对性建议。
-
-以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "简明扼要的总结建议（40字以内）", "detail": "详细的交叉分析报告（120字以内，必须包含具体的标准对比，如'您的静息心率70bpm，属正常成年人水平，意味着心肺功能良好'）"}。只输出JSON，不要任何解释。`;
+        const prompt = `你是一位资深的运动健康专家和骑行教练...`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
         const fullText = parsed.advice + '。' + parsed.detail + '。当前天气：' + weather + '。';
@@ -208,7 +183,7 @@ app.post('/api/ai/nav', async (req, res) => {
             await sendToOneNET(destination);
             return res.json({ success: true, text: destination });
         }
-        const prompt = `你是一个专业的骑行导航助手。用户正在骑行前往"${destination}"，当前状态为"${status || '进行中'}"。请生成一句简短的导航语音指令（15字以内），例如"前方50米右转"、"继续直行200米"等。只输出导航动作本身。`;
+        const prompt = `你是一个专业的骑行导航助手...`;
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
@@ -221,7 +196,7 @@ app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
-        const prompt = `你是一个骑行安全助手。用户设备检测到${event}事件，传感器数据：${data || '无详细数据'}。请判断风险等级（低/中/高），并生成一句紧急语音提示（15字以内），如"检测到摔倒，已通知紧急联系人"。只输出JSON：{"level":"风险等级","text":"语音提示"}。`;
+        const prompt = `你是一个骑行安全助手...`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
         await sendToOneNET(parsed.text);
@@ -252,7 +227,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const { distance, duration, speed, calories, count } = req.body;
         const avgDist = (distance / count).toFixed(1);
         const avgDuration = Math.round(duration / count);
-        const prompt = `你是一位专业的骑行教练。你的学员最近完成了${count}次骑行，总里程${distance}公里（平均每次${avgDist}公里），总时长${duration}分钟（平均每次${avgDuration}分钟），平均速度${speed}km/h，消耗${calories}卡路里。请结合这些具体数据分析他的骑行表现，指出优点和不足，并给出1-2条具体的改进建议。回答控制在60字以内，必须引用数据。`;
+        const prompt = `你是一位专业的骑行教练...`;
         const aiText = await askQwen(prompt);
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
@@ -265,7 +240,7 @@ app.post('/api/nlp/nav', async (req, res) => {
     try {
         const { text, userLocation } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
-        const prompt = `你是一个专业的骑行导航助手。用户说：${text}。请分析这句话，以JSON格式返回：{"destination":"具体地点名","detail":"检测到的最近的具体地点（如星巴克宜宾万达店）","mode":"walking或riding","instruction":"一句简短的导航起始指令，如'直走50米后左转'"}。只输出JSON，不要任何解释。`;
+        const prompt = `你是一个专业的骑行导航助手...`;
         const aiResult = await askQwen(prompt);
         let parsed;
         try { parsed = JSON.parse(aiResult); } catch (e) { return res.status(500).json({ error: 'AI输出格式错误' }); }
@@ -302,7 +277,7 @@ app.post('/api/voice/command', async (req, res) => {
                     }
                 } catch (e) {}
             }
-            const prompt = `请生成一句简短的语音确认回复（15字以内），告诉用户即将开始导航。返回JSON：{"reply":"确认回复"}。只输出JSON。`;
+            const prompt = `请生成一句简短的语音确认回复...`;
             const aiResult = await askQwen(prompt);
             const aiParsed = JSON.parse(aiResult);
             parsed = { destination: realName, mode: "riding", reply: aiParsed.reply, location: realLocation };
@@ -320,13 +295,7 @@ app.post('/api/voice/command', async (req, res) => {
                 } catch (e) {}
             }
         } else {
-            const prompt = `你是一个骑行导航助手。用户说："${text}"。请分析并返回JSON：
-1. 如果用户说"最近的咖啡店"、"附近的咖啡店"、"咖啡"，destination固定为"星巴克"。
-2. 如果用户说"最近的快餐"、"附近的汉堡"、"汉堡"，destination固定为"麦当劳"。
-3. 如果用户说"最近的超市"、"附近的商场"，destination固定为"万达广场"。
-4. 如果有明确地点名（如"宜宾万达广场"），destination直接提取。
-5. 如果完全无法确定，destination为空，reply反问用户。
-返回格式：{"destination":"地点或空","mode":"riding","reply":"回复"}。只输出JSON。`;
+            const prompt = `你是一个骑行导航助手...`;
             const aiResult = await askQwen(prompt);
             parsed = JSON.parse(aiResult);
             if (parsed.destination && userLocation) {
@@ -394,7 +363,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
         const recognizedText = result.Result || '';
         console.log('阿里云识别结果:', recognizedText);
 
-        const prompt = `请从以下语音识别文本中提取目的地名称。例如"去万达广场"→"万达广场"，"最近的咖啡店"→"星巴克"。返回JSON：{"destination":"目的地","mode":"riding"}。只输出JSON。文本：${recognizedText}`;
+        const prompt = `请从以下语音识别文本中提取目的地名称...`;
         const aiResult = await askQwen(prompt);
         let parsed = JSON.parse(aiResult);
 
