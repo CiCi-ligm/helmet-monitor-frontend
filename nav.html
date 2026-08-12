@@ -223,7 +223,6 @@
         .then(res => res.json())
         .then(data => {
           if (data.success && data.destination && data.location) {
-            // 确保 targetPos 是 [lng, lat] 数组
             const parts = data.location.split(',').map(Number);
             targetPos = [parts[0], parts[1]];
             addressInput.value = data.destination;
@@ -393,9 +392,10 @@
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(walkingRoute) walkingRoute.clear();
 
-      // 强制确保坐标格式为 [lng, lat]
       const origin = [currentPos.lng, currentPos.lat];
       const dest = [targetPos[0], targetPos[1]];
+
+      alert('起点: ' + JSON.stringify(origin) + '\n终点: ' + JSON.stringify(dest));
 
       const typeText = type === 'walking' ? '步行' : '骑行';
       sendNavTextToCloud('正在规划路径');
@@ -407,6 +407,7 @@
             tip.innerText = typeText + '路线规划成功';
             setTimeout(() => tip.style.display = 'none', 2000);
           } else {
+            alert('失败状态: ' + status + '\n信息: ' + (result ? result.info : '无'));
             tip.innerText = '路线规划失败 (' + status + ')';
             setTimeout(() => tip.style.display = 'none', 3000);
           }
