@@ -212,67 +212,78 @@
     let recorder;
     let speechRecognition = null;
 
-    // ========== 三个固定话术（和桂林理工大学一样的包含匹配） ==========
-    const FIX_PHRASES = [
-      {
-        phrase: '我要去附近的咖啡店',
-        name: '瑞幸咖啡（桂林理工大学屏风店）',
-        lng: 110.315876,
-        lat: 25.280612
-      },
-      {
-        phrase: '附近有没有什么超市',
-        name: '赵一鸣省钱超市(广西桂林建干路理工店)',
-        lng: 110.319752,
-        lat: 25.283965
-      },
-      {
-        phrase: '附近有没有什么奶茶店',
-        name: '蜜雪冰城(学院正门店)',
-        lng: 110.315923,
-        lat: 25.280578
-      }
-    ];
+    // ========== 本地固定目的地映射表（桂林市区） ==========
+    const LOCAL_FIX_MAP = {
+      // --- 周边店铺（精确坐标） ---
+      '我要去附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+      '附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+      '咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+      '咖啡': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+      '瑞幸': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+
+      '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
+      '附近的超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
+      '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
+      '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
+
+      '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
+      '附近的奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
+      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
+      '奶茶': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
+      '蜜雪冰城': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
+      
+      // --- 桂林市区景点 ---
+      '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
+      '桂林理工大学': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
+      '屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
+      '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
+      '象鼻山景区': { name: '象鼻山景区', location: [110.291860, 25.272124] },
+      '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
+      '桂林市两江四湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
+      '两江四湖': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
+      '两江两湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
+      '日月双塔': { name: '日月双塔', location: [110.294826, 25.271420] },
+      '正阳步行街': { name: '正阳步行街', location: [110.297810, 25.278470] },
+      '东西巷': { name: '东西巷', location: [110.299731, 25.278717] },
+      '叠彩山': { name: '叠彩山', location: [110.285730, 25.294250] },
+      '七星公园': { name: '七星公园', location: [110.307540, 25.274910] },
+      '桂林园林植物园': { name: '桂林园林植物园', location: [110.272260, 25.252740] },
+      '桂林博物馆': { name: '桂林博物馆', location: [110.254750, 25.281830] },
+      
+      // --- 交通枢纽 ---
+      '桂林北站': { name: '桂林北站', location: [110.301731, 25.329019] },
+      '桂林南站': { name: '桂林站', location: [110.283420, 25.260370] },
+      '桂林站': { name: '桂林站', location: [110.283420, 25.260370] },
+      '桂林两江国际机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
+      '桂林机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
+      
+      // --- 医院 ---
+      '桂林市人民医院': { name: '桂林市人民医院', location: [110.289340, 25.275210] },
+      
+      // --- 商场 ---
+      '桂林万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
+      '桂林高新万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
+      '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
+    };
+
+    // 将键按长度降序排列，确保长句优先匹配
+    const SORTED_MAP_KEYS = Object.keys(LOCAL_FIX_MAP).sort((a, b) => b.length - a.length);
 
     /**
-     * 匹配逻辑：
-     * 1. 先尝试包含三个固定话术（去除标点后）
-     * 2. 否则按原来的模糊关键词匹配（桂林理工、万达等）
+     * 匹配逻辑：遍历排序后的键，如果去除标点后的文本包含该键，则返回对应目的地
      */
     function matchLocalFix(text) {
       if (!text) return null;
-      
-      // 去除所有标点、空格，用于包含判断
+      // 去除标点、空格，转小写
       const cleanText = text.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
       
-      // 优先检查三个固定话术（包含即可）
-      for (const item of FIX_PHRASES) {
-        const cleanPhrase = item.phrase.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
-        if (cleanText.includes(cleanPhrase)) {
-          return { name: item.name, location: [item.lng, item.lat] };
+      for (const key of SORTED_MAP_KEYS) {
+        const cleanKey = key.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
+        if (cleanText.includes(cleanKey)) {
+          const item = LOCAL_FIX_MAP[key];
+          return { name: item.name, location: item.location };
         }
       }
-      
-      // 其他地名模糊匹配（和之前一样）
-      if (cleanText.includes('桂林理工大学') || cleanText.includes('理工大学') || cleanText.includes('屏风校区') || cleanText.includes('桂工')) {
-        return { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] };
-      }
-      if (cleanText.includes('国贸天地')) return { name: '国贸天地', location: [110.297074, 25.279430] };
-      if (cleanText.includes('象鼻山')) return { name: '象鼻山景区', location: [110.291860, 25.272124] };
-      if (cleanText.includes('两江四湖') || cleanText.includes('两江两湖')) return { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] };
-      if (cleanText.includes('日月双塔')) return { name: '日月双塔', location: [110.294826, 25.271420] };
-      if (cleanText.includes('正阳步行街')) return { name: '正阳步行街', location: [110.297810, 25.278470] };
-      if (cleanText.includes('东西巷')) return { name: '东西巷', location: [110.299731, 25.278717] };
-      if (cleanText.includes('叠彩山')) return { name: '叠彩山', location: [110.285730, 25.294250] };
-      if (cleanText.includes('七星公园')) return { name: '七星公园', location: [110.307540, 25.274910] };
-      if (cleanText.includes('植物园') || cleanText.includes('园林植物园')) return { name: '桂林园林植物园', location: [110.272260, 25.252740] };
-      if (cleanText.includes('桂林博物馆') || cleanText.includes('博物馆')) return { name: '桂林博物馆', location: [110.254750, 25.281830] };
-      if (cleanText.includes('桂林北站') || cleanText.includes('北站')) return { name: '桂林北站', location: [110.301731, 25.329019] };
-      if (cleanText.includes('桂林南站') || cleanText.includes('桂林站') || cleanText.includes('火车站')) return { name: '桂林站', location: [110.283420, 25.260370] };
-      if (cleanText.includes('机场') || cleanText.includes('两江机场') || cleanText.includes('桂林机场')) return { name: '桂林两江国际机场', location: [110.035420, 25.211680] };
-      if (cleanText.includes('人民医院') || cleanText.includes('市人民医院')) return { name: '桂林市人民医院', location: [110.289340, 25.275210] };
-      if (cleanText.includes('万达') || cleanText.includes('万达广场')) return { name: '桂林高新万达广场', location: [110.315630, 25.280460] };
-      
       return null;
     }
 
@@ -466,7 +477,7 @@
       voiceBtn.classList.remove('recording-btn');
     }
 
-    // 硬件语音模拟（同样用包含匹配）
+    // 硬件语音模拟（同样使用本地匹配优先）
     async function simulateHardwareVoice() {
       const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有没有什么奶茶店');
       if (!testText) return;
