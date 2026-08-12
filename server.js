@@ -19,12 +19,11 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
-const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
+const QWEN_API_KEY = process.env.QWEN_API_KEY || '';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
-const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';
-const SENDKEY = 'SCT384452T1uN1Lq5R2P5ZrEabTNmyImaA';
-
+const AMAP_KEY = process.env.AMAP_KEY || '';
+const SENDKEY = process.env.SENDKEY || '';
 const ALI_ACCESS_KEY_ID = process.env.ALI_ACCESS_KEY_ID || '';
 const ALI_ACCESS_KEY_SECRET = process.env.ALI_ACCESS_KEY_SECRET || '';
 const ALI_APP_KEY = process.env.ALI_APP_KEY || '';
