@@ -94,6 +94,7 @@
     let isSatellite = false, satelliteLayer = null;
     let autoComplete;
     let pendingNavigation = null;
+    let walkingNav, ridingNav;
 
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
@@ -248,11 +249,9 @@
       setTimeout(() => tip.style.display = 'none', 3000);
     }
 
-    // 手动搜索函数
     function manualSearch(keyword) {
       console.log('手动搜索:', keyword);
       
-      // 先尝试本地匹配
       const localMatch = matchLocalFix(keyword);
       if (localMatch) {
         console.log('本地匹配成功:', localMatch);
@@ -269,18 +268,14 @@
         return;
       }
       
-      // 使用高德POI搜索
       const poiUrl = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(keyword)}&city=桂林&key=85a9a797b358573152302861e5a7dd05`;
-      console.log('POI搜索URL:', poiUrl);
       
       fetch(poiUrl)
         .then(r => r.json())
         .then(poiData => {
-          console.log('POI搜索结果:', poiData);
           if (poiData.pois && poiData.pois.length > 0) {
             const poi = poiData.pois[0];
             const lnglat = poi.location.split(',').map(Number);
-            console.log('找到POI:', poi.name, lnglat);
             setDestinationAndNavigate(poi.name, lnglat);
           } else {
             tip.innerText = '❌ 未找到该地点';
@@ -294,7 +289,6 @@
         });
     }
 
-    // 从输入框搜索
     function manualSearchFromInput() {
       const keyword = addressInput.value.trim();
       if (keyword) {
@@ -471,6 +465,18 @@
       if (localStorage.getItem('isLogin') !== '1') { location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [110.320, 25.284] });
       satelliteLayer = new AMap.TileLayer.Satellite();
+      
+      // 初始化导航插件
+      walkingNav = new AMap.Walking({
+        map: map,
+        hideMarkers: false
+      });
+      
+      ridingNav = new AMap.Riding({
+        map: map,
+        hideMarkers: false
+      });
+      
       initAutoComplete();
       if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) getMyLocation();
       connectCloud();
@@ -495,18 +501,11 @@
     }
 
     function initAutoComplete(){
-      console.log('初始化自动完成...');
-      
-      // 检查AMap.AutoComplete是否可用
       if (typeof AMap.AutoComplete !== 'function') {
-        console.error('AMap.AutoComplete不可用');
-        // 降级处理：只使用手动输入
         addressInput.addEventListener('keypress', function(e) {
           if (e.key === 'Enter') {
             const keyword = this.value.trim();
-            if (keyword) {
-              manualSearch(keyword);
-            }
+            if (keyword) manualSearch(keyword);
           }
         });
         return;
@@ -515,20 +514,13 @@
       autoComplete = new AMap.AutoComplete({ city: "桂林" });
       let timer = null;
       
-      // 使用input事件（兼容所有浏览器）
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
-        console.log('输入内容:', keyword);
-        if (!keyword) { 
-          suggestList.style.display = "none"; 
-          return; 
-        }
+        if (!keyword) { suggestList.style.display = "none"; return; }
         
         clearTimeout(timer);
         timer = setTimeout(() => {
-          console.log('开始搜索:', keyword);
           autoComplete.search(keyword, (status, res) => {
-            console.log('搜索结果状态:', status);
             if (status === "complete" && res.tips && res.tips.length > 0) {
               suggestList.innerHTML = "";
               res.tips.forEach(tip => {
@@ -544,21 +536,15 @@
                 suggestList.appendChild(div);
               });
               suggestList.style.display = "block";
-            } else {
-              console.log('没有搜索结果');
-              suggestList.style.display = "none";
             }
           });
         }, 300);
       });
       
-      // 添加回车键支持
       addressInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
           const keyword = this.value.trim();
-          if (keyword) {
-            manualSearch(keyword);
-          }
+          if (keyword) manualSearch(keyword);
         }
       });
       
@@ -567,89 +553,91 @@
       });
     }
 
-    async function startNav(type){
+    function startNav(type){
+      console.log('=== 开始导航 ===');
+      console.log('导航类型:', type);
+      
       if (!currentPos) { 
         currentPos = new AMap.LngLat(110.320, 25.284);
         tip.innerText = "使用默认位置（桂林理工大学）"; 
         tip.style.display = 'block'; 
         setTimeout(() => tip.style.display = 'none', 2000);
       }
-      if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
+      
+      if (!targetPos) { 
+        tip.innerText = "请先选择目的地"; 
+        tip.style.display = 'block'; 
+        setTimeout(() => tip.style.display = 'none', 2000); 
+        return; 
+      }
+      
+      console.log('起点:', currentPos);
+      console.log('终点:', targetPos);
       
       // 清除之前的路线
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
-
-      const origin = currentPos.lng + ',' + currentPos.lat;
-      const dest = targetPos[0] + ',' + targetPos[1];
       
-      let apiUrl;
-      if (type === 'riding') {
-        apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-        sendNavTextToCloud('正在规划骑行路线');
-      } else {
-        apiUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-        sendNavTextToCloud('正在规划步行路线');
-      }
+      // 清除导航插件
+      if (walkingNav) walkingNav.clear();
+      if (ridingNav) ridingNav.clear();
 
-      try {
-        const resp = await fetch(apiUrl);
-        const data = await resp.json();
+      if (type === 'riding') {
+        console.log('使用骑行导航插件');
+        sendNavTextToCloud('正在规划骑行路线');
         
-        if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
-          const path = data.route.paths[0];
-          const steps = path.steps ? path.steps.map(s => s.instruction) : [];
-          const polyline = [];
+        ridingNav.search(currentPos, targetPos, function(status, result) {
+          console.log('骑行导航结果:', status, result);
           
-          if (path.steps) {
-            path.steps.forEach(step => {
-              if (step.polyline) {
-                step.polyline.split(';').forEach(p => {
-                  const [lng, lat] = p.split(',').map(Number);
-                  if (!isNaN(lng) && !isNaN(lat)) {
-                    polyline.push([lng, lat]);
-                  }
-                });
-              }
-            });
-          }
-          
-          if (polyline.length > 0) {
-            const route = new AMap.Polyline({
-              path: polyline,
-              strokeColor: type === 'riding' ? '#FF9800' : '#1677ff',
-              strokeWeight: 6,
-              strokeOpacity: 0.8
-            });
-            route.setMap(map);
+          if (status === 'complete' && result.routes && result.routes.length > 0) {
+            const path = result.routes[0];
+            const distance = path.distance || 0;
+            const duration = path.time || 0;
+            const steps = path.steps ? path.steps.map(s => s.instruction) : [];
             
-            if (type === 'riding') {
-              ridingRoute = route;
-            } else {
-              walkingRoute = route;
-            }
+            console.log('骑行距离:', distance, '时间:', duration);
             
-            map.setFitView([route]);
-            const navTypeText = type === 'riding' ? '骑行' : '步行';
-            const distanceKm = (path.distance / 1000).toFixed(1);
-            const durationMin = Math.round(path.duration / 60);
+            const distanceKm = (distance / 1000).toFixed(1);
+            const durationMin = Math.round(duration / 60);
             
-            showNavStatus(`${navTypeText}导航：距离${distanceKm}公里，预计${durationMin}分钟`);
+            showNavStatus(`骑行导航：距离${distanceKm}公里，预计${durationMin}分钟`);
             showNavSteps(steps);
-            sendNavTextToCloud(`${navTypeText}导航，距离${distanceKm}公里，预计${durationMin}分钟`);
-            speakTextOut(`${navTypeText}导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            sendNavTextToCloud(`骑行导航，距离${distanceKm}公里，预计${durationMin}分钟`);
+            speakTextOut(`骑行导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
           } else {
-            tip.innerText = '❌ 路线数据解析失败';
+            console.error('骑行导航失败:', result);
+            tip.innerText = '❌ 骑行导航失败，请尝试步行导航';
             setTimeout(() => tip.style.display = 'none', 3000);
           }
-        } else {
-          tip.innerText = '❌ 路径规划失败';
-          setTimeout(() => tip.style.display = 'none', 3000);
-        }
-      } catch (e) {
-        console.error('导航请求失败:', e);
-        tip.innerText = '❌ 网络错误';
-        setTimeout(() => tip.style.display = 'none', 3000);
+        });
+      } else {
+        console.log('使用步行导航插件');
+        sendNavTextToCloud('正在规划步行路线');
+        
+        walkingNav.search(currentPos, targetPos, function(status, result) {
+          console.log('步行导航结果:', status, result);
+          
+          if (status === 'complete' && result.routes && result.routes.length > 0) {
+            const path = result.routes[0];
+            const distance = path.distance || 0;
+            const duration = path.time || 0;
+            const steps = path.steps ? path.steps.map(s => s.instruction) : [];
+            
+            console.log('步行距离:', distance, '时间:', duration);
+            
+            const distanceKm = (distance / 1000).toFixed(1);
+            const durationMin = Math.round(duration / 60);
+            
+            showNavStatus(`步行导航：距离${distanceKm}公里，预计${durationMin}分钟`);
+            showNavSteps(steps);
+            sendNavTextToCloud(`步行导航，距离${distanceKm}公里，预计${durationMin}分钟`);
+            speakTextOut(`步行导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+          } else {
+            console.error('步行导航失败:', result);
+            tip.innerText = '❌ 步行导航失败';
+            setTimeout(() => tip.style.display = 'none', 3000);
+          }
+        });
       }
     }
 
@@ -668,6 +656,8 @@
     function clearAll() {
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
+      if (walkingNav) walkingNav.clear();
+      if (ridingNav) ridingNav.clear();
       targetPos = null;
       addressInput.value = '';
       suggestList.style.display = 'none';
