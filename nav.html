@@ -10,6 +10,7 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
+  <!-- 使用已验证有效的 Key -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
@@ -211,7 +212,7 @@
 
     let recognition = null;
 
-    // ========== 本地固定目的地映射表 ==========
+    // ========== 本地固定目的地映射表（桂林市区） ==========
     const LOCAL_FIX_MAP = {
       // 周边店铺
       '咖啡': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
@@ -492,6 +493,7 @@
     }
 
     window.onload = function(){
+      // 恢复登录检测，避免页面初始化异常
       if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       satelliteLayer = new AMap.TileLayer.Satellite();
