@@ -76,7 +76,6 @@
     let map, myMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
-    let autoComplete;
 
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
@@ -438,13 +437,6 @@
     function initAutoComplete(){
       console.log('初始化自动完成...');
       
-      if (typeof AMap.AutoComplete === 'function') {
-        autoComplete = new AMap.AutoComplete({ 
-          city: "桂林",
-          citylimit: true
-        });
-      }
-      
       let timer = null;
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
@@ -452,11 +444,16 @@
         
         clearTimeout(timer);
         timer = setTimeout(() => {
-          if (autoComplete) {
-            autoComplete.search(keyword, (status, res) => {
-              if (status === "complete" && res.tips && res.tips.length > 0) {
+          // 使用高德输入提示API
+          const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(keyword)}&city=桂林&citylimit=true&key=85a9a797b358573152302861e5a7dd05`;
+          
+          fetch(url)
+            .then(r => r.json())
+            .then(data => {
+              console.log('输入提示结果:', data);
+              if (data.tips && data.tips.length > 0) {
                 suggestList.innerHTML = "";
-                res.tips.forEach(tipItem => {
+                data.tips.forEach(tipItem => {
                   if (!tipItem.location) return;
                   const div = document.createElement('div');
                   div.className = "item";
@@ -465,7 +462,8 @@
                   div.innerHTML = `<div>${name}</div>${address ? `<div style="font-size:12px;color:#999">${address}</div>` : ''}`;
                   div.onclick = () => { 
                     addressInput.value = name;
-                    targetPos = tipItem.location;
+                    const lnglat = tipItem.location.split(',').map(Number);
+                    targetPos = lnglat;
                     suggestList.style.display = "none"; 
                   };
                   suggestList.appendChild(div);
@@ -474,8 +472,11 @@
               } else {
                 suggestList.style.display = "none";
               }
+            })
+            .catch(err => {
+              console.error('输入提示请求失败:', err);
+              suggestList.style.display = "none";
             });
-          }
         }, 300);
       });
       
@@ -507,6 +508,8 @@
       const origin = currentPos.lng + ',' + currentPos.lat;
       const dest = targetPos[0] + ',' + targetPos[1];
       
+      console.log('导航参数 - 类型:', type, '起点:', origin, '终点:', dest);
+      
       let apiUrl;
       if (type === 'riding') {
         apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
@@ -516,10 +519,12 @@
         sendNavTextToCloud('正在规划步行路线');
       }
 
+      console.log('API URL:', apiUrl);
+
       try {
         const resp = await fetch(apiUrl);
         const data = await resp.json();
-        console.log('导航API返回:', data);
+        console.log('API完整返回:', data);
         
         if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
           const path = data.route.paths[0];
@@ -582,7 +587,6 @@
           }
         } else {
           console.error('API返回异常:', data);
-          // 如果是骑行失败，尝试步行
           if (type === 'riding') {
             tip.innerText = '⚠️ 骑行路线不可用，已切换为步行导航';
             setTimeout(() => tip.style.display = 'none', 3000);
