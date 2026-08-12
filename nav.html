@@ -94,32 +94,33 @@
     let recorder;
 
     const LOCAL_FIX_MAP = {
-      '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', location: [110.320812, 25.289147] },
-      '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
-      '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.320975, 25.288044] },
-      '奶茶': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
-      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
-      '蜜雪冰城': { name: '蜜雪冰城(学院正门店)', location: [110.320812, 25.289147] },
-      '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      '桂林理工大学': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      '屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
-      '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
-      '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
-      '两江四湖': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
-      '日月双塔': { name: '日月双塔', location: [110.294826, 25.271420] },
-      '正阳步行街': { name: '正阳步行街', location: [110.297810, 25.278470] },
-      '东西巷': { name: '东西巷', location: [110.299731, 25.278717] },
-      '叠彩山': { name: '叠彩山', location: [110.285730, 25.294250] },
-      '七星公园': { name: '七星公园', location: [110.307540, 25.274910] },
-      '桂林园林植物园': { name: '桂林园林植物园', location: [110.272260, 25.252740] },
-      '桂林博物馆': { name: '桂林博物馆', location: [110.254750, 25.281830] },
-      '桂林北站': { name: '桂林北站', location: [110.301731, 25.329019] },
-      '桂林站': { name: '桂林站', location: [110.283420, 25.260370] },
-      '桂林机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
-      '桂林市人民医院': { name: '桂林市人民医院', location: [110.289340, 25.275210] },
-      '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
+      '星巴克': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)' },
+      '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)' },
+      '奶茶': { name: '蜜雪冰城(学院正门店)' },
+      '奶茶店': { name: '蜜雪冰城(学院正门店)' },
+      '蜜雪冰城': { name: '蜜雪冰城(学院正门店)' },
+      '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区' },
+      '桂林理工大学': { name: '桂林理工大学屏风校区' },
+      '屏风校区': { name: '桂林理工大学屏风校区' },
+      '国贸天地': { name: '国贸天地' },
+      '象鼻山': { name: '象鼻山景区' },
+      '两江四湖': { name: '桂林市两江四湖景区' },
+      '日月双塔': { name: '日月双塔' },
+      '正阳步行街': { name: '正阳步行街' },
+      '东西巷': { name: '东西巷' },
+      '叠彩山': { name: '叠彩山' },
+      '七星公园': { name: '七星公园' },
+      '桂林园林植物园': { name: '桂林园林植物园' },
+      '桂林博物馆': { name: '桂林博物馆' },
+      '桂林北站': { name: '桂林北站' },
+      '桂林站': { name: '桂林站' },
+      '桂林机场': { name: '桂林两江国际机场' },
+      '桂林市人民医院': { name: '桂林市人民医院' },
+      '万达广场': { name: '桂林高新万达广场' }
     };
 
     const SORTED_MAP_KEYS = Object.keys(LOCAL_FIX_MAP).sort((a, b) => b.length - a.length);
@@ -228,7 +229,24 @@
           if (data.success && data.destination) {
             const localMatch = matchLocalFix(data.destination);
             if (localMatch) {
-              setDestinationAndNavigate(localMatch.name, localMatch.location);
+              // 用高德POI搜索动态获取准确坐标
+              const poiUrl = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(localMatch.name)}&city=桂林&key=85a9a797b358573152302861e5a7dd05`;
+              fetch(poiUrl)
+                .then(r => r.json())
+                .then(poiData => {
+                  if (poiData.pois && poiData.pois.length > 0) {
+                    const poi = poiData.pois[0];
+                    const lnglat = poi.location.split(',').map(Number);
+                    setDestinationAndNavigate(poi.name, lnglat);
+                  } else {
+                    tip.innerText = '❌ 未找到该地点';
+                    setTimeout(() => tip.style.display = 'none', 3000);
+                  }
+                })
+                .catch(() => {
+                  tip.innerText = '❌ POI搜索失败';
+                  setTimeout(() => tip.style.display = 'none', 3000);
+                });
             } else if (data.location) {
               const parts = data.location.split(',').map(Number);
               if (parts.length === 2) {
@@ -266,26 +284,17 @@
       if (!testText) return;
       const match = matchLocalFix(testText);
       if (match) {
-        setDestinationAndNavigate(match.name, match.location);
+        const poiUrl = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(match.name)}&city=桂林&key=85a9a797b358573152302861e5a7dd05`;
+        fetch(poiUrl)
+          .then(r => r.json())
+          .then(poiData => {
+            if (poiData.pois && poiData.pois.length > 0) {
+              const poi = poiData.pois[0];
+              const lnglat = poi.location.split(',').map(Number);
+              setDestinationAndNavigate(poi.name, lnglat);
+            }
+          });
         return;
-      }
-      tip.innerText = '🎙️ 硬件模拟：正在处理...';
-      tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '110.320,25.284';
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: testText, userLocation: loc })
-        });
-        const data = await resp.json();
-        if (data.success && data.location) {
-          const parts = data.location.split(',').map(Number);
-          if (parts.length === 2) setDestinationAndNavigate(data.destination || 'AI目的地', parts);
-        }
-      } catch (e) {
-        tip.innerText = '🌐 网络错误';
-        setTimeout(() => tip.style.display = 'none', 3000);
       }
     }
 
