@@ -7,6 +7,9 @@ const { askQwen } = require('./aiService');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// 静态文件服务 - 根目录
+app.use(express.static('.'));
+
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -23,12 +26,10 @@ const DEVICE_NAME = 'gps';
 const AMAP_KEY = process.env.AMAP_KEY || '';
 const SENDKEY = process.env.SENDKEY || '';
 
-// 阿里云语音识别配置
 const ALI_ACCESS_KEY_ID = process.env.ALI_ACCESS_KEY_ID || '';
 const ALI_ACCESS_KEY_SECRET = process.env.ALI_ACCESS_KEY_SECRET || '';
 const ALI_APP_KEY = process.env.ALI_APP_KEY || '';
 
-// 修正常见语音识别错误
 const DEST_FIX_MAP = {
   '肯德基': '星巴克',
   '麦当劳': '星巴克',
@@ -38,7 +39,6 @@ const DEST_FIX_MAP = {
   '德克士': '麦当劳'
 };
 
-// 发送微信通知
 async function sendWeChat(title, desp) {
     console.log('开始发送微信通知:', title);
     try {
@@ -49,7 +49,6 @@ async function sendWeChat(title, desp) {
     }
 }
 
-// 全局发送队列，间隔 10 秒
 let sendQueue = Promise.resolve();
 
 async function sendToOneNET(navText) {
@@ -77,11 +76,7 @@ async function sendSingleMessage(navText) {
     try {
         const resp = await axios.post(
             'https://iot-api.heclouds.com/thingmodel/set-device-property',
-            {
-                product_id: PRODUCT_ID,
-                device_name: DEVICE_NAME,
-                params: { nav_text: navText }
-            },
+            { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
             { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
         );
         console.log('OneNET 下发成功:', navText.substring(0, 30));
@@ -90,7 +85,6 @@ async function sendSingleMessage(navText) {
     }
 }
 
-// 搜索函数
 async function searchPlace(keywords, userLocation) {
     if (userLocation) {
         return await axios.get('https://restapi.amap.com/v3/place/around', {
@@ -102,10 +96,8 @@ async function searchPlace(keywords, userLocation) {
     });
 }
 
-// 光照值轮换计数器
 let lightCounter = 0;
 
-// 查询设备传感器数据
 app.get('/api/device/sensors', async (req, res) => {
     try {
         const version = '2022-05-01';
@@ -135,7 +127,6 @@ app.get('/api/device/sensors', async (req, res) => {
         const lightValues = [20, 24, 23, 22];
         const currentLight = lightValues[lightCounter % lightValues.length];
         lightCounter++;
-
         res.json({
             success: true,
             sensors: {
@@ -148,12 +139,10 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// 骑行前综合评估接口
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
-
         let weather = '未知';
         try {
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
@@ -203,17 +192,14 @@ app.post('/api/ai/ride-check', async (req, res) => {
 以JSON格式返回：{"suitable": true或false, "level": "适合/谨慎/不适合", "advice": "简明扼要的总结建议（40字以内）", "detail": "详细的交叉分析报告（120字以内，必须包含具体的标准对比，如'您的静息心率70bpm，属正常成年人水平，意味着心肺功能良好'）"}。只输出JSON，不要任何解释。`;
         const aiResult = await askQwen(prompt);
         const parsed = JSON.parse(aiResult);
-
         const fullText = parsed.advice + '。' + parsed.detail + '。当前天气：' + weather + '。';
         await sendToOneNET(fullText);
-
         res.json({ success: true, weather, sensors, ...parsed });
     } catch (error) {
         res.status(500).json({ error: '评估失败' });
     }
 });
 
-// AI 导航路由
 app.post('/api/ai/nav', async (req, res) => {
     try {
         const { destination, status } = req.body;
@@ -231,7 +217,6 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// 安全风险研判接口
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -250,9 +235,7 @@ app.post('/api/ai/risk', async (req, res) => {
             if (geoResp.data.status === '1' && geoResp.data.regeocode) {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
             }
-        } catch (e) {
-            console.warn('逆地理编码请求失败:', e.message);
-        }
+        } catch (e) {}
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
@@ -264,7 +247,6 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// 骑行数据播报接口
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
@@ -279,7 +261,6 @@ app.post('/api/ai/summary', async (req, res) => {
     }
 });
 
-// 自然语言解析接口
 app.post('/api/nlp/nav', async (req, res) => {
     try {
         const { text, userLocation } = req.body;
@@ -301,17 +282,13 @@ app.post('/api/nlp/nav', async (req, res) => {
     }
 });
 
-// ========== 语音命令处理接口 ==========
 app.post('/api/voice/command', async (req, res) => {
     try {
         const { text, history, userLocation } = req.body;
         if (!text) return res.status(400).json({ error: '缺少语音文本' });
-
         let parsed = {};
-
         if (history && history.length > 0) {
             const destination = text + "店";
-            
             let realName = destination;
             let realLocation = null;
             if (userLocation) {
@@ -323,22 +300,12 @@ app.post('/api/voice/command', async (req, res) => {
                         realName = geoResp.data.pois[0].name;
                         realLocation = geoResp.data.pois[0].location;
                     }
-                } catch (e) {
-                    console.warn('高德搜索失败:', e.message);
-                }
+                } catch (e) {}
             }
-            
             const prompt = `请生成一句简短的语音确认回复（15字以内），告诉用户即将开始导航。返回JSON：{"reply":"确认回复"}。只输出JSON。`;
             const aiResult = await askQwen(prompt);
             const aiParsed = JSON.parse(aiResult);
-            
-            parsed = {
-                destination: realName,
-                mode: "riding",
-                reply: aiParsed.reply,
-                location: realLocation
-            };
-
+            parsed = { destination: realName, mode: "riding", reply: aiParsed.reply, location: realLocation };
             if (realLocation && userLocation) {
                 try {
                     const navResp = await axios.get('https://restapi.amap.com/v3/direction/walking', {
@@ -350,9 +317,7 @@ app.post('/api/voice/command', async (req, res) => {
                         parsed.distance = navResp.data.route.paths[0].distance;
                         parsed.duration = navResp.data.route.paths[0].duration;
                     }
-                } catch (e) {
-                    console.warn('自动路径规划失败:', e.message);
-                }
+                } catch (e) {}
             }
         } else {
             const prompt = `你是一个骑行导航助手。用户说："${text}"。请分析并返回JSON：
@@ -364,7 +329,6 @@ app.post('/api/voice/command', async (req, res) => {
 返回格式：{"destination":"地点或空","mode":"riding","reply":"回复"}。只输出JSON。`;
             const aiResult = await askQwen(prompt);
             parsed = JSON.parse(aiResult);
-            
             if (parsed.destination && userLocation) {
                 try {
                     const geoResp = await axios.get('https://restapi.amap.com/v3/place/around', {
@@ -373,12 +337,9 @@ app.post('/api/voice/command', async (req, res) => {
                     if (geoResp.data.pois && geoResp.data.pois.length > 0) {
                         parsed.location = geoResp.data.pois[0].location;
                     }
-                } catch (e) {
-                    console.warn('高德搜索失败:', e.message);
-                }
+                } catch (e) {}
             }
         }
-
         res.json({ success: true, ...parsed });
     } catch (error) {
         console.error('语音命令处理失败:', error);
@@ -386,16 +347,13 @@ app.post('/api/voice/command', async (req, res) => {
     }
 });
 
-// ========== 路径规划接口 ==========
 app.post('/api/voice/navigate', async (req, res) => {
     try {
         const { origin, destination } = req.body;
         if (!origin || !destination) return res.status(400).json({ error: '缺少起终点坐标' });
-
         const resp = await axios.get('https://restapi.amap.com/v3/direction/walking', {
             params: { key: AMAP_KEY, origin: origin, destination: destination }
         });
-
         if (resp.data.status === '1' && resp.data.route.paths.length > 0) {
             const steps = resp.data.route.paths[0].steps;
             const instructions = steps.map(s => s.instruction);
@@ -411,17 +369,14 @@ app.post('/api/voice/navigate', async (req, res) => {
     }
 });
 
-// ========== 语音导航接口（阿里云语音识别 + 修正） ==========
 app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: '缺少音频文件' });
-        
         const audioBase64 = req.file.buffer.toString('base64');
         const userLocation = req.query.userLocation || req.body.userLocation;
         console.log('接收到的用户坐标:', userLocation);
 
         const RPCClient = require('@alicloud/pop-core').RPCClient;
-        
         const client = new RPCClient({
             accessKeyId: ALI_ACCESS_KEY_ID,
             accessKeySecret: ALI_ACCESS_KEY_SECRET,
@@ -476,7 +431,6 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     }
 });
 
-// ========== OneNET 摔倒推送中转 ==========
 app.get('/api/fall', (req, res) => {
   res.send(req.query.msg || '');
 });
@@ -487,11 +441,9 @@ app.post('/api/fall', async (req, res) => {
     const imageUrl = req.body.image || '';
     const lat = req.body.lat || req.body.latitude || '';
     const lng = req.body.lng || req.body.longitude || '';
-    
     let desp = '## ⚠️ 头盔检测到摔倒\n\n';
     desp += '- 设备：gps\n';
     desp += '- 产品ID：G2ddPjoILg\n';
-    
     if (lat && lng) {
       desp += '- 坐标：' + lat + ', ' + lng + '\n';
       try {
@@ -502,15 +454,11 @@ app.post('/api/fall', async (req, res) => {
           const addr = geoResp.data.regeocode.formatted_address || '未知地址';
           desp += '- 地址：' + addr + '\n';
         }
-      } catch (e) {
-        desp += '- 地址：获取失败\n';
-      }
+      } catch (e) {}
     }
-    
     if (imageUrl) {
       desp += '\n![现场图片](' + imageUrl + ')\n';
     }
-    
     await sendWeChat('【智能头盔-摔倒警报】', desp);
     res.status(200).send('success');
   } catch (err) {
