@@ -411,17 +411,6 @@
           map.setCenter(currentPos);
           tip.innerText = "定位成功";
           setTimeout(() => tip.style.display = "none", 1500);
-          // 根据定位城市动态设置 AutoComplete
-          if (autoComplete && AMap.Geocoder) {
-            const geocoder = new AMap.Geocoder();
-            geocoder.getAddress(currentPos, (gcStatus, gcResult) => {
-              if (gcStatus === 'complete' && gcResult.regeocode) {
-                const city = gcResult.regeocode.addressComponent.city || gcResult.regeocode.addressComponent.province || '全国';
-                autoComplete.setCity(city);
-                console.log('已切换联想城市:', city);
-              }
-            });
-          }
         } else {
           tip.innerText = "定位失败，请开启手机定位权限";
         }
@@ -429,8 +418,8 @@
     }
 
     function initAutoComplete(){
-      // 初始不指定城市，定位成功后再动态设置
-      autoComplete = new AMap.AutoComplete();
+      // 写死城市为桂林
+      autoComplete = new AMap.AutoComplete({ city: "桂林" });
       let timer = null;
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
