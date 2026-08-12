@@ -141,11 +141,15 @@
     function matchLocalFix(text) {
       if (!text) return null;
       const cleanText = text.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
+      // 核心关键词优先匹配，确保“咖啡”“奶茶”“超市”不会被其他长词干扰
+      if (cleanText.includes('咖啡')) return LOCAL_FIX_MAP['咖啡'];
+      if (cleanText.includes('奶茶')) return LOCAL_FIX_MAP['奶茶'];
+      if (cleanText.includes('超市')) return LOCAL_FIX_MAP['超市'];
       for (const key of SORTED_MAP_KEYS) {
         const cleanKey = key.replace(/[，。！？、,.!? ]/g, '').toLowerCase();
         if (cleanText.includes(cleanKey)) {
           const item = LOCAL_FIX_MAP[key];
-          return { name: item.name, location: item.location };
+          return item;
         }
       }
       return null;
@@ -418,7 +422,6 @@
     }
 
     function initAutoComplete(){
-      // 写死城市为桂林
       autoComplete = new AMap.AutoComplete({ city: "桂林" });
       let timer = null;
       addressInput.addEventListener('input', function(){
