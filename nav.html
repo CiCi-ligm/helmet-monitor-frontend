@@ -196,6 +196,7 @@
     }
 
     function setDestinationAndNavigate(name, loc, navType) {
+      console.log('设置目的地:', name, loc);
       targetPos = loc;
       addressInput.value = name;
       tip.innerText = '🎯 目的地：' + name;
@@ -215,11 +216,21 @@
         fetch(poiUrl)
           .then(r => r.json())
           .then(poiData => {
+            console.log('POI搜索结果:', poiData);
             if (poiData.pois && poiData.pois.length > 0) {
               const poi = poiData.pois[0];
               const lnglat = poi.location.split(',').map(Number);
+              console.log('找到POI:', poi.name, lnglat);
               setDestinationAndNavigate(poi.name, lnglat);
+            } else {
+              tip.innerText = '❌ 未找到该地点';
+              setTimeout(() => tip.style.display = 'none', 3000);
             }
+          })
+          .catch(err => {
+            console.error('POI搜索失败:', err);
+            tip.innerText = '❌ 搜索失败';
+            setTimeout(() => tip.style.display = 'none', 3000);
           });
         return;
       }
@@ -229,9 +240,11 @@
       fetch(poiUrl)
         .then(r => r.json())
         .then(poiData => {
+          console.log('POI搜索结果:', poiData);
           if (poiData.pois && poiData.pois.length > 0) {
             const poi = poiData.pois[0];
             const lnglat = poi.location.split(',').map(Number);
+            console.log('找到POI:', poi.name, lnglat);
             setDestinationAndNavigate(poi.name, lnglat);
           } else {
             tip.innerText = '❌ 未找到该地点';
@@ -247,6 +260,7 @@
 
     function manualSearchFromInput() {
       const keyword = addressInput.value.trim();
+      console.log('从输入框搜索:', keyword);
       if (keyword) {
         manualSearch(keyword);
       } else {
@@ -478,7 +492,9 @@
                     addressInput.value = name;
                     const lnglat = tipItem.location.split(',').map(Number);
                     targetPos = lnglat;
-                    suggestList.style.display = "none"; 
+                    suggestList.style.display = "none";
+                    // 点击后直接导航
+                    setDestinationAndNavigate(name, lnglat);
                   };
                   suggestList.appendChild(div);
                 });
