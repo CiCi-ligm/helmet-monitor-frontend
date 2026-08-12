@@ -1,3 +1,4 @@
+// server.js - 使用 Web 服务 Key，所有功能完整
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
@@ -22,7 +23,7 @@ const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
 const QWEN_API_KEY = 'sk-ws-H.EHHLDMD.lbQ8.MEYCIQCqw4mrb_Rl4RKBWtGpXP-_P4_lPs7QFHgpUvKV4JjJ3AIhANIlPKTZ7XfEHYpLHfeU06rGf7rl0V-4dKyfgQCrqhmu';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
-const AMAP_KEY = '977b6123358698744cd4f2a96e219145';
+const AMAP_KEY = '85a9a797b358573152302861e5a7dd05';  // Web 服务 Key
 const SENDKEY = 'SCT384452T1uN1Lq5R2P5ZrEabTNmyImaA';
 
 const DEST_FIX_MAP = {
