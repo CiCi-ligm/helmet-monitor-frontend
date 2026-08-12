@@ -4,217 +4,475 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>导航</title>
+
   <script>
     window._AMapSecurityConfig = {
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
+  <script>
+    if (typeof mqtt === "undefined") {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"><\/script>');
+    }
+  </script>
+
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
     html,body{height:100%;overflow:hidden;padding-bottom:60px}
     #container{width:100%;height:100vh}
-    .input-box{position:fixed;top:0;left:0;right:0;z-index:9999;background:#fff;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.15);}
-    .input-box input{width:100%;padding:10px 12px;font-size:16px;border:1px solid #ccc;border-radius:6px;margin-bottom:10px;outline:none;}
+
+    .input-box{
+      position:fixed;top:0;left:0;right:0;z-index:9999;
+      background:#fff;padding:12px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.15);
+    }
+    .input-box input{
+      width:100%;padding:10px 12px;font-size:16px;
+      border:1px solid #ccc;border-radius:6px;
+      margin-bottom:10px;outline:none;
+    }
     .input-box input:focus{border-color:#1677ff}
     .btn-group{display:flex;gap:2%}
-    .btn-group button{width:32%;padding:10px;background:#1677ff;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;}
+    .btn-group button{
+      width:32%;padding:10px;background:#1677ff;color:#fff;
+      border:none;border-radius:6px;font-size:16px;cursor:pointer;
+    }
     .btn-group button.gray{background:#666}
-    #switchMapBtn{position:fixed;top:130px;right:12px;z-index:9999;padding:10px 16px;background:rgba(255,255,255,0.95);border:none;border-radius:20px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;}
-    #suggest-list{position:fixed;top:110px;left:12px;right:12px;z-index:9998;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.15);max-height:260px;overflow-y:auto;display:none;}
-    #suggest-list .item{padding:12px 14px;font-size:15px;border-bottom:1px solid #f0f0f0;cursor:pointer;}
+
+    #switchMapBtn{
+      position:fixed;top:130px;right:12px;z-index:9999;
+      padding:10px 16px;background:rgba(255,255,255,0.95);
+      border:none;border-radius:20px;font-size:14px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;
+    }
+
+    #suggest-list{
+      position:fixed;top:110px;left:12px;right:12px;z-index:9998;
+      background:#fff;border-radius:8px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.15);
+      max-height:260px;overflow-y:auto;display:none;
+    }
+    #suggest-list .item{
+      padding:12px 14px;font-size:15px;
+      border-bottom:1px solid #f0f0f0;cursor:pointer;
+    }
+    #suggest-list .item:last-child{border-bottom:none}
     #suggest-list .highlight{color:#1677ff;font-weight:bold}
-    #tip{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(0,0,0,0.7);color:#fff;padding:10px 20px;border-radius:20px;font-size:15px;}
-    #navStatus{position:fixed;bottom:70px;left:10px;right:10px;z-index:9998;background:rgba(0,0,0,0.8);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;text-align:center;display:none;}
-    .recording-btn{animation:pulse 1.5s infinite;transition:all 0.3s ease;}
-    @keyframes pulse{0%{opacity:1;box-shadow:0 0 0 0 rgba(255,0,0,0.7);}70%{opacity:0.8;box-shadow:0 0 0 10px rgba(255,0,0,0);}100%{opacity:1;box-shadow:0 0 0 0 rgba(255,0,0,0);}}
-    .tab-bar{position:fixed;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #eee;display:flex;justify-content:space-around;align-items:center;z-index:9999;}
-    .tab-item{display:flex;flex-direction:column;align-items:center;font-size:12px;color:#666;text-decoration:none;gap:4px;}
+
+    #tip{
+      position:fixed;top:50%;left:50%;
+      transform:translate(-50%,-50%);z-index:9999;
+      background:rgba(0,0,0,0.7);color:#fff;
+      padding:10px 20px;border-radius:20px;font-size:15px;
+    }
+
+    .recording-btn {
+      animation: pulse 1.5s infinite;
+      transition: all 0.3s ease;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+      70% { opacity: 0.8; box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+      100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    }
+
+    .tab-bar{
+      position:fixed;bottom:0;left:0;right:0;height:60px;
+      background:#fff;border-top:1px solid #eee;
+      display:flex;justify-content:space-around;align-items:center;
+      z-index:9999;
+    }
+    .tab-item{
+      display:flex;flex-direction:column;align-items:center;
+      font-size:12px;color:#666;text-decoration:none;gap:4px;
+    }
     .tab-item.active{color:#2563eb}
     .tab-item .icon{font-size:22px}
   </style>
 </head>
 <body>
   <div id="container"></div>
+
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
-    <button id="voiceBtn" style="width:100%;padding:10px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px;">🎤 按住说话 (录音上传)</button>
-    <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%;padding:10px;background:#2196F3;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px;">🎙️ 硬件语音识别测试</button>
-    <button id="riskBtn" onclick="simulateRisk()" style="width:100%;padding:10px;background:#f44336;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px;">🆘 模拟摔倒检测</button>
-    <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%;padding:10px;background:#FF9800;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px;">🚴 骑行前综合评估</button>
+    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (录音上传)</button>
+    <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%; padding:10px; background:#2196F3; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎙️ 硬件语音识别测试</button>
+    <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
+    <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%; padding:10px; background:#FF9800; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🚴 骑行前综合评估</button>
     <div class="btn-group">
       <button onclick="startNav('walking')">步行导航</button>
       <button onclick="startNav('riding')">骑行导航</button>
       <button class="gray" onclick="clearAll()">清空</button>
     </div>
   </div>
+
   <button id="switchMapBtn" onclick="switchSatellite()">切换卫星图</button>
   <div id="suggest-list"></div>
   <div id="tip">正在获取硬件GPS位置...</div>
-  <div id="navStatus"></div>
+
   <div class="tab-bar">
-    <a href="nav.html" class="tab-item active"><span class="icon">🗺️</span><span>导航</span></a>
-    <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
-    <a href="record.html" class="tab-item"><span class="icon">📋</span><span>记录</span></a>
-    <a href="profile.html" class="tab-item"><span class="icon">👤</span><span>我的</span></a>
+    <a href="nav.html" class="tab-item active">
+      <span class="icon">🗺️</span><span>导航</span>
+    </a>
+    <a href="blind.html" class="tab-item">
+      <span class="icon">⛑️</span><span>头盔</span>
+    </a>
+    <a href="record.html" class="tab-item">
+      <span class="icon">📋</span><span>记录</span>
+    </a>
+    <a href="profile.html" class="tab-item">
+      <span class="icon">👤</span><span>我的</span>
+    </a>
   </div>
+
   <script>
     let map, myMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
+
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
     const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
     const BROKER_URL = "wss://mqtts.heclouds.com:8884/mqtt";
     let mqttClient = null;
+
     const tip = document.getElementById('tip');
-    const navStatus = document.getElementById('navStatus');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
+
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
+
     let recorder;
 
     function connectCloud() {
-      try{ if(typeof mqtt==="undefined"){console.error("mqtt库加载失败");return;}
-        const clientId="web_nav_"+Math.random().toString(36).slice(2,8);
-        const username=`${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
-        const password=WEB_DEVICE_SECRET;
-        mqttClient=mqtt.connect(BROKER_URL,{clientId,username,password,clean:true,reconnectPeriod:3000});
-        mqttClient.on("connect",()=>{console.log("✅ MQTT 连接成功");});
-        mqttClient.on("error",(err)=>console.warn("MQTT 错误",err));
-      }catch(e){console.error("MQTT 连接异常",e);}
+      try{
+        if(typeof mqtt === "undefined"){ console.error("mqtt库加载失败"); return; }
+        const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
+        const username = `${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
+        const password = WEB_DEVICE_SECRET;
+        mqttClient = mqtt.connect(BROKER_URL, { clientId, username, password, clean: true, reconnectPeriod: 3000 });
+        mqttClient.on("connect", ()=>{ console.log("✅ MQTT 连接成功"); });
+        mqttClient.on("error", (err) => console.warn("MQTT 错误", err));
+      }catch(e){ console.error("MQTT 连接异常", e); }
     }
 
-    function showNavStatus(text){navStatus.innerText='📢 '+text;navStatus.style.display='block';setTimeout(()=>{navStatus.style.display='none';},5000);}
-
-    function sendNavTextToCloud(text){
-      showNavStatus(text);
-      fetch(`${AI_BACKEND_URL}/api/ai/nav`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination:text,status:'语音播报'})}).catch(()=>{});
+    function sendNavTextToCloud(text) {
+      if (mqttClient && mqttClient.connected) {
+        const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
+        mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
+      }
+      fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destination: text, status: '语音播报' })
+      }).catch(() => {});
     }
 
-    // 录音逻辑（保持不变）
-    voiceBtn.addEventListener('mousedown',startRecording);
-    voiceBtn.addEventListener('touchstart',startRecording);
-    voiceBtn.addEventListener('mouseup',stopRecording);
-    voiceBtn.addEventListener('touchend',stopRecording);
-    voiceBtn.addEventListener('mouseleave',stopRecording);
+    // ========== 录音上传逻辑 ==========
+    voiceBtn.addEventListener('mousedown', startRecording);
+    voiceBtn.addEventListener('touchstart', startRecording);
+    voiceBtn.addEventListener('mouseup', stopRecording);
+    voiceBtn.addEventListener('touchend', stopRecording);
+    voiceBtn.addEventListener('mouseleave', stopRecording);
 
-    async function startRecording(e){e.preventDefault();if(recorder)return;try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});recorder=new RecordRTC(stream,{type:'audio',mimeType:'audio/wav'});recorder.startRecording();voiceBtn.classList.add('recording-btn');voiceBtn.innerText='🎤 正在聆听... 松手结束';voiceBtn.style.background='#f44336';tip.innerText='🎙️ 请说话...';tip.style.display='block';recorder.stream=stream;}catch(err){console.error('无法获取麦克风权限:',err);tip.innerText='❌ 麦克风权限被拒绝';setTimeout(()=>tip.style.display='none',3000);}}
+    async function startRecording(e) {
+      e.preventDefault();
+      if (recorder) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recorder = new RecordRTC(stream, { type: 'audio', mimeType: 'audio/wav' });
+        recorder.startRecording();
+        voiceBtn.classList.add('recording-btn');
+        voiceBtn.innerText = '🎤 正在聆听... 松手结束';
+        voiceBtn.style.background = '#f44336';
+        tip.innerText = '🎙️ 请说话...';
+        tip.style.display = 'block';
+        recorder.stream = stream;
+      } catch (err) {
+        console.error('无法获取麦克风权限:', err);
+        tip.innerText = '❌ 麦克风权限被拒绝';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
+    }
 
-    function stopRecording(){if(!recorder)return;voiceBtn.classList.remove('recording-btn');voiceBtn.innerText='🧠 AI 正在识别语音...';voiceBtn.style.background='#FF9800';tip.innerText='🧠 大模型正在分析语音并规划路线...';tip.style.display='block';sendNavTextToCloud('大模型正在分析您的语音');recorder.stopRecording(()=>{const blob=recorder.getBlob();const formData=new FormData();formData.append('audio',blob,'voice.wav');const loc=currentPos?`${currentPos.lng},${currentPos.lat}`:'104.080,30.659';fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`,{method:'POST',body:formData}).then(res=>res.json()).then(data=>{if(data.success){if(data.destination&&data.location){const lnglat=data.location.split(',').map(Number);targetPos=lnglat;addressInput.value=data.destination;tip.innerText=`✅ 识别结果：${data.destination}\n${data.navText||''}`;tip.style.display='block';sendNavTextToCloud('已识别您要去'+data.destination);if(!currentPos){tip.innerText='请先获取硬件定位，再使用语音导航';setTimeout(()=>tip.style.display='none',3000);}else{startNav(data.mode||'riding');}setTimeout(()=>tip.style.display='none',8000);}else if(data.reply){tip.innerText='🤔 '+data.reply;tip.style.display='block';sendNavTextToCloud(data.reply);setTimeout(()=>tip.style.display='none',5000);}}else{tip.innerText='❌ 识别失败: '+(data.error||'请重试');setTimeout(()=>tip.style.display='none',3000);}resetVoiceUI();}).catch(err=>{console.error('语音上传失败:',err);tip.innerText='🌐 网络错误，请检查连接';setTimeout(()=>tip.style.display='none',3000);resetVoiceUI();});recorder.stream.getTracks().forEach(track=>track.stop());recorder=null;});}
+    function stopRecording() {
+      if (!recorder) return;
+      voiceBtn.classList.remove('recording-btn');
+      voiceBtn.innerText = '🧠 AI 正在识别语音...';
+      voiceBtn.style.background = '#FF9800';
+      tip.innerText = '🧠 大模型正在分析语音并规划路线...';
+      tip.style.display = 'block';
+      sendNavTextToCloud('大模型正在分析您的语音');
+      
+      recorder.stopRecording(() => {
+        const blob = recorder.getBlob();
+        const formData = new FormData();
+        formData.append('audio', blob, 'voice.wav');
+        
+        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
 
-    function resetVoiceUI(){voiceBtn.innerText='🎤 按住说话 (录音上传)';voiceBtn.style.background='#4CAF50';voiceBtn.classList.remove('recording-btn');}
+        fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`, {
+          method: 'POST',
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            if (data.destination && data.location) {
+              const lnglat = data.location.split(',').map(Number);
+              targetPos = lnglat;
+              addressInput.value = data.destination;
+              tip.innerText = `✅ 识别结果：${data.destination}\n${data.navText || ''}`;
+              tip.style.display = 'block';
+              sendNavTextToCloud('已识别您要去' + data.destination);
+              
+              if (!currentPos) {
+                tip.innerText = '请先获取硬件定位，再使用语音导航';
+                setTimeout(() => tip.style.display = 'none', 3000);
+              } else {
+                startNav(data.mode || 'riding');
+              }
+              setTimeout(() => tip.style.display = 'none', 8000);
+            } else if (data.reply) {
+              tip.innerText = '🤔 ' + data.reply;
+              tip.style.display = 'block';
+              sendNavTextToCloud(data.reply);
+              setTimeout(() => tip.style.display = 'none', 5000);
+            }
+          } else {
+            tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
+            setTimeout(() => tip.style.display = 'none', 3000);
+          }
+          resetVoiceUI();
+        })
+        .catch(err => {
+          console.error('语音上传失败:', err);
+          tip.innerText = '🌐 网络错误，请检查连接';
+          setTimeout(() => tip.style.display = 'none', 3000);
+          resetVoiceUI();
+        });
 
-    // 硬件语音识别测试
-    async function simulateHardwareVoice(){const testText=prompt('模拟硬件语音输入，请输入文本：','附近有什么好吃的');if(!testText)return;tip.innerText='🎙️ 硬件模拟：正在处理...';tip.style.display='block';const loc=currentPos?`${currentPos.lng},${currentPos.lat}`:'104.080,30.659';try{const resp=await fetch(`${AI_BACKEND_URL}/api/voice/command`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:testText,userLocation:loc})});const data=await resp.json();if(data.success&&data.destination&&data.location){targetPos=data.location.split(',').map(Number);addressInput.value=data.destination;tip.innerText=`✅ 硬件识别：${data.destination}\n${data.navText||''}`;tip.style.display='block';sendNavTextToCloud('已识别您要去'+data.destination);if(currentPos)startNav(data.mode||'riding');setTimeout(()=>tip.style.display='none',8000);}else if(data.reply){tip.innerText='🤔 '+data.reply;tip.style.display='block';sendNavTextToCloud(data.reply);setTimeout(()=>tip.style.display='none',5000);}}catch(e){tip.innerText='🌐 网络错误';setTimeout(()=>tip.style.display='none',3000);}}
+        recorder.stream.getTracks().forEach(track => track.stop());
+        recorder = null;
+      });
+    }
 
-    // 模拟摔倒
-    async function simulateRisk(){tip.innerText='🆘 检测到异常加速度，大模型正在研判...';tip.style.display='block';sendNavTextToCloud('检测到异常加速度，大模型正在研判');const loc=currentPos?`${currentPos.lng},${currentPos.lat}`:'104.5647,28.7658';try{const resp=await fetch(`${AI_BACKEND_URL}/api/ai/risk`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'摔倒',data:'加速度8.5g, 倾角75度, 持续2秒',userLocation:loc})});const data=await resp.json();if(data.success){tip.innerText='⚠️ ['+data.level+'风险] '+data.text;tip.style.display='block';sendNavTextToCloud(data.text);setTimeout(()=>tip.style.display='none',5000);}}catch(e){tip.innerText='研判失败';setTimeout(()=>tip.style.display='none',3000);}}
+    function resetVoiceUI() {
+      voiceBtn.innerText = '🎤 按住说话 (录音上传)';
+      voiceBtn.style.background = '#4CAF50';
+      voiceBtn.classList.remove('recording-btn');
+    }
 
-    // 骑行前评估
-    async function checkRideCondition(){tip.innerText='🚴 大模型正在分析骑行条件...';tip.style.display='block';sendNavTextToCloud('大模型正在分析骑行条件');const loc=currentPos?`${currentPos.lng},${currentPos.lat}`:'104.5647,28.7658';try{const resp=await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userLocation:loc})});const data=await resp.json();if(data.success){const emoji=data.suitable?'✅':'⚠️';tip.innerText=`${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;tip.style.display='block';sendNavTextToCloud(data.advice);setTimeout(()=>tip.style.display='none',10000);}}catch(e){tip.innerText='评估失败';setTimeout(()=>tip.style.display='none',3000);}}
+    // ========== 硬件语音识别测试 ==========
+    async function simulateHardwareVoice() {
+      const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
+      if (!testText) return;
+      tip.innerText = '🎙️ 硬件模拟：正在处理...';
+      tip.style.display = 'block';
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: testText, userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success && data.destination && data.location) {
+          targetPos = data.location.split(',').map(Number);
+          addressInput.value = data.destination;
+          tip.innerText = `✅ 硬件识别：${data.destination}\n${data.navText || ''}`;
+          tip.style.display = 'block';
+          sendNavTextToCloud('已识别您要去' + data.destination);
+          if (currentPos) startNav(data.mode || 'riding');
+          setTimeout(() => tip.style.display = 'none', 8000);
+        } else if (data.reply) {
+          tip.innerText = '🤔 ' + data.reply;
+          tip.style.display = 'block';
+          sendNavTextToCloud(data.reply);
+          setTimeout(() => tip.style.display = 'none', 5000);
+        }
+      } catch (e) {
+        tip.innerText = '🌐 网络错误';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
+    }
 
-    // AI导航后端调用（保留）
-    async function callAIBackend(destination,status){try{const response=await fetch(`${AI_BACKEND_URL}/api/ai/nav`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination,status}),cache:'no-store',mode:'cors'});const data=await response.json();if(data.success){sendNavTextToCloud(data.text);}}catch(error){console.error('AI 接口调用失败:',error);}}
+    // ========== 模拟摔倒检测 ==========
+    async function simulateRisk() {
+      tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
+      tip.style.display = 'block';
+      sendNavTextToCloud('检测到异常加速度，大模型正在研判');
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度, 持续2秒', userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          tip.innerText = '⚠️ [' + data.level + '风险] ' + data.text;
+          tip.style.display = 'block';
+          sendNavTextToCloud(data.text);
+          setTimeout(() => tip.style.display = 'none', 5000);
+        }
+      } catch (e) {
+        tip.innerText = '研判失败';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
+    }
 
-    // 初始化
-    window.onload=function(){
-      map=new AMap.Map("container",{zoom:16,resizeEnable:true,center:[104.5647,28.7658]});
-      satelliteLayer=new AMap.TileLayer.Satellite();
+    // ========== 骑行前综合评估 ==========
+    async function checkRideCondition() {
+      tip.innerText = '🚴 大模型正在分析骑行条件...';
+      tip.style.display = 'block';
+      sendNavTextToCloud('大模型正在分析骑行条件');
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          const emoji = data.suitable ? '✅' : '⚠️';
+          tip.innerText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
+          tip.style.display = 'block';
+          sendNavTextToCloud(data.advice);
+          setTimeout(() => tip.style.display = 'none', 10000);
+        }
+      } catch (e) {
+        tip.innerText = '评估失败';
+        setTimeout(() => tip.style.display = 'none', 3000);
+      }
+    }
+
+    // ========== 自然语言解析 + 导航 ==========
+    async function resolveNaturalLanguage(spokenText) {
+      tip.innerText = '🧠 大模型正在理解...';
+      sendNavTextToCloud('大模型正在分析您的语言');
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: spokenText })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          targetPos = data.location.split(',').map(Number);
+          addressInput.value = data.destination;
+          sendNavTextToCloud('已识别您要去' + data.destination);
+          startNav(data.mode || 'riding');
+        } else {
+          tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
+          setTimeout(() => tip.style.display = 'none', 5000);
+        }
+      } catch (e) {
+        tip.innerText = '🌐 网络错误';
+        setTimeout(() => tip.style.display = 'none', 5000);
+      }
+    }
+
+    // ========== AI 导航指令 ==========
+    async function callAIBackend(destination, status) {
+      try {
+        const response = await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ destination, status }), cache: 'no-store', mode: 'cors'
+        });
+        const data = await response.json();
+        if (data.success) {
+          tip.innerText = '📢 ' + data.text;
+          tip.style.display = 'block';
+          sendNavTextToCloud(data.text);
+          setTimeout(() => tip.style.display = 'none', 5000);
+        }
+      } catch (error) { console.error('AI 接口调用失败:', error); }
+    }
+
+    window.onload = function(){
+      if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
+      map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
+      satelliteLayer = new AMap.TileLayer.Satellite();
       initAutoComplete();
-      if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){getMyLocation();}
+      if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) { getMyLocation(); }
       connectCloud();
     };
 
     function getMyLocation(){
-      tip.innerText="正在获取硬件GPS位置...";tip.style.display="block";
-      const geolocation=new AMap.Geolocation({enableHighAccuracy:true,timeout:10000});
-      geolocation.getCurrentPosition((status,result)=>{
-        if(status==="complete"&&result.position){
-          currentPos=result.position;if(myMarker)myMarker.setMap(null);
-          myMarker=new AMap.Marker({position:currentPos});myMarker.setMap(map);
-          map.setCenter(currentPos);tip.innerText="定位成功";
-          setTimeout(()=>tip.style.display="none",1500);
-        }else{tip.innerText="定位失败，请开启手机定位权限";}
+      tip.innerText = "正在获取硬件GPS位置..."; tip.style.display = "block";
+      const geolocation = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
+      geolocation.getCurrentPosition((status, result) => {
+        if(status === "complete" && result.position){
+          currentPos = result.position; if(myMarker) myMarker.setMap(null);
+          myMarker = new AMap.Marker({ position: currentPos }); myMarker.setMap(map);
+          map.setCenter(currentPos); tip.innerText = "定位成功";
+          setTimeout(()=>tip.style.display = "none", 1500);
+        }else{ tip.innerText = "定位失败，请开启手机定位权限"; }
       });
     }
 
     function initAutoComplete(){
-      const autoComplete=new AMap.AutoComplete({city:"宜宾"});let timer=null;
-      addressInput.addEventListener('input',function(){
-        const keyword=this.value.trim();if(!keyword){suggestList.style.display="none";return;}
+      const autoComplete = new AMap.AutoComplete({ city: "宜宾" }); let timer = null;
+      addressInput.addEventListener('input', function(){
+        const keyword = this.value.trim(); if(!keyword){ suggestList.style.display = "none"; return; }
         clearTimeout(timer);
-        timer=setTimeout(()=>{
-          autoComplete.search(keyword,(status,res)=>{
-            if(status==="complete"&&res.tips&&res.tips.length>0){
-              suggestList.innerHTML="";
-              res.tips.forEach(tip=>{if(!tip.location)return;
-                const div=document.createElement('div');div.className="item";
-                div.innerHTML=tip.name.replace(new RegExp(`(${keyword})`,'gi'),'<span class="highlight">$1</span>');
-                div.onclick=()=>{addressInput.value=tip.name;targetPos=tip.location;suggestList.style.display="none";};
+        timer = setTimeout(()=>{
+          autoComplete.search(keyword, (status, res) => {
+            if(status === "complete" && res.tips && res.tips.length > 0){
+              suggestList.innerHTML = "";
+              res.tips.forEach(tip => { if(!tip.location) return;
+                const div = document.createElement('div'); div.className = "item";
+                div.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
+                div.onclick = () => { addressInput.value = tip.name; targetPos = tip.location; suggestList.style.display = "none"; };
                 suggestList.appendChild(div);
               });
-              suggestList.style.display="block";
+              suggestList.style.display = "block";
             }
           });
-        },300);
+        }, 300);
       });
-      addressInput.addEventListener('blur',()=>{setTimeout(()=>suggestList.style.display="none",200);});
+      addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
-    // 路径规划使用高德前端API
     function startNav(type){
-      if(!currentPos){tip.innerText="请等待硬件定位成功";tip.style.display="block";setTimeout(()=>tip.style.display="none",2000);return;}
-      if(!targetPos){tip.innerText="请先选择目的地";tip.style.display="block";setTimeout(()=>tip.style.display="none",2000);return;}
-      if(walkingRoute)walkingRoute.clear();if(ridingRoute)ridingRoute.clear();
-      const typeText=type==='walking'?'步行':'骑行';
+      if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
+      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; const typeText = type === 'walking' ? '步行' : '骑行';
       sendNavTextToCloud('正在规划路径');
-      if(type==='walking'){
-        AMap.plugin('AMap.Walking',function(){
-          const walking=new AMap.Walking({map:map,autoFitView:true});
-          walking.search(currentPos,targetPos,function(status,result){
-            if(status==='complete'&&result.info==='OK'){
-              tip.innerText=typeText+'路线规划成功';
-              setTimeout(()=>tip.style.display="none",2000);
-              const firstStep=result.routes[0].steps[0]?.instruction||'开始'+typeText+'导航';
-              sendNavTextToCloud('开始'+typeText+'导航，'+firstStep);
-              callAIBackend(addressInput.value,'开始'+typeText);
-            }else{
-              tip.innerText='路线规划失败';setTimeout(()=>tip.style.display="none",2000);
-            }
-          });
+      AMap.plugin(plugin, ()=>{
+        const route = type === 'walking' ? new AMap.Walking({ map, autoFitView: true }) : new AMap.Riding({ map, autoFitView: true });
+        type === 'walking' ? walkingRoute = route : ridingRoute = route;
+        route.search(currentPos, targetPos, (status, res) => {
+          if(status === "complete" && res.routes && res.routes.length>0){
+            tip.innerText = `${typeText}路线规划成功`;
+            setTimeout(()=>tip.style.display = "none", 2000);
+            const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
+            const navText = `开始${typeText}导航，${firstStep}`;
+            sendNavTextToCloud(navText);
+            callAIBackend(addressInput.value, '开始' + typeText);
+          } else if (type === 'riding') {
+            tip.innerText = '骑行路线规划失败，自动切换为步行导航';
+            setTimeout(() => startNav('walking'), 1500);
+          } else {
+            tip.innerText = "路线规划失败"; setTimeout(()=>tip.style.display = "none", 2000);
+          }
         });
-      }else{ // riding
-        AMap.plugin('AMap.Riding',function(){
-          const riding=new AMap.Riding({map:map,autoFitView:true});
-          riding.search(currentPos,targetPos,function(status,result){
-            if(status==='complete'&&result.info==='OK'){
-              tip.innerText=typeText+'路线规划成功';
-              setTimeout(()=>tip.style.display="none",2000);
-              const firstStep=result.routes[0].steps[0]?.instruction||'开始'+typeText+'导航';
-              sendNavTextToCloud('开始'+typeText+'导航，'+firstStep);
-              callAIBackend(addressInput.value,'开始'+typeText);
-            }else{
-              tip.innerText='骑行路线规划失败，自动切换为步行导航';
-              setTimeout(()=>startNav('walking'),1500);
-            }
-          });
-        });
-      }
+      });
     }
 
     function switchSatellite(){
-      if(!isSatellite){map.add(satelliteLayer);document.getElementById('switchMapBtn').innerText="切换普通地图";isSatellite=true;}
-      else{map.remove(satelliteLayer);document.getElementById('switchMapBtn').innerText="切换卫星图";isSatellite=false;}
+      if(!isSatellite){ map.add(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换普通地图"; isSatellite = true; }
+      else{ map.remove(satelliteLayer); document.getElementById('switchMapBtn').innerText = "切换卫星图"; isSatellite = false; }
     }
 
     function clearAll(){
-      addressInput.value="";targetPos=null;
-      if(walkingRoute)walkingRoute.clear();if(ridingRoute)ridingRoute.clear();
-      suggestList.style.display="none";
+      addressInput.value = ""; targetPos = null;
+      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      suggestList.style.display = "none";
     }
   </script>
 </body>
