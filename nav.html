@@ -23,6 +23,9 @@
     #switchMapBtn{position:fixed;top:130px;right:12px;z-index:9999;padding:10px 16px;background:rgba(255,255,255,0.95);border:none;border-radius:20px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer}
     #suggest-list{
       position:fixed;
+      top:52px;
+      left:12px;
+      right:12px;
       z-index:10000;
       background:#fff;
       border-radius:8px;
@@ -453,6 +456,9 @@
           city: "桂林",
           citylimit: true
         });
+        console.log('AutoComplete已创建');
+      } else {
+        console.error('AMap.AutoComplete不可用');
       }
       
       let timer = null;
@@ -460,18 +466,13 @@
         const keyword = this.value.trim();
         if (!keyword) { suggestList.style.display = "none"; return; }
         
-        // 动态调整下拉列表位置
-        const inputRect = addressInput.getBoundingClientRect();
-        suggestList.style.top = (inputRect.bottom + 5) + 'px';
-        suggestList.style.left = inputRect.left + 'px';
-        suggestList.style.width = inputRect.width + 'px';
-        suggestList.style.position = 'fixed';
-        suggestList.style.zIndex = '10000';
-        
         clearTimeout(timer);
         timer = setTimeout(() => {
           if (autoComplete) {
+            console.log('开始搜索:', keyword);
             autoComplete.search(keyword, (status, res) => {
+              console.log('搜索状态:', status);
+              console.log('搜索结果:', res);
               if (status === "complete" && res.tips && res.tips.length > 0) {
                 suggestList.innerHTML = "";
                 res.tips.forEach(tipItem => {
@@ -489,8 +490,10 @@
                   suggestList.appendChild(div);
                 });
                 suggestList.style.display = "block";
+                console.log('下拉列表已显示');
               } else {
                 suggestList.style.display = "none";
+                console.log('无搜索结果');
               }
             });
           }
@@ -518,7 +521,6 @@
       }
       if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
       
-      // 清除之前的路线
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
 
