@@ -7,7 +7,7 @@
   <script>
     window._AMapSecurityConfig = { securityJsCode: "fc5eab52eb041ff4874aba0dd149d954" };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding,AMap.PlaceSearch"></script>
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <style>
@@ -51,7 +51,7 @@
 <body>
   <div id="container"></div>
   <div class="input-box">
-    <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
+    <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" autocomplete="off" />
     <button onclick="manualSearchFromInput()" style="width:100%;padding:10px;background:#1677ff;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🔍 搜索并导航</button>
     <button id="voiceBtn" style="width:100%;padding:10px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🎤 按住说话 (语音识别)</button>
     <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%;padding:10px;background:#2196F3;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🎙️ 硬件语音识别测试</button>
@@ -92,7 +92,7 @@
     let map, myMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
-    let autoComplete;
+    let autoComplete, placeSearch;
     let pendingNavigation = null;
     let walkingNav, ridingNav;
 
@@ -466,6 +466,13 @@
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [110.320, 25.284] });
       satelliteLayer = new AMap.TileLayer.Satellite();
       
+      // 初始化PlaceSearch用于POI搜索
+      placeSearch = new AMap.PlaceSearch({
+        city: '桂林',
+        citylimit: true,
+        pageSize: 10
+      });
+      
       // 初始化导航插件
       walkingNav = new AMap.Walking({
         map: map,
@@ -501,41 +508,38 @@
     }
 
     function initAutoComplete(){
-      if (typeof AMap.AutoComplete !== 'function') {
-        addressInput.addEventListener('keypress', function(e) {
-          if (e.key === 'Enter') {
-            const keyword = this.value.trim();
-            if (keyword) manualSearch(keyword);
-          }
-        });
-        return;
-      }
+      console.log('初始化自动完成...');
       
-      autoComplete = new AMap.AutoComplete({ city: "桂林" });
+      // 使用PlaceSearch进行POI搜索
       let timer = null;
-      
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
         if (!keyword) { suggestList.style.display = "none"; return; }
         
         clearTimeout(timer);
         timer = setTimeout(() => {
-          autoComplete.search(keyword, (status, res) => {
-            if (status === "complete" && res.tips && res.tips.length > 0) {
+          console.log('搜索关键词:', keyword);
+          placeSearch.search(keyword, function(status, result) {
+            console.log('搜索结果:', status, result);
+            if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length > 0) {
               suggestList.innerHTML = "";
-              res.tips.forEach(tip => {
-                if (!tip.location) return;
+              result.poiList.pois.forEach(poi => {
                 const div = document.createElement('div');
                 div.className = "item";
-                div.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
+                const name = poi.name;
+                const address = poi.address || '';
+                div.innerHTML = `<div>${name}</div><div style="font-size:12px;color:#999">${address}</div>`;
                 div.onclick = () => { 
-                  addressInput.value = tip.name; 
-                  targetPos = tip.location; 
+                  addressInput.value = name;
+                  const lnglat = poi.location.split(',').map(Number);
+                  targetPos = lnglat;
                   suggestList.style.display = "none"; 
                 };
                 suggestList.appendChild(div);
               });
               suggestList.style.display = "block";
+            } else {
+              suggestList.style.display = "none";
             }
           });
         }, 300);
@@ -597,17 +601,25 @@
             
             console.log('骑行距离:', distance, '时间:', duration);
             
-            const distanceKm = (distance / 1000).toFixed(1);
-            const durationMin = Math.round(duration / 60);
-            
-            showNavStatus(`骑行导航：距离${distanceKm}公里，预计${durationMin}分钟`);
-            showNavSteps(steps);
-            sendNavTextToCloud(`骑行导航，距离${distanceKm}公里，预计${durationMin}分钟`);
-            speakTextOut(`骑行导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            if (distance > 0) {
+              const distanceKm = (distance / 1000).toFixed(1);
+              const durationMin = Math.round(duration / 60);
+              
+              showNavStatus(`骑行导航：距离${distanceKm}公里，预计${durationMin}分钟`);
+              showNavSteps(steps);
+              sendNavTextToCloud(`骑行导航，距离${distanceKm}公里，预计${durationMin}分钟`);
+              speakTextOut(`骑行导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            } else {
+              console.error('骑行距离为0，尝试步行导航');
+              tip.innerText = '⚠️ 骑行路线不可用，已切换为步行导航';
+              setTimeout(() => tip.style.display = 'none', 3000);
+              startNav('walking');
+            }
           } else {
-            console.error('骑行导航失败:', result);
-            tip.innerText = '❌ 骑行导航失败，请尝试步行导航';
+            console.error('骑行导航失败，尝试步行导航');
+            tip.innerText = '⚠️ 骑行导航失败，已切换为步行导航';
             setTimeout(() => tip.style.display = 'none', 3000);
+            startNav('walking');
           }
         });
       } else {
