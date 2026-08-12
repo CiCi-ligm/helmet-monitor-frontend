@@ -444,13 +444,11 @@
         
         clearTimeout(timer);
         timer = setTimeout(() => {
-          // 使用高德输入提示API
           const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(keyword)}&city=桂林&citylimit=true&key=85a9a797b358573152302861e5a7dd05`;
           
           fetch(url)
             .then(r => r.json())
             .then(data => {
-              console.log('输入提示结果:', data);
               if (data.tips && data.tips.length > 0) {
                 suggestList.innerHTML = "";
                 data.tips.forEach(tipItem => {
@@ -492,7 +490,10 @@
       });
     }
 
-    async function startNav(type){
+    function startNav(type){
+      console.log('=== 开始导航 ===');
+      console.log('导航类型:', type);
+      
       if (!currentPos) { 
         currentPos = new AMap.LngLat(110.320, 25.284);
         tip.innerText = "使用默认位置（桂林理工大学）"; 
@@ -501,111 +502,89 @@
       }
       if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
       
+      console.log('起点:', currentPos);
+      console.log('终点:', targetPos);
+      
       // 清除之前的路线
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
 
-      const origin = currentPos.lng + ',' + currentPos.lat;
-      const dest = targetPos[0] + ',' + targetPos[1];
-      
-      console.log('导航参数 - 类型:', type, '起点:', origin, '终点:', dest);
-      
-      let apiUrl;
       if (type === 'riding') {
-        apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
+        console.log('使用AMap.Riding插件');
         sendNavTextToCloud('正在规划骑行路线');
-      } else {
-        apiUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-        sendNavTextToCloud('正在规划步行路线');
-      }
-
-      console.log('API URL:', apiUrl);
-
-      try {
-        const resp = await fetch(apiUrl);
-        const data = await resp.json();
-        console.log('API完整返回:', data);
         
-        if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
-          const path = data.route.paths[0];
-          console.log('路径数据:', path);
-          console.log('距离:', path.distance);
-          console.log('时间:', path.duration);
+        const riding = new AMap.Riding({
+          map: map,
+          hideMarkers: false
+        });
+        
+        riding.search(currentPos, targetPos, function(status, result) {
+          console.log('骑行搜索结果状态:', status);
+          console.log('骑行结果详情:', result);
           
-          // 检查骑行距离是否为0
-          if (type === 'riding' && (!path.distance || path.distance === 0)) {
-            console.log('骑行距离为0，切换步行导航');
-            tip.innerText = '⚠️ 骑行路线不可用，已切换为步行导航';
-            setTimeout(() => tip.style.display = 'none', 3000);
-            startNav('walking');
-            return;
-          }
-          
-          const steps = path.steps ? path.steps.map(s => s.instruction) : [];
-          const polyline = [];
-          
-          if (path.steps) {
-            path.steps.forEach(step => {
-              if (step.polyline) {
-                step.polyline.split(';').forEach(p => {
-                  const [lng, lat] = p.split(',').map(Number);
-                  if (!isNaN(lng) && !isNaN(lat)) {
-                    polyline.push([lng, lat]);
-                  }
-                });
-              }
-            });
-          }
-          
-          if (polyline.length > 0) {
-            const route = new AMap.Polyline({
-              path: polyline,
-              strokeColor: type === 'riding' ? '#FF9800' : '#1677ff',
-              strokeWeight: 6,
-              strokeOpacity: 0.8
-            });
-            route.setMap(map);
+          if (status === 'complete' && result.routes && result.routes.length > 0) {
+            const route = result.routes[0];
+            console.log('骑行路线数据:', route);
+            console.log('骑行距离:', route.distance);
+            console.log('骑行时间:', route.time);
+            console.log('骑行步骤:', route.steps);
             
-            if (type === 'riding') {
-              ridingRoute = route;
-            } else {
-              walkingRoute = route;
-            }
+            const distanceKm = (route.distance / 1000).toFixed(1);
+            const durationMin = Math.round(route.time / 60);
+            const steps = route.steps ? route.steps.map(s => s.instruction) : [];
             
-            map.setFitView([route]);
-            const navTypeText = type === 'riding' ? '骑行' : '步行';
-            const distanceKm = (path.distance / 1000).toFixed(1);
-            const durationMin = Math.round(path.duration / 60);
-            
-            showNavStatus(`${navTypeText}导航：距离${distanceKm}公里，预计${durationMin}分钟`);
+            showNavStatus(`骑行导航：距离${distanceKm}公里，预计${durationMin}分钟`);
             showNavSteps(steps);
-            sendNavTextToCloud(`${navTypeText}导航，距离${distanceKm}公里，预计${durationMin}分钟`);
-            speakTextOut(`${navTypeText}导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            sendNavTextToCloud(`骑行导航，距离${distanceKm}公里，预计${durationMin}分钟`);
+            speakTextOut(`骑行导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            
+            ridingRoute = route;
           } else {
-            tip.innerText = '❌ 路线数据解析失败';
+            console.error('骑行导航失败');
+            console.error('状态:', status);
+            console.error('结果:', result);
+            tip.innerText = '❌ 骑行导航失败，请尝试步行导航';
             setTimeout(() => tip.style.display = 'none', 3000);
           }
-        } else {
-          console.error('API返回异常:', data);
-          if (type === 'riding') {
-            tip.innerText = '⚠️ 骑行路线不可用，已切换为步行导航';
-            setTimeout(() => tip.style.display = 'none', 3000);
-            startNav('walking');
+        });
+      } else {
+        console.log('使用AMap.Walking插件');
+        sendNavTextToCloud('正在规划步行路线');
+        
+        const walking = new AMap.Walking({
+          map: map,
+          hideMarkers: false
+        });
+        
+        walking.search(currentPos, targetPos, function(status, result) {
+          console.log('步行搜索结果状态:', status);
+          console.log('步行结果详情:', result);
+          
+          if (status === 'complete' && result.routes && result.routes.length > 0) {
+            const route = result.routes[0];
+            console.log('步行路线数据:', route);
+            console.log('步行距离:', route.distance);
+            console.log('步行时间:', route.time);
+            console.log('步行步骤:', route.steps);
+            
+            const distanceKm = (route.distance / 1000).toFixed(1);
+            const durationMin = Math.round(route.time / 60);
+            const steps = route.steps ? route.steps.map(s => s.instruction) : [];
+            
+            showNavStatus(`步行导航：距离${distanceKm}公里，预计${durationMin}分钟`);
+            showNavSteps(steps);
+            sendNavTextToCloud(`步行导航，距离${distanceKm}公里，预计${durationMin}分钟`);
+            speakTextOut(`步行导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            
+            walkingRoute = route;
           } else {
-            tip.innerText = '❌ 路径规划失败';
+            console.error('步行导航失败');
+            console.error('状态:', status);
+            console.error('结果:', result);
+            tip.innerText = '❌ 步行导航失败';
             setTimeout(() => tip.style.display = 'none', 3000);
           }
-        }
-      } catch (e) {
-        console.error('导航请求失败:', e);
-        if (type === 'riding') {
-          tip.innerText = '⚠️ 骑行导航失败，已切换为步行导航';
-          setTimeout(() => tip.style.display = 'none', 3000);
-          startNav('walking');
-        } else {
-          tip.innerText = '❌ 网络错误';
-          setTimeout(() => tip.style.display = 'none', 3000);
-        }
+        });
       }
     }
 
