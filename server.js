@@ -18,7 +18,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-const API_KEY = 'zwcf9R9tkduLoePvpSEpg2XToeMNgU8NJyNridtN84s=';
+const API_KEY = process.env.API_KEY || '';
 const QWEN_API_KEY = process.env.QWEN_API_KEY || '';
 const PRODUCT_ID = 'G2ddPjoILg';
 const DEVICE_NAME = 'gps';
