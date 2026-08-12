@@ -10,10 +10,9 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-  <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <script>
     if (typeof mqtt === "undefined") {
       document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"><\/script>');
@@ -154,7 +153,7 @@
 
   <div class="input-box">
     <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
-    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (录音上传)</button>
+    <button id="voiceBtn" style="width:100%; padding:10px; background:#4CAF50; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎤 按住说话 (语音识别)</button>
     <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%; padding:10px; background:#2196F3; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🎙️ 硬件语音识别测试</button>
     <button id="riskBtn" onclick="simulateRisk()" style="width:100%; padding:10px; background:#f44336; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🆘 模拟摔倒检测</button>
     <button id="rideCheckBtn" onclick="checkRideCondition()" style="width:100%; padding:10px; background:#FF9800; color:#fff; border:none; border-radius:6px; font-size:16px; margin-bottom:10px;">🚴 骑行前综合评估</button>
@@ -210,38 +209,25 @@
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
 
-    let recorder;
+    let recognition = null;
 
-    // ========== 本地固定目的地映射表（桂林市区） ==========
+    // ========== 本地固定目的地映射表 ==========
     const LOCAL_FIX_MAP = {
-      // --- 周边店铺（精确坐标） ---
-      '我要去附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-      '附近的咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-      '咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+      // 周边店铺
       '咖啡': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
+      '咖啡店': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
       '瑞幸': { name: '瑞幸咖啡（桂林理工大学屏风店）', location: [110.315876, 25.280612] },
-
-      '附近有没有什么超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
-      '附近的超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
       '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
       '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)', location: [110.319752, 25.283965] },
-
-      '附近有没有什么奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      '附近的奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
       '奶茶': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
+      '奶茶店': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
       '蜜雪冰城': { name: '蜜雪冰城(学院正门店)', location: [110.315923, 25.280578] },
-      
-      // --- 桂林市区景点 ---
-      '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
+      // 桂林景点
       '桂林理工大学': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '屏风校区': { name: '桂林理工大学屏风校区', location: [110.320143, 25.284221] },
       '国贸天地': { name: '国贸天地', location: [110.297074, 25.279430] },
-      '象鼻山景区': { name: '象鼻山景区', location: [110.291860, 25.272124] },
       '象鼻山': { name: '象鼻山景区', location: [110.291860, 25.272124] },
-      '桂林市两江四湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
       '两江四湖': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
-      '两江两湖景区': { name: '桂林市两江四湖景区', location: [110.294400, 25.273300] },
       '日月双塔': { name: '日月双塔', location: [110.294826, 25.271420] },
       '正阳步行街': { name: '正阳步行街', location: [110.297810, 25.278470] },
       '东西巷': { name: '东西巷', location: [110.299731, 25.278717] },
@@ -249,20 +235,11 @@
       '七星公园': { name: '七星公园', location: [110.307540, 25.274910] },
       '桂林园林植物园': { name: '桂林园林植物园', location: [110.272260, 25.252740] },
       '桂林博物馆': { name: '桂林博物馆', location: [110.254750, 25.281830] },
-      
-      // --- 交通枢纽 ---
       '桂林北站': { name: '桂林北站', location: [110.301731, 25.329019] },
       '桂林南站': { name: '桂林站', location: [110.283420, 25.260370] },
       '桂林站': { name: '桂林站', location: [110.283420, 25.260370] },
-      '桂林两江国际机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
       '桂林机场': { name: '桂林两江国际机场', location: [110.035420, 25.211680] },
-      
-      // --- 医院 ---
       '桂林市人民医院': { name: '桂林市人民医院', location: [110.289340, 25.275210] },
-      
-      // --- 商场 ---
-      '桂林万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
-      '桂林高新万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] },
       '万达广场': { name: '桂林高新万达广场', location: [110.315630, 25.280460] }
     };
 
@@ -309,180 +286,160 @@
       }).catch(() => {});
     }
 
-    // ========== 录音上传逻辑 ==========
-    voiceBtn.addEventListener('mousedown', startRecording);
-    voiceBtn.addEventListener('touchstart', startRecording);
-    voiceBtn.addEventListener('mouseup', stopRecording);
-    voiceBtn.addEventListener('touchend', stopRecording);
-    voiceBtn.addEventListener('mouseleave', stopRecording);
+    // ========== 浏览器原生语音识别 ==========
+    voiceBtn.addEventListener('mousedown', startListening);
+    voiceBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startListening(e);
+    });
+    voiceBtn.addEventListener('mouseup', stopListening);
+    voiceBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopListening(e);
+    });
+    voiceBtn.addEventListener('mouseleave', stopListening);
+    voiceBtn.addEventListener('touchcancel', stopListening);
 
-    async function startRecording(e) {
-      e.preventDefault();
-      if (recorder) return;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recorder = new RecordRTC(stream, { type: 'audio', mimeType: 'audio/wav' });
-        recorder.startRecording();
-        voiceBtn.classList.add('recording-btn');
-        voiceBtn.innerText = '🎤 正在聆听... 松手结束';
-        voiceBtn.style.background = '#f44336';
-        tip.innerText = '🎙️ 请说话...';
-        tip.style.display = 'block';
-        recorder.stream = stream;
-      } catch (err) {
-        console.error('无法获取麦克风权限:', err);
-        tip.innerText = '❌ 麦克风权限被拒绝';
-        setTimeout(() => tip.style.display = 'none', 3000);
-      }
+    function startListening(e) {
+        if (e) e.preventDefault();
+        if (recognition) {
+            recognition.abort();
+            recognition = null;
+        }
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器');
+            return;
+        }
+        recognition = new SpeechRecognition();
+        recognition.lang = 'zh-CN';
+        recognition.continuous = false;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+            voiceBtn.classList.add('recording-btn');
+            voiceBtn.innerText = '🎤 正在聆听...';
+            voiceBtn.style.background = '#f44336';
+            tip.innerText = '🎙️ 请说话...';
+            tip.style.display = 'block';
+        };
+
+        recognition.onresult = (event) => {
+            let finalText = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalText += event.results[i][0].transcript;
+                }
+            }
+            if (finalText) {
+                addressInput.value = finalText;
+                recognition.stop();
+                processVoiceText(finalText);
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('语音识别错误:', event.error);
+            tip.innerText = '❌ 识别失败: ' + event.error;
+            setTimeout(() => tip.style.display = 'none', 3000);
+            resetVoiceUI();
+        };
+
+        recognition.onend = () => {
+            resetVoiceUI();
+        };
+
+        recognition.start();
     }
 
-    function stopRecording() {
-      if (!recorder) return;
-      voiceBtn.classList.remove('recording-btn');
-      voiceBtn.innerText = '🧠 AI 正在识别语音...';
-      voiceBtn.style.background = '#FF9800';
-      tip.innerText = '🧠 大模型正在分析语音并规划路线...';
-      tip.style.display = 'block';
-      sendNavTextToCloud('大模型正在分析您的语音');
-      
-      recorder.stopRecording(() => {
-        const blob = recorder.getBlob();
-        const formData = new FormData();
-        formData.append('audio', blob, 'voice.wav');
-        
-        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
-
-        fetch(`${AI_BACKEND_URL}/api/voice/nav?userLocation=${loc}`, {
-          method: 'POST',
-          body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.destination) {
-            let finalDest = data.destination;
-            let finalLocation = data.location;
-
-            // 优先使用本地映射表（完全匹配 + 模糊匹配）
-            let matched = false;
-            
-            // 1. 完全匹配
-            if (LOCAL_FIX_MAP[finalDest]) {
-              finalDest = LOCAL_FIX_MAP[finalDest].name;
-              finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
-              matched = true;
-            }
-            // 2. 模糊匹配（双向包含）
-            if (!matched) {
-              for (const key of Object.keys(LOCAL_FIX_MAP)) {
-                if (finalDest.includes(key) || key.includes(finalDest)) {
-                  finalDest = LOCAL_FIX_MAP[key].name;
-                  finalLocation = LOCAL_FIX_MAP[key].location.join(',');
-                  matched = true;
-                  break;
+    function stopListening(e) {
+        if (e) e.preventDefault();
+        if (recognition) {
+            recognition.stop();
+            setTimeout(() => {
+                if (recognition) {
+                    recognition.abort();
+                    resetVoiceUI();
                 }
-              }
-            }
+            }, 1000);
+        }
+    }
 
-            // 3. 如果本地映射都没命中，再用后端返回的原始结果（但提示可能不准）
-            if (!matched) {
-              tip.innerText = '⚠️ 使用AI识别结果：' + finalDest + '\n（如不准确请重新说）';
-              tip.style.display = 'block';
-              setTimeout(() => tip.style.display = 'none', 3000);
-            } else {
-              tip.innerText = '🎯 已为您匹配目的地：' + finalDest;
-              tip.style.display = 'block';
-              setTimeout(() => tip.style.display = 'none', 2000);
-            }
+    async function processVoiceText(spokenText) {
+        voiceBtn.innerText = '🧠 AI 正在分析...';
+        voiceBtn.style.background = '#FF9800';
+        tip.innerText = '🧠 大模型正在理解并规划路线...';
+        tip.style.display = 'block';
 
-            if (finalLocation) {
-              const parts = finalLocation.split(',').map(Number);
-              targetPos = [parts[0], parts[1]];
-              addressInput.value = finalDest;
-              sendNavTextToCloud('已识别您要去' + finalDest);
-              startNav('walking');
-            } else {
-              tip.innerText = '❌ 无法获取该目的地坐标';
-              setTimeout(() => tip.style.display = 'none', 3000);
+        // 优先本地映射
+        let finalDest = null;
+        let finalLocation = null;
+
+        for (const key of Object.keys(LOCAL_FIX_MAP)) {
+            if (spokenText.includes(key) || key.includes(spokenText)) {
+                finalDest = LOCAL_FIX_MAP[key].name;
+                finalLocation = LOCAL_FIX_MAP[key].location;
+                tip.innerText = '🎯 已为您匹配目的地：' + finalDest;
+                tip.style.display = 'block';
+                setTimeout(() => tip.style.display = 'none', 3000);
+                break;
             }
-          } else if (data.reply) {
-            tip.innerText = '🤔 ' + data.reply;
-            tip.style.display = 'block';
-            sendNavTextToCloud(data.reply);
-            setTimeout(() => tip.style.display = 'none', 5000);
-          } else {
-            tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
+        }
+
+        if (finalDest && finalLocation) {
+            targetPos = [finalLocation[0], finalLocation[1]];
+            addressInput.value = finalDest;
+            sendNavTextToCloud('已识别您要去' + finalDest);
+            resetVoiceUI();
+            if (currentPos) startNav('walking');
+            else tip.innerText = '请先获取硬件定位';
+            return;
+        }
+
+        // 未命中本地映射，调用后端
+        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+        try {
+            const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: spokenText, userLocation: loc })
+            });
+            const data = await resp.json();
+            if (data.success && data.destination && data.location) {
+                const lnglat = data.location.split(',').map(Number);
+                targetPos = lnglat;
+                addressInput.value = data.destination;
+                tip.innerText = `✅ 识别结果：${data.destination}\n${data.navText || ''}`;
+                tip.style.display = 'block';
+                if (currentPos) startNav(data.mode || 'riding');
+                setTimeout(() => tip.style.display = 'none', 8000);
+            } else if (data.reply) {
+                tip.innerText = '🤔 ' + data.reply;
+                tip.style.display = 'block';
+                setTimeout(() => tip.style.display = 'none', 5000);
+            }
+        } catch (e) {
+            tip.innerText = '🌐 网络错误';
             setTimeout(() => tip.style.display = 'none', 3000);
-          }
-          resetVoiceUI();
-        })
-        .catch(err => {
-          console.error('语音上传失败:', err);
-          tip.innerText = '🌐 网络错误，请检查连接';
-          setTimeout(() => tip.style.display = 'none', 3000);
-          resetVoiceUI();
-        });
-
-        recorder.stream.getTracks().forEach(track => track.stop());
-        recorder = null;
-      });
+        }
+        resetVoiceUI();
     }
 
     function resetVoiceUI() {
-      voiceBtn.innerText = '🎤 按住说话 (录音上传)';
-      voiceBtn.style.background = '#4CAF50';
-      voiceBtn.classList.remove('recording-btn');
+        voiceBtn.innerText = '🎤 按住说话 (语音识别)';
+        voiceBtn.style.background = '#4CAF50';
+        voiceBtn.classList.remove('recording-btn');
+        if (recognition) {
+            recognition.abort();
+            recognition = null;
+        }
     }
 
     // ========== 硬件语音识别测试 ==========
     async function simulateHardwareVoice() {
       const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
       if (!testText) return;
-      tip.innerText = '🎙️ 硬件模拟：正在处理...';
-      tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: testText, userLocation: loc })
-        });
-        const data = await resp.json();
-
-        if (data.success && data.destination) {
-          let finalDest = data.destination;
-          let finalLocation = data.location;
-
-          if (LOCAL_FIX_MAP[finalDest]) {
-            finalDest = LOCAL_FIX_MAP[finalDest].name;
-            finalLocation = LOCAL_FIX_MAP[finalDest].location.join(',');
-          } else {
-            for (const key of Object.keys(LOCAL_FIX_MAP)) {
-              if (finalDest.includes(key) || key.includes(finalDest)) {
-                finalDest = LOCAL_FIX_MAP[key].name;
-                finalLocation = LOCAL_FIX_MAP[key].location.join(',');
-                break;
-              }
-            }
-          }
-
-          if (finalLocation) {
-            targetPos = finalLocation.split(',').map(Number);
-            addressInput.value = finalDest;
-            tip.innerText = `✅ 硬件识别：${finalDest}`;
-            tip.style.display = 'block';
-            sendNavTextToCloud('已识别您要去' + finalDest);
-            startNav('walking');
-            setTimeout(() => tip.style.display = 'none', 8000);
-          }
-        } else if (data.reply) {
-          tip.innerText = '🤔 ' + data.reply;
-          tip.style.display = 'block';
-          sendNavTextToCloud(data.reply);
-          setTimeout(() => tip.style.display = 'none', 5000);
-        }
-      } catch (e) {
-        tip.innerText = '🌐 网络错误';
-        setTimeout(() => tip.style.display = 'none', 3000);
-      }
+      processVoiceText(testText);
     }
 
     // ========== 模拟摔倒检测 ==========
@@ -601,10 +558,8 @@
         if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
           const steps = data.route.paths[0].steps;
           
-          // 提取所有导航指令
           const instructions = steps.map(step => step.instruction).filter(Boolean);
           
-          // 绘制路线
           const path = [];
           steps.forEach(step => {
             const polyline = step.polyline;
@@ -636,14 +591,11 @@
           }
           map.setFitView(null, false, [60, 60, 60, 60]);
 
-          // 显示格式化的导航步骤面板
           showNavSteps(instructions);
 
-          // 发送给后端让喇叭逐条播报（用换行分隔）
           const fullNavText = instructions.join('\n');
           sendNavTextToCloud(fullNavText);
           
-          // 显示第一条指令在底部状态栏
           if (instructions.length > 0) {
             showNavStatus(instructions[0]);
           }
