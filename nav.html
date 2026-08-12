@@ -387,30 +387,31 @@
       addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
-    // ✅ 新 startNav：直接使用 HTTP API 获取路线并用 Polyline 绘制，彻底绕过 Walking 插件
+    // 增强调试版 startNav
     async function startNav(type){
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       
-      // 清除之前的路线
       if(walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if(ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
 
       const origin = currentPos.lng + ',' + currentPos.lat;
       const dest = targetPos[0] + ',' + targetPos[1];
       const typeText = type === 'walking' ? '步行' : '骑行';
-      // 根据类型选择不同 API（walking 或 riding）
       const apiPath = type === 'walking' ? 'walking' : 'riding';
       const apiUrl = `https://restapi.amap.com/v3/direction/${apiPath}?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
 
+      alert('请求URL: ' + apiUrl);
       sendNavTextToCloud('正在规划路径');
 
       try {
         const resp = await fetch(apiUrl);
-        const data = await resp.json();
+        const text = await resp.text();
+        alert('API 返回内容:\n' + text.substring(0, 500));
+        
+        const data = JSON.parse(text);
         if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
           const steps = data.route.paths[0].steps;
-          // 将每一步的 polyline 解析为坐标点数组
           const path = [];
           steps.forEach(step => {
             const polyline = step.polyline;
@@ -422,7 +423,6 @@
             });
           });
 
-          // 绘制路线
           const routeColor = type === 'walking' ? '#1677ff' : '#ff6b35';
           if (type === 'walking') {
             walkingRoute = new AMap.Polyline({
@@ -447,11 +447,14 @@
           setTimeout(() => tip.style.display = 'none', 2000);
           const firstStep = steps[0]?.instruction || '开始' + typeText + '导航';
           sendNavTextToCloud('开始' + typeText + '导航，' + firstStep);
+          alert('路线规划成功！');
         } else {
+          alert('API 返回状态: ' + data.status + '\n信息: ' + (data.info || data.infocode));
           tip.innerText = '路线规划失败';
           setTimeout(() => tip.style.display = 'none', 3000);
         }
       } catch (e) {
+        alert('网络错误: ' + e.message);
         tip.innerText = '路线规划失败（网络错误）';
         setTimeout(() => tip.style.display = 'none', 3000);
       }
