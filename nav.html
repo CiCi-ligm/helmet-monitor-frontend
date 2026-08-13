@@ -533,7 +533,7 @@
       try {
         const resp = await fetch(apiUrl);
         const data = await resp.json();
-        console.log('API完整返回:', data);
+        console.log('API完整返回:', JSON.stringify(data, null, 2));
         
         if (data.status === '1' && data.route) {
           console.log('route对象:', data.route);
@@ -549,20 +549,39 @@
             console.log('path对象:', path);
             console.log('距离:', path.distance);
             console.log('时间:', path.duration);
-            console.log('steps数量:', path.steps ? path.steps.length : 0);
+            console.log('steps:', path.steps);
             
-            const steps = path.steps ? path.steps.map(s => s.instruction) : [];
+            // 提取步骤文本
+            let steps = [];
+            if (path.steps && Array.isArray(path.steps)) {
+              steps = path.steps.map(s => {
+                console.log('step:', s);
+                return s.instruction || s.road_name || '';
+              }).filter(s => s);
+            }
+            
+            console.log('步骤文本:', steps);
+            
+            // 提取路线坐标
             const polyline = [];
-            
             if (path.steps) {
               path.steps.forEach(step => {
                 if (step.polyline) {
-                  step.polyline.split(';').forEach(p => {
-                    const [lng, lat] = p.split(',').map(Number);
-                    if (!isNaN(lng) && !isNaN(lat)) {
-                      polyline.push([lng, lat]);
-                    }
-                  });
+                  const polylineStr = step.polyline;
+                  if (typeof polylineStr === 'string') {
+                    polylineStr.split(';').forEach(p => {
+                      const [lng, lat] = p.split(',').map(Number);
+                      if (!isNaN(lng) && !isNaN(lat)) {
+                        polyline.push([lng, lat]);
+                      }
+                    });
+                  } else if (Array.isArray(polylineStr)) {
+                    polylineStr.forEach(p => {
+                      if (Array.isArray(p) && p.length === 2) {
+                        polyline.push(p);
+                      }
+                    });
+                  }
                 }
               });
             }
@@ -594,10 +613,27 @@
             const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
             const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
             
-            showNavStatus(`${navTypeText}导航：距离${distanceKm}公里，预计${durationMin}分钟`);
-            showNavSteps(steps);
-            sendNavTextToCloud(`${navTypeText}导航，距离${distanceKm}公里，预计${durationMin}分钟`);
-            speakTextOut(`${navTypeText}导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
+            // 构建播报文本
+            const startText = `已开始${navTypeText}路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
+            
+            // 显示导航状态
+            showNavStatus(startText);
+            
+            // 显示导航步骤
+            if (steps.length > 0) {
+              showNavSteps(steps);
+            }
+            
+            // 发送到云端
+            sendNavTextToCloud(startText);
+            
+            // 语音播报
+            let speakText = startText;
+            if (steps.length > 0) {
+              speakText += '。' + steps.join('。');
+            }
+            speakTextOut(speakText);
+            
           } else {
             console.error('没有找到路径');
             tip.innerText = '❌ 路径规划失败';
