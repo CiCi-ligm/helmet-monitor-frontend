@@ -495,4 +495,54 @@ app.post('/api/fall', async (req, res) => {
     res.status(200).send('success');
 });
 
+// ========== 新增：轮询检测 fall_down 状态，自动发送微信通知 ==========
+
+async function getFallDownStatus() {
+    try {
+        const version = '2022-05-01';
+        const resStr = `products/${PRODUCT_ID}`;
+        const et = Math.ceil((Date.now() + 3600000) / 1000);
+        const method = 'sha1';
+        const base64Key = Buffer.from(API_KEY, 'base64');
+        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+
+        const resp = await axios.get('https://iot-api.heclouds.com/thingmodel/property/queryDeviceProperty', {
+            params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
+            headers: { 'Authorization': productToken }
+        });
+
+        const data = resp.data?.data || {};
+        return Number(data.fall_down?.value ?? 0);
+    } catch (err) {
+        console.warn('查询 fall_down 失败:', err.message);
+        return 0;
+    }
+}
+
+let fallDownAlerted = false;
+
+setInterval(async () => {
+    try {
+        const current = await getFallDownStatus();
+        console.log('轮询 fall_down =', current, '已通知 =', fallDownAlerted);
+
+        if (current === 1 && !fallDownAlerted) {
+            fallDownAlerted = true;
+            console.log('检测到摔倒，发送微信通知');
+
+            let desp = '## ⚠️ 头盔检测到摔倒\n\n';
+            desp += '- 设备：gps\n';
+            desp += '- 产品ID：G2ddPjoILg\n';
+
+            await sendWeChat('【智能头盔-摔倒警报】', desp);
+        } else if (current === 0) {
+            fallDownAlerted = false;
+        }
+    } catch (err) {
+        console.error('轮询检测异常:', err.message);
+    }
+}, 5000); // 每 5 秒查询一次
+
 module.exports = app;
