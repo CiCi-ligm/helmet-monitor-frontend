@@ -458,16 +458,12 @@
         timer = setTimeout(() => {
           const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(keyword)}&city=桂林&citylimit=true&key=85a9a797b358573152302861e5a7dd05`;
           
-          console.log('请求URL:', url);
-          
           fetch(url)
             .then(r => r.json())
             .then(data => {
-              console.log('输入提示返回:', data);
               if (data.tips && data.tips.length > 0) {
                 suggestList.innerHTML = "";
                 data.tips.forEach(tipItem => {
-                  // 不再过滤没有location的结果
                   const div = document.createElement('div');
                   div.className = "item";
                   const name = tipItem.name;
@@ -476,16 +472,13 @@
                   div.onclick = () => { 
                     addressInput.value = name;
                     suggestList.style.display = "none";
-                    // 点击后搜索这个名称
                     manualSearch(name);
                   };
                   suggestList.appendChild(div);
                 });
                 suggestList.style.display = "block";
-                console.log('下拉列表已显示，数量:', data.tips.length);
               } else {
                 suggestList.style.display = "none";
-                console.log('无结果');
               }
             })
             .catch(err => {
@@ -522,6 +515,10 @@
       const origin = currentPos.lng + ',' + currentPos.lat;
       const dest = targetPos[0] + ',' + targetPos[1];
       
+      console.log('导航类型:', type);
+      console.log('起点:', origin);
+      console.log('终点:', dest);
+      
       let apiUrl;
       if (type === 'riding') {
         apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
@@ -531,29 +528,53 @@
         sendNavTextToCloud('正在规划步行路线');
       }
 
+      console.log('API URL:', apiUrl);
+
       try {
         const resp = await fetch(apiUrl);
         const data = await resp.json();
+        console.log('API完整返回:', data);
         
-        if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
-          const path = data.route.paths[0];
-          const steps = path.steps ? path.steps.map(s => s.instruction) : [];
-          const polyline = [];
+        if (data.status === '1' && data.route) {
+          console.log('route对象:', data.route);
           
-          if (path.steps) {
-            path.steps.forEach(step => {
-              if (step.polyline) {
-                step.polyline.split(';').forEach(p => {
-                  const [lng, lat] = p.split(',').map(Number);
-                  if (!isNaN(lng) && !isNaN(lat)) {
-                    polyline.push([lng, lat]);
-                  }
-                });
-              }
-            });
+          let paths = data.route.paths;
+          if (!paths && data.route.rides) {
+            paths = data.route.rides;
+            console.log('使用rides字段');
           }
           
-          if (polyline.length > 0) {
+          if (paths && paths.length > 0) {
+            const path = paths[0];
+            console.log('path对象:', path);
+            console.log('距离:', path.distance);
+            console.log('时间:', path.duration);
+            console.log('steps数量:', path.steps ? path.steps.length : 0);
+            
+            const steps = path.steps ? path.steps.map(s => s.instruction) : [];
+            const polyline = [];
+            
+            if (path.steps) {
+              path.steps.forEach(step => {
+                if (step.polyline) {
+                  step.polyline.split(';').forEach(p => {
+                    const [lng, lat] = p.split(',').map(Number);
+                    if (!isNaN(lng) && !isNaN(lat)) {
+                      polyline.push([lng, lat]);
+                    }
+                  });
+                }
+              });
+            }
+            
+            console.log('polyline长度:', polyline.length);
+            
+            if (polyline.length === 0) {
+              console.log('polyline为空，使用起点和终点');
+              polyline.push([currentPos.lng, currentPos.lat]);
+              polyline.push([targetPos[0], targetPos[1]]);
+            }
+            
             const route = new AMap.Polyline({
               path: polyline,
               strokeColor: type === 'riding' ? '#FF9800' : '#1677ff',
@@ -570,19 +591,21 @@
             
             map.setFitView([route]);
             const navTypeText = type === 'riding' ? '骑行' : '步行';
-            const distanceKm = (path.distance / 1000).toFixed(1);
-            const durationMin = Math.round(path.duration / 60);
+            const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
+            const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
             
             showNavStatus(`${navTypeText}导航：距离${distanceKm}公里，预计${durationMin}分钟`);
             showNavSteps(steps);
             sendNavTextToCloud(`${navTypeText}导航，距离${distanceKm}公里，预计${durationMin}分钟`);
             speakTextOut(`${navTypeText}导航开始，距离${distanceKm}公里，预计${durationMin}分钟`);
           } else {
-            tip.innerText = '❌ 路线数据解析失败';
+            console.error('没有找到路径');
+            tip.innerText = '❌ 路径规划失败';
             setTimeout(() => tip.style.display = 'none', 3000);
           }
         } else {
-          tip.innerText = '❌ 路径规划失败';
+          console.error('API返回错误:', data.status, data.info);
+          tip.innerText = '❌ 路径规划失败: ' + (data.info || '未知错误');
           setTimeout(() => tip.style.display = 'none', 3000);
         }
       } catch (e) {
