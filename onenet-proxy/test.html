@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>OneNet Proxy 测试页</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    label{display:block;margin-top:10px}
+    textarea{width:100%;height:80px}
+    input[type=text]{width:100%}
+    button{margin-top:10px;padding:8px 12px}
+    pre{background:#f6f8fa;padding:10px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <h2>OneNet Proxy 本地测试页</h2>
+  <p>说明：用于向已启动的代理（默认为 http://localhost:3000/api/log-nav）发送导航文本并查看响应。</p>
+
+  <label>后端地址（含路径）
+    <input type="text" id="endpoint" value="/api/log-nav" placeholder="例如 http://localhost:3000/api/log-nav 或 /api/log-nav" />
+  </label>
+
+  <label>Secret（如果代理启用了 SECRET_TOKEN，请填写；否则留空）
+    <input type="text" id="secret" placeholder="your_frontend_secret" />
+  </label>
+
+  <label>要发送的导航文本
+    <textarea id="text">测试导航文本：点击→功能A</textarea>
+  </label>
+
+  <button id="send">发送到 OneNet Proxy</button>
+  <button id="clear">清除结果</button>
+
+  <h3>请求/响应</h3>
+  <div>
+    <strong>请求信息：</strong>
+    <pre id="req">-</pre>
+  </div>
+  <div>
+    <strong>响应：</strong>
+    <pre id="res">-</pre>
+  </div>
+
+  <script>
+  function resolveEndpoint(input) {
+    // 如果用户输入的是相对路径（以 / 开头），并且页面是 file:// 或 localhost 页面，保留输入
+    const v = input.trim();
+    if (!v) return '/api/log-nav';
+    return v;
+  }
+
+  document.getElementById('send').addEventListener('click', async () => {
+    const endpoint = resolveEndpoint(document.getElementById('endpoint').value);
+    const secret = document.getElementById('secret').value.trim();
+    const text = document.getElementById('text').value;
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (secret) headers['x-secret'] = secret;
+
+    const body = JSON.stringify({ text });
+    document.getElementById('req').textContent = `POST ${endpoint}\nHeaders: ${JSON.stringify(headers, null, 2)}\nBody: ${body}`;
+    document.getElementById('res').textContent = '正在发送...';
+
+    try {
+      const resp = await fetch(endpoint, { method: 'POST', headers, body });
+      const textResp = await resp.text();
+      let parsed;
+      try { parsed = JSON.parse(textResp); }
+      catch(e){ parsed = textResp; }
+      document.getElementById('res').textContent = `HTTP ${resp.status}\n${JSON.stringify(parsed, null, 2)}`;
+    } catch (err) {
+      document.getElementById('res').textContent = `请求失败：${err.message}`;
+    }
+  });
+
+  document.getElementById('clear').addEventListener('click', ()=>{
+    document.getElementById('req').textContent = '-';
+    document.getElementById('res').textContent = '-';
+  });
+  </script>
+</body>
+</html>
