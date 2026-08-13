@@ -137,13 +137,11 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// ========== 骑行前评估接口（固定内容，不调用 AI，不请求天气，秒回） ==========
+// ========== 骑行前评估：固定生理分析 + 动态天气AI + 快速响应 ==========
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
-
-        const weather = '多云，32°C，东北风4级，湿度56%';
 
         const sensors = {
             spo2: 98,
@@ -152,17 +150,50 @@ app.post('/api/ai/ride-check', async (req, res) => {
             light: 35000
         };
 
-        const parsed = {
+        // 固定的专业分析
+        const advice = '心率70bpm、血氧98%、体温36.5°C均在正常范围，身体状态良好。建议佩戴头盔、防晒并携带充足饮水，控制骑行强度。';
+        const detail = '心率正常说明心肺功能良好，可进行中等强度骑行；血氧98%表明氧合充足；体温36.5°C正常；光线35000lux较强，建议佩戴遮阳帽或墨镜。';
+
+        // 动态获取天气，但设置超时快速失败
+        let weather = '多云，32°C，东北风4级，湿度56%';
+        try {
+            const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
+                params: { key: AMAP_KEY, city: '桂林', extensions: 'base' },
+                timeout: 2000
+            });
+            if (weatherResp.data.lives && weatherResp.data.lives[0]) {
+                const w = weatherResp.data.lives[0];
+                weather = `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
+            }
+        } catch (e) {
+            console.warn('获取天气失败，使用默认天气');
+        }
+
+        // 对天气做简短的AI分析
+        let weatherAdvice = '当前天气存在一定中暑风险，请注意补水。';
+        try {
+            const prompt = `请根据天气：${weather}，给出一句不超过50字的骑行安全提醒。直接输出提醒文字。`;
+            weatherAdvice = await askQwen(prompt);
+        } catch (e) {
+            console.warn('天气AI失败，使用默认提醒');
+        }
+
+        const fullText = `${advice}。${detail}。${weatherAdvice}。当前天气：${weather}。`;
+
+        // 后台下发，不阻塞前端
+        sendToOneNET(fullText).catch(() => {});
+
+        res.json({
+            success: true,
+            weather,
+            sensors,
             suitable: true,
             level: '适宜',
-            advice: '心率70bpm、血氧98%、体温36.5°C均在正常范围，身体状态良好。天气多云，34°C，湿度42%，存在一定中暑风险，建议佩戴头盔、防晒并携带充足饮水，控制骑行强度。',
-            detail: '心率正常说明心肺功能良好，可进行中等强度骑行；血氧98%表明氧合充足；体温36.5°C正常；光线35000lux较强，建议佩戴遮阳帽或墨镜；34°C高温下需注意补水和电解质，每15-20分钟饮水一次。'
-        };
-
-        const fullText = `${parsed.advice}。${parsed.detail}。当前天气：${weather}。`;
-        await sendToOneNET(fullText);
-
-        res.json({ success: true, weather, sensors, ...parsed, fullText });
+            advice,
+            detail,
+            weatherAdvice,
+            fullText
+        });
     } catch (error) {
         console.error('骑行评估失败:', error);
         res.status(500).json({ error: '评估失败' });
