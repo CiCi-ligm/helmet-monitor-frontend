@@ -164,7 +164,28 @@ app.post('/api/ai/ride-check', async (req, res) => {
 
         const sensors = { spo2: 98, heart_rate: 70, temperature: 28, light: 35000 };
 
-        const prompt = `你是一位专业的骑行安全评估专家。请根据当前天气（${weather}）和传感器数据（心率70，血氧98，体温36.5，光线强度35000）进行骑行前安全评估。只返回一个JSON对象，格式如下：{"suitable":true,"level":"适宜","advice":"当前天气适宜骑行，注意防晒和补水","detail":"气温28°C，建议佩戴头盔，保持安全车速"}。不要输出任何其他内容。`;
+        const prompt = `你是一位资深的运动健康专家和骑行教练。请根据以下信息进行骑行前综合评估：
+- 当前天气：${weather}
+- 心率：70 bpm
+- 血氧：98%
+- 体温：36.5°C
+- 光线强度：35000 lux
+
+请从以下方面给出详细建议：
+1. 是否适合骑行
+2. 安全注意事项
+3. 身体状态评估
+4. 装备建议
+5. 补水与能量补充建议
+
+返回JSON格式：
+{
+  "suitable": true,
+  "level": "适宜/谨慎/不适宜",
+  "advice": "总体建议，包含上述方面，字数100-150字",
+  "detail": "详细补充说明，字数100-200字"
+}
+只返回JSON，不要任何其他内容。`;
 
         let parsed;
         try {
@@ -176,15 +197,15 @@ app.post('/api/ai/ride-check', async (req, res) => {
             parsed = {
                 suitable: true,
                 level: '适宜',
-                advice: '当前天气适宜骑行，注意防晒和补水',
-                detail: '气温28°C，建议佩戴头盔，保持安全车速'
+                advice: '当前天气适宜骑行，建议佩戴头盔，注意防晒和补水，保持安全车速。',
+                detail: '气温适中，身体状态良好，适合进行中等强度骑行。请确保车况良好，携带足够饮水。'
             };
         }
 
-        const fullText = parsed.advice + '。' + parsed.detail + '。当前天气：' + weather + '。';
+        const fullText = `${parsed.advice}。${parsed.detail}。当前天气：${weather}。`;
         await sendToOneNET(fullText);
 
-        res.json({ success: true, weather, sensors, ...parsed });
+        res.json({ success: true, weather, sensors, ...parsed, fullText });
     } catch (error) {
         console.error('骑行评估整体失败:', error);
         res.status(500).json({ error: '评估失败' });
