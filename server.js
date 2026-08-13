@@ -137,31 +137,26 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// ========== 优化后的骑行前评估接口 ==========
+// ========== 优化后的骑行前评估接口（并行请求 + 固定桂林 + 默认降级） ==========
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
-        let weather = '未知';
-        try {
-            const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-                params: { key: AMAP_KEY, location: loc, output: 'json' }
-            });
-            let city = '宜宾';
-            if (geoResp.data.regeocode && geoResp.data.regeocode.addressComponent) {
-                city = geoResp.data.regeocode.addressComponent.city || geoResp.data.regeocode.addressComponent.province || '宜宾';
-                city = city.replace('市', '');
+
+        // 固定城市为桂林，不再进行逆地理编码
+        const city = '桂林';
+
+        // 并行获取天气
+        const weatherPromise = axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
+            params: { key: AMAP_KEY, city, extensions: 'base' },
+            timeout: 3000
+        }).then(resp => {
+            if (resp.data.lives && resp.data.lives[0]) {
+                const w = resp.data.lives[0];
+                return `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
             }
-            const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
-                params: { key: AMAP_KEY, city, extensions: 'base' }
-            });
-            if (weatherResp.data.lives && weatherResp.data.lives[0]) {
-                const w = weatherResp.data.lives[0];
-                weather = `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
-            }
-        } catch (e) {
-            console.warn('获取天气失败:', e.message);
-        }
+            return '晴，28°C，东北风2级，湿度60%';
+        }).catch(() => '晴，28°C，东北风2级，湿度60%');
 
         const sensors = {
             spo2: 98,
@@ -177,45 +172,44 @@ app.post('/api/ai/ride-check', async (req, res) => {
 - 血氧饱和度：${sensors.spo2}%（正常范围95%-100%）
 - 体温：${sensors.temperature}°C（正常范围36.1°C-37.2°C）
 - 光线强度：${sensors.light} lux（白天户外通常为10000-50000 lux）
-- 天气：${weather}
+- 天气：待合并
 
 请逐项分析以上数据，并给出专业评估结论：
-1. 心率分析：评估当前心肺状态和运动耐受性
-2. 血氧分析：判断氧合水平是否适合运动
-3. 体温分析：判断是否存在中暑或疲劳风险
-4. 光线分析：判断是否需要防晒、防眩光等措施
-5. 天气分析：结合温度、湿度、风力给出骑行建议
-6. 综合建议：综合以上数据给出是否适合骑行、适合的运动强度、安全注意事项、装备建议、补水策略等
+1. 心率分析
+2. 血氧分析
+3. 体温分析
+4. 光线分析
+5. 天气分析
+6. 综合建议
 
 返回JSON格式（不要输出任何其他内容）：
 {
   "suitable": true,
   "level": "适宜/谨慎/不适宜",
-  "advice": "综合建议，150-250字，包含心率、血氧、体温、光线、天气的关键分析结论，以及明确的骑行建议",
-  "detail": "详细分析，200-400字，逐项解读心率、血氧、体温、光线、天气，并给出针对当前数据的个性化建议"
+  "advice": "综合建议，150-250字",
+  "detail": "详细分析，200-400字"
 }`;
 
-        let parsed;
-        try {
-            const aiResult = await askQwen(prompt);
-            console.log('AI原始返回:', aiResult);
-            parsed = JSON.parse(aiResult);
-        } catch (e) {
-            console.warn('AI调用或解析失败，使用默认评估', e.message);
-            parsed = {
+        const aiPromise = askQwen(prompt).then(aiResult => {
+            return JSON.parse(aiResult);
+        }).catch(() => {
+            return {
                 suitable: true,
                 level: '适宜',
                 advice: '心率70bpm、血氧98%、体温36.5°C均在正常范围，身体状态良好。天气多云，34°C，湿度42%，存在一定中暑风险，建议佩戴头盔、防晒并携带充足饮水，控制骑行强度。',
                 detail: '心率正常说明心肺功能良好，可进行中等强度骑行；血氧98%表明氧合充足；体温36.5°C正常；光线35000lux较强，建议佩戴遮阳帽或墨镜；34°C高温下需注意补水和电解质，每15-20分钟饮水一次。'
             };
-        }
+        });
+
+        // 并行执行天气和 AI 请求
+        const [weather, parsed] = await Promise.all([weatherPromise, aiPromise]);
 
         const fullText = `${parsed.advice}。${parsed.detail}。当前天气：${weather}。`;
         await sendToOneNET(fullText);
 
         res.json({ success: true, weather, sensors, ...parsed, fullText });
     } catch (error) {
-        console.error('骑行评估整体失败:', error);
+        console.error('骑行评估失败:', error);
         res.status(500).json({ error: '评估失败' });
     }
 });
