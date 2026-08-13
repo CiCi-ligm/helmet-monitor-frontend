@@ -421,36 +421,67 @@ app.get('/api/fall', (req, res) => {
   res.send(req.query.msg || '');
 });
 
+// ============ 修改后的摔倒接收接口 ============
 app.post('/api/fall', async (req, res) => {
-  console.log('收到摔倒推送:', JSON.stringify(req.body));
-  try {
-    const imageUrl = req.body.image || '';
-    const lat = req.body.lat || req.body.latitude || '';
-    const lng = req.body.lng || req.body.longitude || '';
-    let desp = '## ⚠️ 头盔检测到摔倒\n\n';
-    desp += '- 设备：gps\n';
-    desp += '- 产品ID：G2ddPjoILg\n';
-    if (lat && lng) {
-      desp += '- 坐标：' + lat + ', ' + lng + '\n';
-      try {
-        const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-          params: { key: AMAP_KEY, location: lng + ',' + lat, output: 'json' }
-        });
-        if (geoResp.data.status === '1' && geoResp.data.regeocode) {
-          const addr = geoResp.data.regeocode.formatted_address || '未知地址';
-          desp += '- 地址：' + addr + '\n';
-        }
-      } catch (e) {}
-    }
-    if (imageUrl) {
-      desp += '\n![现场图片](' + imageUrl + ')\n';
-    }
-    await sendWeChat('【智能头盔-摔倒警报】', desp);
-    res.status(200).send('success');
-  } catch (err) {
-    console.error('摔倒推送失败:', err.message);
-    res.status(200).send('ok');
+  console.log('【/api/fall收到原始报文】', JSON.stringify(req.body,null,2));
+
+  // 过滤OneNET非物模型属性消息（设备上下线等）
+  if(req.body.msgType && req.body.msgType !== "thingProperty"){
+      console.log('跳过非属性上报消息，msgType=',req.body.msgType);
+      return res.status(200).json({code:0,skip:true});
   }
+
+  let fall_down = 0;
+  let imageUrl = "";
+  let lat, lng;
+
+  // 兼容两种格式：curl扁平格式 ｜ OneNET params嵌套格式
+  if(req.body.fall_down !== undefined){
+      // curl手动测试扁平json
+      fall_down = Number(req.body.fall_down);
+      imageUrl = req.body.image || "";
+      lat = req.body.lat || req.body.latitude;
+      lng = req.body.lng || req.body.longitude;
+  }else if(req.body?.params){
+      // OneNET明文推送嵌套结构
+      fall_down = Number(req.body.params.fall_down?.value ?? 0);
+      imageUrl = req.body.params.image?.value ?? "";
+      lat = req.body.params.lat?.value;
+      lng = req.body.params.lng?.value;
+  }
+
+  console.log("解析完成 fall_down=", fall_down, "imageUrl=",imageUrl,"lat=",lat,"lng=",lng);
+
+  // 只有 fall_down严格等于1，才发送微信通知
+  if(fall_down !== 1){
+      console.log("fall_down不等于1，不触发微信推送");
+      return res.status(200).json({code:0,trigger:false,fall_down});
+  }
+
+  console.log("!!!检测摔倒，准备发送微信警报!!!");
+  let desp = '## ⚠️ 头盔检测到摔倒\n\n';
+  desp += '- 设备：gps\n';
+  desp += '- 产品ID：G2ddPjoILg\n';
+  if (lat && lng) {
+    desp += `- 坐标：${lat}, ${lng}\n`;
+    try {
+      const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
+        params: { key: AMAP_KEY, location: `${lng},${lat}`, output: 'json' }
+      });
+      if (geoResp.data.status === '1' && geoResp.data.regeocode) {
+        const addr = geoResp.data.regeocode.formatted_address || '未知地址';
+        desp += `- 地址：${addr}\n`;
+      }
+    } catch (e) {
+        console.warn("逆地理编码失败",e.message);
+    }
+  }
+  if (imageUrl) {
+    desp += `\n![现场图片](${imageUrl})\n`;
+  }
+  await sendWeChat('【智能头盔-摔倒警报】', desp);
+  res.status(200).json({code:0,trigger:true,fall_down});
 });
+
 
 module.exports = app;
