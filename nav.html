@@ -188,12 +188,19 @@
       }).catch(() => {});
     }
 
+    // 逐句朗读
     function speakTextOut(text) {
       if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-CN';
-        utterance.rate = 1.0;
-        speechSynthesis.speak(utterance);
+        speechSynthesis.cancel();
+        const sentences = text.split('。').filter(s => s.trim().length > 0);
+        sentences.forEach((sentence, index) => {
+          setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(sentence.trim() + '。');
+            utterance.lang = 'zh-CN';
+            utterance.rate = 1.0;
+            speechSynthesis.speak(utterance);
+          }, index * 2000);
+        });
       }
     }
 
@@ -383,9 +390,11 @@
         });
         const data = await resp.json();
         if (data.success) {
+          const alertText = `检测到摔倒，已发送紧急通知。地址：桂林理工大学屏风校区。`;
           tip.innerText = '⚠️ [' + data.level + '风险] ' + data.text;
           tip.style.display = 'block';
           sendNavTextToCloud(data.text);
+          speakTextOut(data.text);
           setTimeout(() => tip.style.display = 'none', 5000);
         }
       } catch (e) {
@@ -408,10 +417,15 @@
         const data = await resp.json();
         if (data.success) {
           const emoji = data.suitable ? '✅' : '⚠️';
-          tip.innerText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
+          const fullText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
+          tip.innerText = fullText;
           tip.style.display = 'block';
-          sendNavTextToCloud(data.advice);
-          setTimeout(() => tip.style.display = 'none', 10000);
+
+          const speakText = `${data.advice}。${data.detail}。当前天气：${data.weather}。`;
+          sendNavTextToCloud(speakText);
+          speakTextOut(speakText);
+
+          setTimeout(() => tip.style.display = 'none', 15000);
         }
       } catch (e) {
         tip.innerText = '评估失败';
@@ -559,7 +573,6 @@
             const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
             const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
             
-            // 如果骑行没有步骤，使用步行API获取步骤
             if (steps.length === 0 && type === 'riding') {
               console.log('骑行无步骤，尝试步行API');
               const walkingUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
@@ -575,12 +588,10 @@
               }
             }
             
-            // 如果还是没有步骤，构建默认步骤
             if (steps.length === 0) {
               steps = [`从当前位置出发`, `沿规划路线${type === 'riding' ? '骑行' : '步行'}${distanceKm}公里`, `预计${durationMin}分钟后到达目的地`];
             }
             
-            // 提取路线坐标
             const polyline = [];
             if (path.steps) {
               path.steps.forEach(step => {
