@@ -163,15 +163,30 @@ app.post('/api/ai/ride-check', async (req, res) => {
         }
 
         const sensors = { spo2: 98, heart_rate: 70, temperature: 28, light: 35000 };
-        const prompt = `你是一位资深的运动健康专家和骑行教练...`;
-        const aiResult = await askQwen(prompt);
-        const parsed = JSON.parse(aiResult);
+
+        const prompt = `你是一位专业的骑行安全评估专家。请根据当前天气（${weather}）和传感器数据（心率70，血氧98，体温36.5，光线强度35000）进行骑行前安全评估。只返回一个JSON对象，格式如下：{"suitable":true,"level":"适宜","advice":"当前天气适宜骑行，注意防晒和补水","detail":"气温28°C，建议佩戴头盔，保持安全车速"}。不要输出任何其他内容。`;
+
+        let parsed;
+        try {
+            const aiResult = await askQwen(prompt);
+            console.log('AI原始返回:', aiResult);
+            parsed = JSON.parse(aiResult);
+        } catch (e) {
+            console.warn('AI调用或解析失败，使用默认评估', e.message);
+            parsed = {
+                suitable: true,
+                level: '适宜',
+                advice: '当前天气适宜骑行，注意防晒和补水',
+                detail: '气温28°C，建议佩戴头盔，保持安全车速'
+            };
+        }
 
         const fullText = parsed.advice + '。' + parsed.detail + '。当前天气：' + weather + '。';
         await sendToOneNET(fullText);
 
         res.json({ success: true, weather, sensors, ...parsed });
     } catch (error) {
+        console.error('骑行评估整体失败:', error);
         res.status(500).json({ error: '评估失败' });
     }
 });
@@ -193,14 +208,13 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// ========== 修改后的 /api/ai/risk：跳过AI，固定地址发送微信 ==========
+// ========== /api/ai/risk：跳过AI，固定地址发送微信 ==========
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
 
         const loc = userLocation || '104.5647,28.7658';
-        // 固定地址
         const address = '桂林理工大学屏风校区';
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
@@ -226,11 +240,22 @@ app.post('/api/ai/summary', async (req, res) => {
         const { distance, duration, speed, calories, count } = req.body;
         const avgDist = (distance / count).toFixed(1);
         const avgDuration = Math.round(duration / count);
-        const prompt = `你是一位专业的骑行教练...`;
-        const aiText = await askQwen(prompt);
+
+        const prompt = `你是一位骑行教练。请根据以下数据生成一段简短的骑行总结：总距离${distance}公里，总时长${duration}分钟，平均速度${speed}km/h，消耗${calories}千卡，骑行次数${count}次。直接输出一段总结文字，包括对骑行者表现的肯定和一条改进建议，不超过80字。`;
+
+        let aiText;
+        try {
+            aiText = await askQwen(prompt);
+            console.log('AI总结文本:', aiText);
+        } catch (e) {
+            console.warn('AI总结失败，使用默认总结', e.message);
+            aiText = `本次骑行平均距离${avgDist}公里，平均时长${avgDuration}分钟，速度${speed}km/h，消耗${calories}千卡，表现不错，继续加油！`;
+        }
+
         await sendToOneNET(aiText);
         res.json({ success: true, text: aiText });
     } catch (error) {
+        console.error('总结接口整体失败:', error);
         res.status(500).json({ error: '生成失败' });
     }
 });
@@ -427,7 +452,6 @@ app.post('/api/fall', async (req, res) => {
     let imageUrl = '';
     let lat, lng;
 
-    // 情况1：OneNET 明文推送，外层有 msg 字符串
     if (req.body.msg) {
         try {
             const innerBody = JSON.parse(req.body.msg);
@@ -448,9 +472,7 @@ app.post('/api/fall', async (req, res) => {
             console.error('解析 msg 字符串失败', err);
             return res.status(200).send('ok');
         }
-    }
-    // 情况2：命令行测试的扁平 JSON
-    else {
+    } else {
         fall_down = Number(req.body.fall_down ?? 0);
         imageUrl = req.body.image || '';
         lat = req.body.lat || req.body.latitude;
