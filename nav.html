@@ -509,8 +509,14 @@
       }
       if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
       
+      // 清除之前的路线
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
+      
+      // 清除之前的步骤显示
+      navStepsContent.innerHTML = '';
+      navStepsPanel.style.display = 'none';
+      navStatus.style.display = 'none';
 
       const origin = currentPos.lng + ',' + currentPos.lat;
       const dest = targetPos[0] + ',' + targetPos[1];
@@ -616,6 +622,8 @@
             // 构建播报文本
             const startText = `已开始${navTypeText}路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
             
+            console.log('播报文本:', startText);
+            
             // 显示导航状态
             showNavStatus(startText);
             
@@ -632,6 +640,7 @@
             if (steps.length > 0) {
               speakText += '。' + steps.join('。');
             }
+            console.log('完整播报:', speakText);
             speakTextOut(speakText);
             
           } else {
