@@ -509,11 +509,9 @@
       }
       if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
       
-      // 清除之前的路线
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
       
-      // 清除之前的步骤显示
       navStepsContent.innerHTML = '';
       navStepsPanel.style.display = 'none';
       navStatus.style.display = 'none';
@@ -552,7 +550,7 @@
           
           if (paths && paths.length > 0) {
             const path = paths[0];
-            console.log('path对象:', path);
+            console.log('path对象完整内容:', JSON.stringify(path, null, 2));
             console.log('距离:', path.distance);
             console.log('时间:', path.duration);
             console.log('steps:', path.steps);
@@ -561,12 +559,25 @@
             let steps = [];
             if (path.steps && Array.isArray(path.steps)) {
               steps = path.steps.map(s => {
-                console.log('step:', s);
-                return s.instruction || s.road_name || '';
-              }).filter(s => s);
+                console.log('完整step对象:', JSON.stringify(s, null, 2));
+                return s.instruction || s.action || s.road_name || s.road || s.assistant_action || '';
+              }).filter(s => s && s.trim() !== '');
             }
             
-            console.log('步骤文本:', steps);
+            console.log('提取的步骤:', steps);
+            
+            const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
+            const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
+            
+            // 如果steps为空，构建默认步骤
+            if (steps.length === 0) {
+              steps = [
+                `从当前位置出发`,
+                `沿规划路线${type === 'riding' ? '骑行' : '步行'}${distanceKm}公里`,
+                `预计${durationMin}分钟后到达目的地`
+              ];
+              console.log('使用默认步骤:', steps);
+            }
             
             // 提取路线坐标
             const polyline = [];
@@ -616,26 +627,17 @@
             
             map.setFitView([route]);
             const navTypeText = type === 'riding' ? '骑行' : '步行';
-            const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
-            const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
             
-            // 构建播报文本
             const startText = `已开始${navTypeText}路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
             
             console.log('播报文本:', startText);
             
-            // 显示导航状态
             showNavStatus(startText);
             
-            // 显示导航步骤
-            if (steps.length > 0) {
-              showNavSteps(steps);
-            }
+            showNavSteps(steps);
             
-            // 发送到云端
             sendNavTextToCloud(startText);
             
-            // 语音播报
             let speakText = startText;
             if (steps.length > 0) {
               speakText += '。' + steps.join('。');
