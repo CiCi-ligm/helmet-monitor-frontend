@@ -7,7 +7,7 @@
   <script>
     window._AMapSecurityConfig = { securityJsCode: "fc5eab52eb041ff4874aba0dd149d954" };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.Geolocation"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <style>
@@ -500,7 +500,7 @@
       });
     }
 
-    async function startNav(type){
+    function startNav(type){
       if (!currentPos) { 
         currentPos = new AMap.LngLat(110.320, 25.284);
         tip.innerText = "使用默认位置（桂林理工大学）"; 
@@ -516,149 +516,108 @@
       navStepsPanel.style.display = 'none';
       navStatus.style.display = 'none';
 
-      const origin = currentPos.lng + ',' + currentPos.lat;
-      const dest = targetPos[0] + ',' + targetPos[1];
-      
-      console.log('导航类型:', type);
-      console.log('起点:', origin);
-      console.log('终点:', dest);
-      
-      let apiUrl;
       if (type === 'riding') {
-        apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
+        console.log('使用AMap.Riding插件');
         sendNavTextToCloud('正在规划骑行路线');
-      } else {
-        apiUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-        sendNavTextToCloud('正在规划步行路线');
-      }
-
-      console.log('API URL:', apiUrl);
-
-      try {
-        const resp = await fetch(apiUrl);
-        const data = await resp.json();
-        console.log('API完整返回:', JSON.stringify(data, null, 2));
         
-        if (data.status === '1' && data.route) {
-          console.log('route对象:', data.route);
+        const riding = new AMap.Riding({
+          map: map,
+          hideMarkers: false,
+          policy: AMap.RidingPolicy.ELECTRIC_BIKE
+        });
+        
+        riding.search(currentPos, targetPos, function(status, result) {
+          console.log('骑行搜索状态:', status);
+          console.log('骑行搜索结果:', result);
           
-          let paths = data.route.paths;
-          if (!paths && data.route.rides) {
-            paths = data.route.rides;
-            console.log('使用rides字段');
-          }
-          
-          if (paths && paths.length > 0) {
-            const path = paths[0];
-            console.log('path对象完整内容:', JSON.stringify(path, null, 2));
-            console.log('距离:', path.distance);
-            console.log('时间:', path.duration);
-            console.log('steps:', path.steps);
+          if (status === 'complete' && result.routes && result.routes.length > 0) {
+            const route = result.routes[0];
+            console.log('骑行路线:', route);
+            console.log('骑行距离:', route.distance);
+            console.log('骑行时间:', route.time);
+            console.log('骑行步骤:', route.steps);
             
-            // 提取步骤文本
             let steps = [];
-            if (path.steps && Array.isArray(path.steps)) {
-              steps = path.steps.map(s => {
-                console.log('完整step对象:', JSON.stringify(s, null, 2));
-                return s.instruction || s.action || s.road_name || s.road || s.assistant_action || '';
+            if (route.steps && Array.isArray(route.steps)) {
+              steps = route.steps.map(s => {
+                console.log('骑行step:', s);
+                return s.instruction || '';
               }).filter(s => s && s.trim() !== '');
             }
             
-            console.log('提取的步骤:', steps);
+            console.log('骑行步骤文本:', steps);
             
-            const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
-            const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
+            const distanceKm = (route.distance / 1000).toFixed(1);
+            const durationMin = Math.round(route.time / 60);
             
-            // 如果steps为空，构建默认步骤
-            if (steps.length === 0) {
-              steps = [
-                `从当前位置出发`,
-                `沿规划路线${type === 'riding' ? '骑行' : '步行'}${distanceKm}公里`,
-                `预计${durationMin}分钟后到达目的地`
-              ];
-              console.log('使用默认步骤:', steps);
-            }
-            
-            // 提取路线坐标
-            const polyline = [];
-            if (path.steps) {
-              path.steps.forEach(step => {
-                if (step.polyline) {
-                  const polylineStr = step.polyline;
-                  if (typeof polylineStr === 'string') {
-                    polylineStr.split(';').forEach(p => {
-                      const [lng, lat] = p.split(',').map(Number);
-                      if (!isNaN(lng) && !isNaN(lat)) {
-                        polyline.push([lng, lat]);
-                      }
-                    });
-                  } else if (Array.isArray(polylineStr)) {
-                    polylineStr.forEach(p => {
-                      if (Array.isArray(p) && p.length === 2) {
-                        polyline.push(p);
-                      }
-                    });
-                  }
-                }
-              });
-            }
-            
-            console.log('polyline长度:', polyline.length);
-            
-            if (polyline.length === 0) {
-              console.log('polyline为空，使用起点和终点');
-              polyline.push([currentPos.lng, currentPos.lat]);
-              polyline.push([targetPos[0], targetPos[1]]);
-            }
-            
-            const route = new AMap.Polyline({
-              path: polyline,
-              strokeColor: type === 'riding' ? '#FF9800' : '#1677ff',
-              strokeWeight: 6,
-              strokeOpacity: 0.8
-            });
-            route.setMap(map);
-            
-            if (type === 'riding') {
-              ridingRoute = route;
-            } else {
-              walkingRoute = route;
-            }
-            
-            map.setFitView([route]);
-            const navTypeText = type === 'riding' ? '骑行' : '步行';
-            
-            const startText = `已开始${navTypeText}路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
-            
-            console.log('播报文本:', startText);
+            const startText = `已开始骑行路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
             
             showNavStatus(startText);
-            
             showNavSteps(steps);
-            
             sendNavTextToCloud(startText);
             
             let speakText = startText;
             if (steps.length > 0) {
               speakText += '。' + steps.join('。');
             }
-            console.log('完整播报:', speakText);
             speakTextOut(speakText);
             
+            ridingRoute = route;
           } else {
-            console.error('没有找到路径');
-            tip.innerText = '❌ 路径规划失败';
+            console.error('骑行导航失败:', status, result);
+            tip.innerText = '❌ 骑行导航失败';
             setTimeout(() => tip.style.display = 'none', 3000);
           }
-        } else {
-          console.error('API返回错误:', data.status, data.info);
-          tip.innerText = '❌ 路径规划失败: ' + (data.info || '未知错误');
-          setTimeout(() => tip.style.display = 'none', 3000);
-        }
-      } catch (e) {
-        console.error('导航请求失败:', e);
-        tip.innerText = '❌ 网络错误';
-        setTimeout(() => tip.style.display = 'none', 3000);
+        });
+      } else {
+        console.log('使用AMap.Walking插件');
+        sendNavTextToCloud('正在规划步行路线');
+        
+        const walking = new AMap.Walking({
+          map: map,
+          hideMarkers: false
+        });
+        
+        walking.search(currentPos, targetPos, function(status, result) {
+          console.log('步行搜索状态:', status);
+          console.log('步行搜索结果:', result);
+          
+          if (status === 'complete' && result.routes && result.routes.length > 0) {
+            const route = result.routes[0];
+            console.log('步行路线:', route);
+            console.log('步行距离:', route.distance);
+            console.log('步行时间:', route.time);
+            console.log('步行步骤:', route.steps);
+            
+            let steps = [];
+            if (route.steps && Array.isArray(route.steps)) {
+              steps = route.steps.map(s => s.instruction || '').filter(s => s && s.trim() !== '');
+            }
+            
+            console.log('步行步骤文本:', steps);
+            
+            const distanceKm = (route.distance / 1000).toFixed(1);
+            const durationMin = Math.round(route.time / 60);
+            
+            const startText = `已开始步行路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
+            
+            showNavStatus(startText);
+            showNavSteps(steps);
+            sendNavTextToCloud(startText);
+            
+            let speakText = startText;
+            if (steps.length > 0) {
+              speakText += '。' + steps.join('。');
+            }
+            speakTextOut(speakText);
+            
+            walkingRoute = route;
+          } else {
+            console.error('步行导航失败:', status, result);
+            tip.innerText = '❌ 步行导航失败';
+            setTimeout(() => tip.style.display = 'none', 3000);
+          }
+        });
       }
     }
 
