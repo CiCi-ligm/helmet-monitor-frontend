@@ -7,7 +7,7 @@
   <script>
     window._AMapSecurityConfig = { securityJsCode: "fc5eab52eb041ff4874aba0dd149d954" };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.Geolocation"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=85a9a797b358573152302861e5a7dd05&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://unpkg.com/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <style>
@@ -21,22 +21,10 @@
     .btn-group button{width:32%;padding:10px;background:#1677ff;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer}
     .btn-group button.gray{background:#666}
     #switchMapBtn{position:fixed;top:130px;right:12px;z-index:9999;padding:10px 16px;background:rgba(255,255,255,0.95);border:none;border-radius:20px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer}
-    #suggest-list{
-      position:fixed;
-      top:52px;
-      left:12px;
-      right:12px;
-      z-index:10000;
-      background:#fff;
-      border-radius:8px;
-      box-shadow:0 4px 12px rgba(0,0,0,0.2);
-      max-height:200px;
-      overflow-y:auto;
-      display:none;
-    }
+    #suggest-list{position:fixed;top:110px;left:12px;right:12px;z-index:9998;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.15);max-height:260px;overflow-y:auto;display:none}
     #suggest-list .item{padding:12px 14px;font-size:15px;border-bottom:1px solid #f0f0f0;cursor:pointer}
     #suggest-list .item:last-child{border-bottom:none}
-    #suggest-list .item:hover{background:#f5f5f5}
+    #suggest-list .highlight{color:#1677ff;font-weight:bold}
     #tip{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(0,0,0,0.7);color:#fff;padding:10px 20px;border-radius:20px;font-size:15px;max-width:90%;white-space:pre-line;text-align:left}
     #navStatus{position:fixed;bottom:70px;left:10px;right:10px;z-index:9998;background:rgba(0,0,0,0.8);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;text-align:center;display:none}
     #navStepsPanel{position:fixed;bottom:70px;left:10px;right:10px;z-index:9998;background:rgba(0,0,0,0.85);color:#fff;border-radius:12px;padding:12px;max-height:200px;overflow-y:auto;display:none;font-size:14px;line-height:1.8}
@@ -56,8 +44,7 @@
 <body>
   <div id="container"></div>
   <div class="input-box">
-    <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" autocomplete="off" />
-    <button onclick="manualSearchFromInput()" style="width:100%;padding:10px;background:#1677ff;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🔍 搜索并导航</button>
+    <input id="addressInput" placeholder="输入目的地（或使用语音按钮）" />
     <button id="voiceBtn" style="width:100%;padding:10px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🎤 按住说话 (语音识别)</button>
     <button id="hwVoiceBtn" onclick="simulateHardwareVoice()" style="width:100%;padding:10px;background:#2196F3;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🎙️ 硬件语音识别测试</button>
     <button id="riskBtn" onclick="simulateRisk()" style="width:100%;padding:10px;background:#f44336;color:#fff;border:none;border-radius:6px;font-size:16px;margin-bottom:10px">🆘 模拟摔倒检测</button>
@@ -76,7 +63,6 @@
     <button class="close-btn" onclick="document.getElementById('navStepsPanel').style.display='none'">✕</button>
     <div id="navStepsContent"></div>
   </div>
-  
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active"><span class="icon">🗺️</span><span>导航</span></a>
     <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
@@ -88,6 +74,7 @@
     let map, myMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
+    let autoComplete;
 
     const PRODUCT_ID = "G2ddPjoILg";
     const WEB_DEVICE_NAME = "web_control";
@@ -107,15 +94,15 @@
     let recorder;
 
     const LOCAL_FIX_MAP = {
-      '星巴克': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
-      '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
-      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
-      '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)', type: '咖啡店' },
-      '超市': { name: '赵一鸣省钱超市', type: '超市' },
-      '赵一鸣': { name: '赵一鸣省钱超市', type: '超市' },
-      '奶茶': { name: '蜜雪冰城', type: '奶茶店' },
-      '奶茶店': { name: '蜜雪冰城', type: '奶茶店' },
-      '蜜雪冰城': { name: '蜜雪冰城', type: '奶茶店' },
+      '咖啡': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '星巴克': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '咖啡店': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '瑞幸': { name: '瑞幸咖啡(桂林理工大学屏风校区店)' },
+      '超市': { name: '赵一鸣省钱超市(广西桂林建干路理工店)' },
+      '赵一鸣': { name: '赵一鸣省钱超市(广西桂林建干路理工店)' },
+      '奶茶': { name: '蜜雪冰城(学院正门店)' },
+      '奶茶店': { name: '蜜雪冰城(学院正门店)' },
+      '蜜雪冰城': { name: '蜜雪冰城(学院正门店)' },
       '桂林理工大学屏风校区': { name: '桂林理工大学屏风校区' },
       '桂林理工大学': { name: '桂林理工大学屏风校区' },
       '屏风校区': { name: '桂林理工大学屏风校区' },
@@ -188,81 +175,14 @@
       }).catch(() => {});
     }
 
-    // 逐句朗读
-    function speakTextOut(text) {
-      if ('speechSynthesis' in window) {
-        speechSynthesis.cancel();
-        const sentences = text.split('。').filter(s => s.trim().length > 0);
-        sentences.forEach((sentence, index) => {
-          setTimeout(() => {
-            const utterance = new SpeechSynthesisUtterance(sentence.trim() + '。');
-            utterance.lang = 'zh-CN';
-            utterance.rate = 1.0;
-            speechSynthesis.speak(utterance);
-          }, index * 2000);
-        });
-      }
-    }
-
-    function setDestinationAndNavigate(name, loc, navType) {
+    function setDestinationAndNavigate(name, loc) {
       targetPos = loc;
       addressInput.value = name;
       tip.innerText = '🎯 目的地：' + name;
       tip.style.display = 'block';
       sendNavTextToCloud('前往 ' + name);
-      startNav(navType || 'walking');
+      startNav('walking');
       setTimeout(() => tip.style.display = 'none', 3000);
-    }
-
-    function manualSearch(keyword) {
-      console.log('手动搜索:', keyword);
-      
-      const localMatch = matchLocalFix(keyword);
-      if (localMatch) {
-        console.log('本地匹配成功:', localMatch);
-        const poiUrl = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(localMatch.name)}&city=桂林&key=85a9a797b358573152302861e5a7dd05`;
-        fetch(poiUrl)
-          .then(r => r.json())
-          .then(poiData => {
-            if (poiData.pois && poiData.pois.length > 0) {
-              const poi = poiData.pois[0];
-              const lnglat = poi.location.split(',').map(Number);
-              setDestinationAndNavigate(poi.name, lnglat);
-            }
-          });
-        return;
-      }
-      
-      const poiUrl = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(keyword)}&city=桂林&key=85a9a797b358573152302861e5a7dd05`;
-      
-      fetch(poiUrl)
-        .then(r => r.json())
-        .then(poiData => {
-          if (poiData.pois && poiData.pois.length > 0) {
-            const poi = poiData.pois[0];
-            const lnglat = poi.location.split(',').map(Number);
-            setDestinationAndNavigate(poi.name, lnglat);
-          } else {
-            tip.innerText = '❌ 未找到该地点';
-            setTimeout(() => tip.style.display = 'none', 3000);
-          }
-        })
-        .catch(err => {
-          console.error('POI搜索失败:', err);
-          tip.innerText = '❌ 搜索失败';
-          setTimeout(() => tip.style.display = 'none', 3000);
-        });
-    }
-
-    function manualSearchFromInput() {
-      const keyword = addressInput.value.trim();
-      if (keyword) {
-        manualSearch(keyword);
-      } else {
-        tip.innerText = '请输入目的地';
-        tip.style.display = 'block';
-        setTimeout(() => tip.style.display = 'none', 2000);
-      }
     }
 
     voiceBtn.addEventListener('mousedown', startRec);
@@ -390,11 +310,9 @@
         });
         const data = await resp.json();
         if (data.success) {
-          const alertText = `检测到摔倒，已发送紧急通知。地址：桂林理工大学屏风校区。`;
           tip.innerText = '⚠️ [' + data.level + '风险] ' + data.text;
           tip.style.display = 'block';
           sendNavTextToCloud(data.text);
-          speakTextOut(data.text);
           setTimeout(() => tip.style.display = 'none', 5000);
         }
       } catch (e) {
@@ -417,15 +335,10 @@
         const data = await resp.json();
         if (data.success) {
           const emoji = data.suitable ? '✅' : '⚠️';
-          const fullText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
-          tip.innerText = fullText;
+          tip.innerText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
           tip.style.display = 'block';
-
-          const speakText = `${data.advice}。${data.detail}。当前天气：${data.weather}。`;
-          sendNavTextToCloud(speakText);
-          speakTextOut(speakText);
-
-          setTimeout(() => tip.style.display = 'none', 15000);
+          sendNavTextToCloud(data.advice);
+          setTimeout(() => tip.style.display = 'none', 10000);
         }
       } catch (e) {
         tip.innerText = '评估失败';
@@ -461,226 +374,103 @@
     }
 
     function initAutoComplete(){
-      console.log('初始化自动完成...');
-      
+      autoComplete = new AMap.AutoComplete({ city: "桂林" });
       let timer = null;
       addressInput.addEventListener('input', function(){
         const keyword = this.value.trim();
         if (!keyword) { suggestList.style.display = "none"; return; }
-        
         clearTimeout(timer);
         timer = setTimeout(() => {
-          const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(keyword)}&city=桂林&citylimit=true&key=85a9a797b358573152302861e5a7dd05`;
-          
-          fetch(url)
-            .then(r => r.json())
-            .then(data => {
-              if (data.tips && data.tips.length > 0) {
-                suggestList.innerHTML = "";
-                data.tips.forEach(tipItem => {
-                  const div = document.createElement('div');
-                  div.className = "item";
-                  const name = tipItem.name;
-                  const address = tipItem.address || tipItem.district || '';
-                  div.innerHTML = `<div>${name}</div>${address ? `<div style="font-size:12px;color:#999">${address}</div>` : ''}`;
-                  div.onclick = () => { 
-                    addressInput.value = name;
-                    suggestList.style.display = "none";
-                    manualSearch(name);
-                  };
-                  suggestList.appendChild(div);
-                });
-                suggestList.style.display = "block";
-              } else {
-                suggestList.style.display = "none";
-              }
-            })
-            .catch(err => {
-              console.error('输入提示请求失败:', err);
-              suggestList.style.display = "none";
-            });
+          autoComplete.search(keyword, (status, res) => {
+            if (status === "complete" && res.tips && res.tips.length > 0) {
+              suggestList.innerHTML = "";
+              res.tips.forEach(tip => {
+                if (!tip.location) return;
+                const div = document.createElement('div');
+                div.className = "item";
+                div.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
+                div.onclick = () => { addressInput.value = tip.name; targetPos = tip.location; suggestList.style.display = "none"; };
+                suggestList.appendChild(div);
+              });
+              suggestList.style.display = "block";
+            }
+          });
         }, 300);
       });
-      
-      addressInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          const keyword = this.value.trim();
-          if (keyword) manualSearch(keyword);
-        }
-      });
-      
-      addressInput.addEventListener('blur', () => { 
-        setTimeout(() => suggestList.style.display = "none", 200); 
-      });
+      addressInput.addEventListener('blur', () => { setTimeout(() => suggestList.style.display = "none", 200); });
     }
 
     async function startNav(type){
-      if (!currentPos) { 
-        currentPos = new AMap.LngLat(110.320, 25.284);
-        tip.innerText = "使用默认位置（桂林理工大学）"; 
-        tip.style.display = 'block'; 
-        setTimeout(() => tip.style.display = 'none', 2000);
-      }
+      if (!currentPos) { tip.innerText = "请等待硬件定位成功"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
       if (!targetPos) { tip.innerText = "请先选择目的地"; tip.style.display = 'block'; setTimeout(() => tip.style.display = 'none', 2000); return; }
-      
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
-      
-      navStepsContent.innerHTML = '';
-      navStepsPanel.style.display = 'none';
-      navStatus.style.display = 'none';
 
       const origin = currentPos.lng + ',' + currentPos.lat;
       const dest = targetPos[0] + ',' + targetPos[1];
-      
-      console.log('导航类型:', type);
-      
-      let apiUrl;
-      if (type === 'riding') {
-        apiUrl = `https://restapi.amap.com/v3/direction/riding?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-        sendNavTextToCloud('正在规划骑行路线');
-      } else {
-        apiUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-        sendNavTextToCloud('正在规划步行路线');
-      }
+      const apiPath = type === 'walking' ? 'walking' : 'riding';
+      const apiUrl = `https://restapi.amap.com/v3/direction/${apiPath}?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
+
+      sendNavTextToCloud('正在规划路径');
 
       try {
         const resp = await fetch(apiUrl);
         const data = await resp.json();
-        console.log('API完整返回:', JSON.stringify(data, null, 2));
-        
-        if (data.status === '1' && data.route) {
-          let paths = data.route.paths || data.route.rides;
-          
-          if (paths && paths.length > 0) {
-            const path = paths[0];
-            
-            let steps = [];
-            if (path.steps && Array.isArray(path.steps)) {
-              steps = path.steps.map(s => {
-                console.log('完整step对象:', JSON.stringify(s, null, 2));
-                if (s.instruction) return s.instruction;
-                if (s.road_name) {
-                  return `沿${s.road_name}${s.orientation ? '向' + s.orientation : ''}行驶`;
-                }
-                if (s.action) return s.action;
-                return '';
-              }).filter(s => s && s.trim() !== '');
-            }
-            
-            console.log('提取的步骤:', steps);
-            
-            const distanceKm = path.distance ? (path.distance / 1000).toFixed(1) : '0.0';
-            const durationMin = path.duration ? Math.round(path.duration / 60) : 0;
-            
-            if (steps.length === 0 && type === 'riding') {
-              console.log('骑行无步骤，尝试步行API');
-              const walkingUrl = `https://restapi.amap.com/v3/direction/walking?origin=${origin}&destination=${dest}&key=85a9a797b358573152302861e5a7dd05`;
-              const walkingResp = await fetch(walkingUrl);
-              const walkingData = await walkingResp.json();
-              
-              if (walkingData.status === '1' && walkingData.route && walkingData.route.paths && walkingData.route.paths.length > 0) {
-                const walkingPath = walkingData.route.paths[0];
-                if (walkingPath.steps && Array.isArray(walkingPath.steps)) {
-                  steps = walkingPath.steps.map(s => s.instruction || '').filter(s => s);
-                  console.log('从步行API获取步骤:', steps);
-                }
-              }
-            }
-            
-            if (steps.length === 0) {
-              steps = [`从当前位置出发`, `沿规划路线${type === 'riding' ? '骑行' : '步行'}${distanceKm}公里`, `预计${durationMin}分钟后到达目的地`];
-            }
-            
-            const polyline = [];
-            if (path.steps) {
-              path.steps.forEach(step => {
-                if (step.polyline) {
-                  const polylineStr = step.polyline;
-                  if (typeof polylineStr === 'string') {
-                    polylineStr.split(';').forEach(p => {
-                      const [lng, lat] = p.split(',').map(Number);
-                      if (!isNaN(lng) && !isNaN(lat)) {
-                        polyline.push([lng, lat]);
-                      }
-                    });
-                  }
-                }
-              });
-            }
-            
-            if (polyline.length === 0) {
-              polyline.push([currentPos.lng, currentPos.lat]);
-              polyline.push([targetPos[0], targetPos[1]]);
-            }
-            
-            const route = new AMap.Polyline({
-              path: polyline,
-              strokeColor: type === 'riding' ? '#FF9800' : '#1677ff',
-              strokeWeight: 6,
-              strokeOpacity: 0.8
+        if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
+          const steps = data.route.paths[0].steps;
+          const instructions = steps.map(step => step.instruction).filter(Boolean);
+          const path = [];
+          steps.forEach(step => {
+            const polyline = step.polyline;
+            if (!polyline) return;
+            const points = polyline.split(';');
+            points.forEach(p => {
+              const [lng, lat] = p.split(',');
+              if (lng && lat) path.push(new AMap.LngLat(parseFloat(lng), parseFloat(lat)));
             });
-            route.setMap(map);
-            
-            if (type === 'riding') {
-              ridingRoute = route;
-            } else {
-              walkingRoute = route;
-            }
-            
-            map.setFitView([route]);
-            const navTypeText = type === 'riding' ? '骑行' : '步行';
-            
-            const startText = `已开始${navTypeText}路径规划，全程${distanceKm}公里，大约需要${durationMin}分钟`;
-            
-            showNavStatus(startText);
-            showNavSteps(steps);
-            sendNavTextToCloud(startText);
-            
-            let speakText = startText;
-            if (steps.length > 0) {
-              speakText += '。' + steps.join('。');
-            }
-            speakTextOut(speakText);
-            
-          } else {
-            tip.innerText = '❌ 路径规划失败';
-            setTimeout(() => tip.style.display = 'none', 3000);
-          }
+          });
+
+          const routeColor = type === 'walking' ? '#1677ff' : '#ff6b35';
+          const route = new AMap.Polyline({ map: map, path: path, strokeColor: routeColor, strokeWeight: 6, strokeOpacity: 0.8 });
+          if (type === 'walking') walkingRoute = route;
+          else ridingRoute = route;
+
+          map.setFitView(null, false, [60, 60, 60, 60]);
+          showNavSteps(instructions);
+          sendNavTextToCloud(instructions.join('\n'));
+          if (instructions.length > 0) showNavStatus(instructions[0]);
+          tip.innerText = '✅ ' + (type === 'walking' ? '步行' : '骑行') + '路线规划成功';
+          tip.style.display = 'block';
+          setTimeout(() => tip.style.display = 'none', 2000);
         } else {
-          tip.innerText = '❌ 路径规划失败: ' + (data.info || '未知错误');
+          tip.innerText = '路线规划失败';
           setTimeout(() => tip.style.display = 'none', 3000);
         }
       } catch (e) {
-        console.error('导航请求失败:', e);
-        tip.innerText = '❌ 网络错误';
+        tip.innerText = '路线规划失败（网络错误）';
         setTimeout(() => tip.style.display = 'none', 3000);
       }
     }
 
-    function switchSatellite() {
-      if (isSatellite) {
-        map.remove(satelliteLayer);
-        isSatellite = false;
-        document.getElementById('switchMapBtn').innerText = '切换卫星图';
-      } else {
+    function switchSatellite(){
+      if (!isSatellite) {
         map.add(satelliteLayer);
+        document.getElementById('switchMapBtn').innerText = "切换普通地图";
         isSatellite = true;
-        document.getElementById('switchMapBtn').innerText = '切换普通图';
+      } else {
+        map.remove(satelliteLayer);
+        document.getElementById('switchMapBtn').innerText = "切换卫星图";
+        isSatellite = false;
       }
     }
 
-    function clearAll() {
+    function clearAll(){
+      addressInput.value = "";
+      targetPos = null;
       if (walkingRoute) { walkingRoute.setMap(null); walkingRoute = null; }
       if (ridingRoute) { ridingRoute.setMap(null); ridingRoute = null; }
-      targetPos = null;
-      addressInput.value = '';
-      suggestList.style.display = 'none';
+      suggestList.style.display = "none";
       navStepsPanel.style.display = 'none';
-      navStatus.style.display = 'none';
-      tip.innerText = '已清空';
-      tip.style.display = 'block';
-      setTimeout(() => tip.style.display = 'none', 1500);
     }
   </script>
 </body>
