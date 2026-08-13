@@ -72,7 +72,7 @@ async function sendSingleMessage(navText) {
     const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
 
     try {
-        const resp = await axios.post(
+        await axios.post(
             'https://iot-api.heclouds.com/thingmodel/set-device-property',
             { product_id: PRODUCT_ID, device_name: DEVICE_NAME, params: { nav_text: navText } },
             { headers: { 'Content-Type': 'application/json', 'Authorization': productToken } }
@@ -193,17 +193,17 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
+// ========== 修改后的 /api/ai/risk：跳过AI，直接发送微信 ==========
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
-        const prompt = `你是一个骑行安全助手...`;
-        const aiResult = await askQwen(prompt);
-        const parsed = JSON.parse(aiResult);
-        await sendToOneNET(parsed.text);
 
-        let address = '未知位置';
+        // 直接使用传入的坐标或默认坐标
         const loc = userLocation || '104.5647,28.7658';
+        let address = '未知位置';
+
+        // 尝试逆地理编码获取地址，失败不影响发微信
         try {
             const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
                 params: { key: AMAP_KEY, location: loc, output: 'json' }
@@ -211,14 +211,24 @@ app.post('/api/ai/risk', async (req, res) => {
             if (geoResp.data.status === '1' && geoResp.data.regeocode) {
                 address = geoResp.data.regeocode.formatted_address || '未知位置';
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn('获取地址失败:', e.message);
+        }
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
+
         await sendWeChat('骑行安全警报', fullMsg);
-        res.json({ success: true, text: parsed.text, level: parsed.level, wechat: wechatMsg });
+
+        res.json({
+            success: true,
+            text: '检测到异常加速度，已发送紧急通知',
+            level: '高',
+            wechat: wechatMsg
+        });
     } catch (error) {
+        console.error('风险处理失败:', error);
         res.status(500).json({ error: '风险研判失败' });
     }
 });
