@@ -137,26 +137,13 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// ========== 优化后的骑行前评估接口（并行请求 + 固定桂林 + 默认降级） ==========
+// ========== 骑行前评估接口（固定内容，不调用 AI，不请求天气，秒回） ==========
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
         const loc = userLocation || '104.5647,28.7658';
 
-        // 固定城市为桂林，不再进行逆地理编码
-        const city = '桂林';
-
-        // 并行获取天气
-        const weatherPromise = axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
-            params: { key: AMAP_KEY, city, extensions: 'base' },
-            timeout: 3000
-        }).then(resp => {
-            if (resp.data.lives && resp.data.lives[0]) {
-                const w = resp.data.lives[0];
-                return `${w.weather}，${w.temperature}°C，${w.winddirection}风${w.windpower}级，湿度${w.humidity}%`;
-            }
-            return '晴，28°C，东北风2级，湿度60%';
-        }).catch(() => '晴，28°C，东北风2级，湿度60%');
+        const weather = '多云，32°C，东北风4级，湿度56%';
 
         const sensors = {
             spo2: 98,
@@ -165,44 +152,12 @@ app.post('/api/ai/ride-check', async (req, res) => {
             light: 35000
         };
 
-        const prompt = `你是一位专业的运动医学专家和骑行安全教练。请根据以下实时传感器数据和天气信息，进行一次详尽的骑行前安全评估：
-
-【当前数据】
-- 心率：${sensors.heart_rate} bpm（正常静息心率范围60-100 bpm）
-- 血氧饱和度：${sensors.spo2}%（正常范围95%-100%）
-- 体温：${sensors.temperature}°C（正常范围36.1°C-37.2°C）
-- 光线强度：${sensors.light} lux（白天户外通常为10000-50000 lux）
-- 天气：待合并
-
-请逐项分析以上数据，并给出专业评估结论：
-1. 心率分析
-2. 血氧分析
-3. 体温分析
-4. 光线分析
-5. 天气分析
-6. 综合建议
-
-返回JSON格式（不要输出任何其他内容）：
-{
-  "suitable": true,
-  "level": "适宜/谨慎/不适宜",
-  "advice": "综合建议，150-250字",
-  "detail": "详细分析，200-400字"
-}`;
-
-        const aiPromise = askQwen(prompt).then(aiResult => {
-            return JSON.parse(aiResult);
-        }).catch(() => {
-            return {
-                suitable: true,
-                level: '适宜',
-                advice: '心率70bpm、血氧98%、体温36.5°C均在正常范围，身体状态良好。天气多云，34°C，湿度42%，存在一定中暑风险，建议佩戴头盔、防晒并携带充足饮水，控制骑行强度。',
-                detail: '心率正常说明心肺功能良好，可进行中等强度骑行；血氧98%表明氧合充足；体温36.5°C正常；光线35000lux较强，建议佩戴遮阳帽或墨镜；34°C高温下需注意补水和电解质，每15-20分钟饮水一次。'
-            };
-        });
-
-        // 并行执行天气和 AI 请求
-        const [weather, parsed] = await Promise.all([weatherPromise, aiPromise]);
+        const parsed = {
+            suitable: true,
+            level: '适宜',
+            advice: '心率70bpm、血氧98%、体温36.5°C均在正常范围，身体状态良好。天气多云，34°C，湿度42%，存在一定中暑风险，建议佩戴头盔、防晒并携带充足饮水，控制骑行强度。',
+            detail: '心率正常说明心肺功能良好，可进行中等强度骑行；血氧98%表明氧合充足；体温36.5°C正常；光线35000lux较强，建议佩戴遮阳帽或墨镜；34°C高温下需注意补水和电解质，每15-20分钟饮水一次。'
+        };
 
         const fullText = `${parsed.advice}。${parsed.detail}。当前天气：${weather}。`;
         await sendToOneNET(fullText);
