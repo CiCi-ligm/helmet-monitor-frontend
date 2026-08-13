@@ -193,27 +193,15 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// ========== 修改后的 /api/ai/risk：跳过AI，直接发送微信 ==========
+// ========== 修改后的 /api/ai/risk：跳过AI，固定地址发送微信 ==========
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
         if (!event) return res.status(400).json({ error: '缺少事件类型' });
 
-        // 直接使用传入的坐标或默认坐标
         const loc = userLocation || '104.5647,28.7658';
-        let address = '未知位置';
-
-        // 尝试逆地理编码获取地址，失败不影响发微信
-        try {
-            const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-                params: { key: AMAP_KEY, location: loc, output: 'json' }
-            });
-            if (geoResp.data.status === '1' && geoResp.data.regeocode) {
-                address = geoResp.data.regeocode.formatted_address || '未知位置';
-            }
-        } catch (e) {
-            console.warn('获取地址失败:', e.message);
-        }
+        // 固定地址
+        const address = '桂林理工大学屏风校区';
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
         const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
@@ -427,7 +415,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     }
 });
 
-// ========== 摔倒检测接收接口（兼容命令行扁平 JSON 和 OneNET msg 包裹） ==========
+// ========== 摔倒检测接收接口（固定地址：桂林理工大学屏风校区） ==========
 app.get('/api/fall', (req, res) => {
     res.send(req.query.msg || '');
 });
@@ -480,20 +468,10 @@ app.post('/api/fall', async (req, res) => {
     let desp = '## ⚠️ 头盔检测到摔倒\n\n';
     desp += '- 设备：gps\n';
     desp += '- 产品ID：G2ddPjoILg\n';
+    desp += '- 地址：桂林理工大学屏风校区\n';
 
     if (lat && lng) {
         desp += `- 坐标：${lat}, ${lng}\n`;
-        try {
-            const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-                params: { key: AMAP_KEY, location: `${lng},${lat}`, output: 'json' }
-            });
-            if (geoResp.data.status === '1' && geoResp.data.regeocode) {
-                const addr = geoResp.data.regeocode.formatted_address || '未知地址';
-                desp += `- 地址：${addr}\n`;
-            }
-        } catch (e) {
-            console.warn('逆地理编码失败', e.message);
-        }
     }
 
     if (imageUrl) {
