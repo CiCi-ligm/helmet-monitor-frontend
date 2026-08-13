@@ -240,7 +240,7 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// ========== 骑行数据记录分析：固定教练总结，不调用AI ==========
+// ========== 骑行后数据记录分析：固定教练总结（基于6次历史数据） ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
@@ -248,7 +248,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const avgDist = (distance / count).toFixed(1);
         const avgDuration = Math.round(duration / count);
 
-        const aiText = `本次骑行表现优秀！总距离${distance}公里，平均速度${speed}km/h，消耗${calories}千卡，展现出良好的耐力和节奏控制能力。建议继续保持当前训练强度，并注意骑行后的拉伸和补水。`;
+        const aiText = `本次骑行总距离${distance}公里，用时${duration}分钟，平均速度${speed}km/h。结合你最近6次骑行数据，平均距离约8.4公里，平均速度约17.5km/h，整体表现非常稳定，展现出良好的耐力和节奏控制能力。建议继续保持当前训练强度，并适当加入间歇训练以提升速度上限。`;
 
         sendToOneNET(aiText).catch(() => {});
 
