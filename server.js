@@ -417,7 +417,7 @@ app.post('/api/voice/nav', upload.single('audio'), async (req, res) => {
     }
 });
 
-// ========== 摔倒检测接收接口（已修正 OneNET 明文推送解析） ==========
+// ========== 摔倒检测接收接口（兼容命令行扁平 JSON 和 OneNET msg 包裹） ==========
 app.get('/api/fall', (req, res) => {
     res.send(req.query.msg || '');
 });
@@ -425,39 +425,38 @@ app.get('/api/fall', (req, res) => {
 app.post('/api/fall', async (req, res) => {
     console.log('【/api/fall收到原始报文】', JSON.stringify(req.body, null, 2));
 
-    const outerBody = req.body;
-    const innerJsonStr = outerBody.msg;
-
-    if (!innerJsonStr) {
-        console.log('未找到msg字段，跳过');
-        return res.status(200).send('ok');
-    }
-
-    let innerBody;
-    try {
-        innerBody = JSON.parse(innerJsonStr);
-    } catch (err) {
-        console.error('解析内层JSON失败', err);
-        return res.status(200).send('ok');
-    }
-
-    console.log('【解析后的内层报文】', JSON.stringify(innerBody, null, 2));
-
-    // 过滤非属性上报消息
-    if (innerBody.msgType && innerBody.msgType !== 'thingProperty') {
-        console.log('跳过非属性上报消息, msgType=', innerBody.msgType);
-        return res.status(200).send('ok');
-    }
-
     let fall_down = 0;
     let imageUrl = '';
     let lat, lng;
 
-    if (innerBody?.params) {
-        fall_down = Number(innerBody.params.fall_down?.value ?? 0);
-        imageUrl = innerBody.params.image?.value ?? '';
-        lat = innerBody.params.lat?.value;
-        lng = innerBody.params.lng?.value;
+    // 情况1：OneNET 明文推送，外层有 msg 字符串
+    if (req.body.msg) {
+        try {
+            const innerBody = JSON.parse(req.body.msg);
+            console.log('【解析后的内层报文】', JSON.stringify(innerBody, null, 2));
+
+            if (innerBody.msgType && innerBody.msgType !== 'thingProperty') {
+                console.log('跳过非属性上报消息, msgType=', innerBody.msgType);
+                return res.status(200).send('ok');
+            }
+
+            if (innerBody?.params) {
+                fall_down = Number(innerBody.params.fall_down?.value ?? 0);
+                imageUrl = innerBody.params.image?.value ?? '';
+                lat = innerBody.params.lat?.value;
+                lng = innerBody.params.lng?.value;
+            }
+        } catch (err) {
+            console.error('解析 msg 字符串失败', err);
+            return res.status(200).send('ok');
+        }
+    }
+    // 情况2：命令行测试的扁平 JSON
+    else {
+        fall_down = Number(req.body.fall_down ?? 0);
+        imageUrl = req.body.image || '';
+        lat = req.body.lat || req.body.latitude;
+        lng = req.body.lng || req.body.longitude;
     }
 
     console.log('解析结果 fall_down=', fall_down, 'imageUrl=', imageUrl, 'lat=', lat, 'lng=', lng);
@@ -494,55 +493,5 @@ app.post('/api/fall', async (req, res) => {
     await sendWeChat('【智能头盔-摔倒警报】', desp);
     res.status(200).send('success');
 });
-
-// ========== 新增：轮询检测 fall_down 状态，自动发送微信通知 ==========
-
-async function getFallDownStatus() {
-    try {
-        const version = '2022-05-01';
-        const resStr = `products/${PRODUCT_ID}`;
-        const et = Math.ceil((Date.now() + 3600000) / 1000);
-        const method = 'sha1';
-        const base64Key = Buffer.from(API_KEY, 'base64');
-        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
-        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
-        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
-
-        const resp = await axios.get('https://iot-api.heclouds.com/thingmodel/property/queryDeviceProperty', {
-            params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
-            headers: { 'Authorization': productToken }
-        });
-
-        const data = resp.data?.data || {};
-        return Number(data.fall_down?.value ?? 0);
-    } catch (err) {
-        console.warn('查询 fall_down 失败:', err.message);
-        return 0;
-    }
-}
-
-let fallDownAlerted = false;
-
-setInterval(async () => {
-    try {
-        const current = await getFallDownStatus();
-        console.log('轮询 fall_down =', current, '已通知 =', fallDownAlerted);
-
-        if (current === 1 && !fallDownAlerted) {
-            fallDownAlerted = true;
-            console.log('检测到摔倒，发送微信通知');
-
-            let desp = '## ⚠️ 头盔检测到摔倒\n\n';
-            desp += '- 设备：gps\n';
-            desp += '- 产品ID：G2ddPjoILg\n';
-
-            await sendWeChat('【智能头盔-摔倒警报】', desp);
-        } else if (current === 0) {
-            fallDownAlerted = false;
-        }
-    } catch (err) {
-        console.error('轮询检测异常:', err.message);
-    }
-}, 5000); // 每 5 秒查询一次
 
 module.exports = app;
