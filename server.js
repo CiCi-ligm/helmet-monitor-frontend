@@ -240,37 +240,23 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// ========== 骑行后数据记录分析：基于6次历史数据的专业教练分析 ==========
+// ========== 骑行数据记录分析：固定教练总结，不调用AI ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
-        const rides = [
-            { distance: 8.2, duration: 28, speed: 17.57 },
-            { distance: 5.6, duration: 20, speed: 16.80 },
-            { distance: 12, duration: 42, speed: 17.14 },
-            { distance: 7.3, duration: 25, speed: 17.52 },
-            { distance: 10.5, duration: 36, speed: 17.50 },
-            { distance: 6.8, duration: 22, speed: 18.55 }
-        ];
+        const { distance, duration, speed, calories, count } = req.body;
 
-        const totalDistance = rides.reduce((sum, r) => sum + r.distance, 0);
-        const totalDuration = rides.reduce((sum, r) => sum + r.duration, 0);
-        const speeds = rides.map(r => r.speed);
-        const avgSpeed = (speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2);
-        const maxSpeed = Math.max(...speeds).toFixed(2);
-        const minSpeed = Math.min(...speeds).toFixed(2);
+        const avgDist = (distance / count).toFixed(1);
+        const avgDuration = Math.round(duration / count);
 
-        const aiText = `根据最近6次骑行数据，你已累计骑行${totalDistance.toFixed(1)}公里，总时长${totalDuration}分钟，平均速度稳定在${avgSpeed}km/h左右，最快${maxSpeed}km/h，最慢${minSpeed}km/h。速度波动较小，说明你已具备良好的节奏控制能力和稳定的心肺耐力。相比前几次骑行，近期速度有小幅提升，表现出积极的进步趋势。建议接下来在保持长距离耐力的基础上，每周加入1-2次短距离间歇训练，刺激心肺能力，逐步挑战20km/h以上的巡航速度。同时注意骑行后的拉伸恢复与蛋白质补充。`;
+        const aiText = `本次骑行表现优秀！总距离${distance}公里，平均速度${speed}km/h，消耗${calories}千卡，展现出良好的耐力和节奏控制能力。建议继续保持当前训练强度，并注意骑行后的拉伸和补水。`;
 
         sendToOneNET(aiText).catch(() => {});
 
         res.json({
             success: true,
             text: aiText,
-            totalDistance: totalDistance.toFixed(1),
-            totalDuration,
-            avgSpeed,
-            maxSpeed,
-            minSpeed
+            avgDist,
+            avgDuration
         });
     } catch (error) {
         console.error('总结接口失败:', error);
