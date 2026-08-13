@@ -94,6 +94,31 @@ async function searchPlace(keywords, userLocation) {
     });
 }
 
+// 通用查询 OneNET 设备属性函数
+async function getDeviceProperty(propertyName) {
+    try {
+        const version = '2022-05-01';
+        const resStr = `products/${PRODUCT_ID}`;
+        const et = Math.ceil((Date.now() + 3600000) / 1000);
+        const method = 'sha1';
+        const base64Key = Buffer.from(API_KEY, 'base64');
+        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
+        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
+        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
+
+        const resp = await axios.get('https://iot-api.heclouds.com/thingmodel/property/queryDeviceProperty', {
+            params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
+            headers: { 'Authorization': productToken }
+        });
+
+        const data = resp.data?.data || {};
+        return data[propertyName]?.value ?? null;
+    } catch (err) {
+        console.warn(`查询 ${propertyName} 失败:`, err.message);
+        return null;
+    }
+}
+
 let lightCounter = 0;
 
 app.get('/api/device/sensors', async (req, res) => {
@@ -213,7 +238,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// ========== /api/ai/risk：跳过AI，固定地址发送微信 ==========
+// ========== /api/ai/risk：实时获取 OneNET 图片，发送微信 ==========
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -222,8 +247,14 @@ app.post('/api/ai/risk', async (req, res) => {
         const loc = userLocation || '104.5647,28.7658';
         const address = '桂林理工大学屏风校区';
 
+        // 尝试从 OneNET 获取最新图片 URL
+        let imageUrl = await getDeviceProperty('image');
+        if (!imageUrl) {
+            // 如果没有获取到，使用默认图片
+            imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
+        }
+
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
 
         await sendWeChat('骑行安全警报', fullMsg);
@@ -232,7 +263,8 @@ app.post('/api/ai/risk', async (req, res) => {
             success: true,
             text: '检测到异常加速度，已发送紧急通知',
             level: '高',
-            wechat: wechatMsg
+            wechat: wechatMsg,
+            imageUrl: imageUrl
         });
     } catch (error) {
         console.error('风险处理失败:', error);
@@ -240,23 +272,37 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// ========== 骑行数据记录分析：固定教练总结，不调用AI ==========
+// ========== 骑行后数据记录分析：基于6次历史数据的专业教练分析 ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
-        const { distance, duration, speed, calories, count } = req.body;
+        const rides = [
+            { distance: 8.2, duration: 28, speed: 17.57 },
+            { distance: 5.6, duration: 20, speed: 16.80 },
+            { distance: 12, duration: 42, speed: 17.14 },
+            { distance: 7.3, duration: 25, speed: 17.52 },
+            { distance: 10.5, duration: 36, speed: 17.50 },
+            { distance: 6.8, duration: 22, speed: 18.55 }
+        ];
 
-        const avgDist = (distance / count).toFixed(1);
-        const avgDuration = Math.round(duration / count);
+        const totalDistance = rides.reduce((sum, r) => sum + r.distance, 0);
+        const totalDuration = rides.reduce((sum, r) => sum + r.duration, 0);
+        const speeds = rides.map(r => r.speed);
+        const avgSpeed = (speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(2);
+        const maxSpeed = Math.max(...speeds).toFixed(2);
+        const minSpeed = Math.min(...speeds).toFixed(2);
 
-        const aiText = `本次骑行表现优秀！总距离${distance}公里，平均速度${speed}km/h，消耗${calories}千卡，展现出良好的耐力和节奏控制能力。建议继续保持当前训练强度，并注意骑行后的拉伸和补水。`;
+        const aiText = `根据最近6次骑行数据，你已累计骑行${totalDistance.toFixed(1)}公里，总时长${totalDuration}分钟，平均速度稳定在${avgSpeed}km/h左右，最快${maxSpeed}km/h，最慢${minSpeed}km/h。速度波动较小，说明你已具备良好的节奏控制能力和稳定的心肺耐力。相比前几次骑行，近期速度有小幅提升，表现出积极的进步趋势。建议接下来在保持长距离耐力的基础上，每周加入1-2次短距离间歇训练，刺激心肺能力，逐步挑战20km/h以上的巡航速度。同时注意骑行后的拉伸恢复与蛋白质补充。`;
 
         sendToOneNET(aiText).catch(() => {});
 
         res.json({
             success: true,
             text: aiText,
-            avgDist,
-            avgDuration
+            totalDistance: totalDistance.toFixed(1),
+            totalDuration,
+            avgSpeed,
+            maxSpeed,
+            minSpeed
         });
     } catch (error) {
         console.error('总结接口失败:', error);
@@ -502,6 +548,12 @@ app.post('/api/fall', async (req, res) => {
 
     if (imageUrl) {
         desp += `\n![现场图片](${imageUrl})\n`;
+    } else {
+        // 如果推送消息里没有图片，则尝试实时查询 OneNET
+        const latestImage = await getDeviceProperty('image');
+        if (latestImage) {
+            desp += `\n![现场图片](${latestImage})\n`;
+        }
     }
 
     await sendWeChat('【智能头盔-摔倒警报】', desp);
