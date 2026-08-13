@@ -137,7 +137,7 @@ app.get('/api/device/sensors', async (req, res) => {
     }
 });
 
-// ========== 骑行前评估：固定生理分析 + 动态天气AI + 快速响应 ==========
+// ========== 骑行前评估：固定生理分析 + 动态天气AI ==========
 app.post('/api/ai/ride-check', async (req, res) => {
     try {
         const { userLocation } = req.body;
@@ -150,11 +150,9 @@ app.post('/api/ai/ride-check', async (req, res) => {
             light: 35000
         };
 
-        // 固定的专业分析
         const advice = '心率70bpm、血氧98%、体温36.5°C均在正常范围，身体状态良好。建议佩戴头盔、防晒并携带充足饮水，控制骑行强度。';
         const detail = '心率正常说明心肺功能良好，可进行中等强度骑行；血氧98%表明氧合充足；体温36.5°C正常；光线35000lux较强，建议佩戴遮阳帽或墨镜。';
 
-        // 动态获取天气，但设置超时快速失败
         let weather = '多云，32°C，东北风4级，湿度56%';
         try {
             const weatherResp = await axios.get('https://restapi.amap.com/v3/weather/weatherInfo', {
@@ -169,7 +167,6 @@ app.post('/api/ai/ride-check', async (req, res) => {
             console.warn('获取天气失败，使用默认天气');
         }
 
-        // 对天气做简短的AI分析
         let weatherAdvice = '当前天气存在一定中暑风险，请注意补水。';
         try {
             const prompt = `请根据天气：${weather}，给出一句不超过50字的骑行安全提醒。直接输出提醒文字。`;
@@ -180,7 +177,6 @@ app.post('/api/ai/ride-check', async (req, res) => {
 
         const fullText = `${advice}。${detail}。${weatherAdvice}。当前天气：${weather}。`;
 
-        // 后台下发，不阻塞前端
         sendToOneNET(fullText).catch(() => {});
 
         res.json({
@@ -244,27 +240,26 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
+// ========== 骑行数据记录分析：固定教练总结，不调用AI ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const { distance, duration, speed, calories, count } = req.body;
+
         const avgDist = (distance / count).toFixed(1);
         const avgDuration = Math.round(duration / count);
 
-        const prompt = `你是一位骑行教练。请根据以下数据生成一段简短的骑行总结：总距离${distance}公里，总时长${duration}分钟，平均速度${speed}km/h，消耗${calories}千卡，骑行次数${count}次。直接输出一段总结文字，包括对骑行者表现的肯定和一条改进建议，不超过80字。`;
+        const aiText = `本次骑行表现优秀！总距离${distance}公里，平均速度${speed}km/h，消耗${calories}千卡，展现出良好的耐力和节奏控制能力。建议继续保持当前训练强度，并注意骑行后的拉伸和补水。`;
 
-        let aiText;
-        try {
-            aiText = await askQwen(prompt);
-            console.log('AI总结文本:', aiText);
-        } catch (e) {
-            console.warn('AI总结失败，使用默认总结', e.message);
-            aiText = `本次骑行平均距离${avgDist}公里，平均时长${avgDuration}分钟，速度${speed}km/h，消耗${calories}千卡，表现不错，继续加油！`;
-        }
+        sendToOneNET(aiText).catch(() => {});
 
-        await sendToOneNET(aiText);
-        res.json({ success: true, text: aiText });
+        res.json({
+            success: true,
+            text: aiText,
+            avgDist,
+            avgDuration
+        });
     } catch (error) {
-        console.error('总结接口整体失败:', error);
+        console.error('总结接口失败:', error);
         res.status(500).json({ error: '生成失败' });
     }
 });
