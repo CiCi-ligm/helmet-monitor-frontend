@@ -213,7 +213,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// ========== /api/ai/risk：跳过AI，固定地址发送微信 ==========
+// ========== /api/ai/risk：跳过AI，固定地址发送微信，图片已更新 ==========
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -223,7 +223,7 @@ app.post('/api/ai/risk', async (req, res) => {
         const address = '桂林理工大学屏风校区';
 
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
-        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
+        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/0a38ae37c3e0ec937dd8df1c1389349e.jpg';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
 
         await sendWeChat('骑行安全警报', fullMsg);
@@ -240,7 +240,7 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// ========== 骑行后数据记录分析：基于6次历史数据，使用sendToOneNET ==========
+// ========== 骑行后数据记录分析：基于6次历史数据 ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const rides = [
@@ -259,7 +259,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const maxSpeed = Math.max(...speeds).toFixed(2);
         const minSpeed = Math.min(...speeds).toFixed(2);
 
-        const aiText = `根据最近6次骑行数据，你已累计骑行${totalDistance.toFixed(1)}公里，总时长${totalDuration}分钟，平均速度${avgSpeed}km/h。速度波动较小，说明你具备良好的节奏控制能力。建议继续保持耐力训练，并适当加入间歇训练提升速度上限。`;
+        const aiText = `根据最近6次骑行数据，你已累计骑行${totalDistance.toFixed(1)}公里，总时长${totalDuration}分钟，平均速度稳定在${avgSpeed}km/h左右，最快${maxSpeed}km/h，最慢${minSpeed}km/h。速度波动较小，说明你已具备良好的节奏控制能力和稳定的心肺耐力。相比前几次骑行，近期速度有小幅提升，表现出积极的进步趋势。建议接下来在保持长距离耐力的基础上，每周加入1-2次短距离间歇训练，刺激心肺能力，逐步挑战20km/h以上的巡航速度。同时注意骑行后的拉伸恢复与蛋白质补充。`;
 
         sendToOneNET(aiText).catch(() => {});
 
@@ -516,6 +516,9 @@ app.post('/api/fall', async (req, res) => {
 
     if (imageUrl) {
         desp += `\n![现场图片](${imageUrl})\n`;
+    } else {
+        // 如果没有图片，使用指定的图片
+        desp += `\n![现场图片](https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/0a38ae37c3e0ec937dd8df1c1389349e.jpg)\n`;
     }
 
     await sendWeChat('【智能头盔-摔倒警报】', desp);
