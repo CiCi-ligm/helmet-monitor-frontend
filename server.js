@@ -55,7 +55,7 @@ async function sendToOneNET(navText) {
         for (let i = 0; i < sentences.length; i++) {
             const sentence = sentences[i].trim() + '。';
             await sendSingleMessage(sentence);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 10000));
         }
     });
     return sendQueue;
@@ -240,7 +240,7 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// ========== 骑行后数据记录分析：基于6次历史数据，拆分下发 ==========
+// ========== 骑行后数据记录分析：基于6次历史数据，使用sendToOneNET ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const rides = [
@@ -259,7 +259,7 @@ app.post('/api/ai/summary', async (req, res) => {
         const maxSpeed = Math.max(...speeds).toFixed(2);
         const minSpeed = Math.min(...speeds).toFixed(2);
 
-        const aiText = `根据最近6次骑行数据，你已累计骑行${totalDistance.toFixed(1)}公里，总时长${totalDuration}分钟，平均速度稳定在${avgSpeed}km/h左右，最快${maxSpeed}km/h，最慢${minSpeed}km/h。速度波动较小，说明你已具备良好的节奏控制能力和稳定的心肺耐力。相比前几次骑行，近期速度有小幅提升，表现出积极的进步趋势。建议接下来在保持长距离耐力的基础上，每周加入1-2次短距离间歇训练，刺激心肺能力，逐步挑战20km/h以上的巡航速度。同时注意骑行后的拉伸恢复与蛋白质补充。`;
+        const aiText = `根据最近6次骑行数据，你已累计骑行${totalDistance.toFixed(1)}公里，总时长${totalDuration}分钟，平均速度${avgSpeed}km/h。速度波动较小，说明你具备良好的节奏控制能力。建议继续保持耐力训练，并适当加入间歇训练提升速度上限。`;
 
         sendToOneNET(aiText).catch(() => {});
 
