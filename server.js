@@ -55,7 +55,7 @@ async function sendToOneNET(navText) {
         for (let i = 0; i < sentences.length; i++) {
             const sentence = sentences[i].trim() + '。';
             await sendSingleMessage(sentence);
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
     });
     return sendQueue;
@@ -92,31 +92,6 @@ async function searchPlace(keywords, userLocation) {
     return await axios.get('https://restapi.amap.com/v3/place/around', {
         params: { key: AMAP_KEY, keywords, location: '104.5647,28.7658', radius: 50000, offset: 1 }
     });
-}
-
-// 通用查询 OneNET 设备属性函数
-async function getDeviceProperty(propertyName) {
-    try {
-        const version = '2022-05-01';
-        const resStr = `products/${PRODUCT_ID}`;
-        const et = Math.ceil((Date.now() + 3600000) / 1000);
-        const method = 'sha1';
-        const base64Key = Buffer.from(API_KEY, 'base64');
-        const signStr = et + '\n' + method + '\n' + resStr + '\n' + version;
-        const hmac = crypto.createHmac('sha1', base64Key).update(signStr).digest('base64');
-        const productToken = `version=${version}&res=${encodeURIComponent(resStr)}&et=${et}&method=${method}&sign=${encodeURIComponent(hmac)}`;
-
-        const resp = await axios.get('https://iot-api.heclouds.com/thingmodel/property/queryDeviceProperty', {
-            params: { product_id: PRODUCT_ID, device_name: DEVICE_NAME },
-            headers: { 'Authorization': productToken }
-        });
-
-        const data = resp.data?.data || {};
-        return data[propertyName]?.value ?? null;
-    } catch (err) {
-        console.warn(`查询 ${propertyName} 失败:`, err.message);
-        return null;
-    }
 }
 
 let lightCounter = 0;
@@ -238,7 +213,7 @@ app.post('/api/ai/nav', async (req, res) => {
     }
 });
 
-// ========== /api/ai/risk：实时获取 OneNET 图片，发送微信 ==========
+// ========== /api/ai/risk：跳过AI，固定地址发送微信 ==========
 app.post('/api/ai/risk', async (req, res) => {
     try {
         const { event, data, userLocation } = req.body;
@@ -247,14 +222,8 @@ app.post('/api/ai/risk', async (req, res) => {
         const loc = userLocation || '104.5647,28.7658';
         const address = '桂林理工大学屏风校区';
 
-        // 尝试从 OneNET 获取最新图片 URL
-        let imageUrl = await getDeviceProperty('image');
-        if (!imageUrl) {
-            // 如果没有获取到，使用默认图片
-            imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
-        }
-
         const wechatMsg = `绑定用户cici在${loc}（${address}）发生${event}，可能是严重紧急事件，请立即处理！`;
+        const imageUrl = 'https://driving-recorder-1454064042.cos.ap-chengdu.myqcloud.com/IMG_20260726_200318.png';
         const fullMsg = `${wechatMsg}\n\n![现场图片](${imageUrl})`;
 
         await sendWeChat('骑行安全警报', fullMsg);
@@ -263,8 +232,7 @@ app.post('/api/ai/risk', async (req, res) => {
             success: true,
             text: '检测到异常加速度，已发送紧急通知',
             level: '高',
-            wechat: wechatMsg,
-            imageUrl: imageUrl
+            wechat: wechatMsg
         });
     } catch (error) {
         console.error('风险处理失败:', error);
@@ -272,7 +240,7 @@ app.post('/api/ai/risk', async (req, res) => {
     }
 });
 
-// ========== 骑行后数据记录分析：基于6次历史数据的专业教练分析 ==========
+// ========== 骑行后数据记录分析：基于6次历史数据，拆分下发 ==========
 app.post('/api/ai/summary', async (req, res) => {
     try {
         const rides = [
@@ -548,12 +516,6 @@ app.post('/api/fall', async (req, res) => {
 
     if (imageUrl) {
         desp += `\n![现场图片](${imageUrl})\n`;
-    } else {
-        // 如果推送消息里没有图片，则尝试实时查询 OneNET
-        const latestImage = await getDeviceProperty('image');
-        if (latestImage) {
-            desp += `\n![现场图片](${latestImage})\n`;
-        }
     }
 
     await sendWeChat('【智能头盔-摔倒警报】', desp);
