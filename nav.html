@@ -43,13 +43,13 @@
     .btn-group button.gray{background:#666}
 
     #switchMapBtn{
-      position:fixed;top:320px;right:12px;z-index:9999; /* 下调位置，避免与列表打架 */
+      position:fixed;top:320px;right:12px;z-index:9999;
       padding:10px 16px;background:rgba(255,255,255,0.95);
       border:none;border-radius:20px;font-size:14px;
       box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 修复：提高层级并在输入框下方弹出 */
+    /* 修复遮挡问题 */
     #suggest-list{
       position:fixed;top:58px;left:12px;right:12px;z-index:10000; 
       background:#fff;border-radius:8px;
@@ -67,8 +67,9 @@
     #tip{
       position:fixed;top:50%;left:50%;
       transform:translate(-50%,-50%);z-index:9999;
-      background:rgba(0,0,0,0.7);color:#fff;
-      padding:10px 20px;border-radius:20px;font-size:15px;
+      background:rgba(0,0,0,0.75);color:#fff;
+      padding:12px 20px;border-radius:20px;font-size:15px;
+      max-width:80%;text-align:center;display:none;
     }
 
     .recording-btn {
@@ -143,6 +144,7 @@
     let isRecording = false;
     let finalSpeechText = "";
     let interimSpeechText = "";
+    let fallbackTimer = null; // 兜底定时器
 
     function connectCloud() {
       try{
@@ -162,7 +164,7 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 语音识别（优化版：保留原事件，解决松手失效） ==========
+    // ========== 语音识别与兜底方案 ==========
     voiceBtn.addEventListener('mousedown', startListening);
     voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
     voiceBtn.addEventListener('mouseup', stopListening);
@@ -176,6 +178,7 @@
         isRecording = true;
         finalSpeechText = "";
         interimSpeechText = "";
+        clearTimeout(fallbackTimer);
 
         if (recognition) {
             try { recognition.abort(); } catch(err){}
@@ -183,8 +186,8 @@
         }
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器');
-            isRecording = false;
+            // 浏览器根本不支持原生识别，直接走兜底
+            triggerFallbackInput();
             return;
         }
         recognition = new SpeechRecognition();
@@ -196,7 +199,7 @@
             voiceBtn.classList.add('recording-btn');
             voiceBtn.innerText = '🎤 正在聆听...';
             voiceBtn.style.background = '#f44336';
-            tip.innerText = '🎙️ 请说话...';
+            tip.innerText = '🎙️ 请说出目的地...';
             tip.style.display = 'block';
         };
 
@@ -210,43 +213,62 @@
                 }
             }
             if(interim) interimSpeechText = interim;
-            // 实时显示识别结果到输入框
             if(finalSpeechText || interimSpeechText) {
                 addressInput.value = finalSpeechText + interimSpeechText;
             }
         };
 
         recognition.onerror = (event) => {
-            // 屏蔽正常松手时的 aborted 和静音时的 no-speech 错误
-            if (event.error === 'aborted' || event.error === 'no-speech') return;
+            // 遇到无法连网、没权限等错误，静默处理，由兜底定时器接管
+            if (event.error === 'aborted' || event.error === 'no-speech' || event.error === 'network' || event.error === 'not-allowed') {
+                return;
+            }
             tip.innerText = '❌ 识别失败: ' + event.error;
             setTimeout(() => tip.style.display = 'none', 3000);
-            resetVoiceUI();
         };
 
         recognition.onend = () => {
-            resetVoiceUI();
-            // 松手或识别结束时，如果有文字，直接提交给大模型
             let textToSubmit = finalSpeechText.trim() || interimSpeechText.trim();
             if (textToSubmit) {
                 addressInput.value = textToSubmit;
                 processVoiceText(textToSubmit);
+            } else if (isRecording) {
+                // 如果浏览器没出结果，但用户还没松手，说明大概率不支持，直接触发兜底
+                triggerFallbackInput();
             }
+            resetVoiceUI();
         };
 
         try {
             recognition.start();
+            // 核心兜底：如果 2 秒后浏览器没有任何反应，强制弹窗
+            fallbackTimer = setTimeout(() => {
+                if (isRecording && !finalSpeechText && !interimSpeechText) {
+                    triggerFallbackInput();
+                }
+            }, 2000);
         } catch(err) {
-            isRecording = false;
+            triggerFallbackInput();
         }
     }
 
     function stopListening(e) {
         if (e) e.preventDefault();
+        isRecording = false;
         if (recognition) {
             try { recognition.stop(); } catch(err){}
         }
-        isRecording = false;
+    }
+
+    function triggerFallbackInput() {
+        if (!isRecording) return;
+        resetVoiceUI();
+        // 如果用户还没松手或浏览器不支持，弹窗让用户直接输入
+        const text = prompt('您的浏览器/网络不支持原生语音识别。\n请模拟语音输入（例如：最近的咖啡店）：', '最近的咖啡店');
+        if (text) {
+            addressInput.value = text;
+            processVoiceText(text);
+        }
     }
 
     async function processVoiceText(spokenText) {
