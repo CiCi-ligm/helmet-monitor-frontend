@@ -222,14 +222,13 @@
         }
     }
 
-    // ========== 纯前端语义搜索（无需服务器） ==========
+    // ========== 纯前端语义搜索 ==========
     function processVoiceText(spokenText) {
         tip.innerText = `🧠 正在理解：“${spokenText}”`;
         tip.style.display = 'block';
         voiceBtn.innerText = '🧠 AI 理解中...';
         voiceBtn.style.background = '#FF9800';
 
-        // 1. 本地语义解析（关键词映射）
         let keyword = spokenText;
         if (spokenText.includes('咖啡')) keyword = '咖啡店';
         else if (spokenText.includes('吃') || spokenText.includes('饭')) keyword = '美食';
@@ -237,7 +236,6 @@
         else if (spokenText.includes('厕所')) keyword = '公共厕所';
         else if (spokenText.includes('医院')) keyword = '医院';
 
-        // 2. 高德本地搜索
         const placeSearch = new AMap.PlaceSearch({ city: '宜宾', pageSize: 5 });
         const searchCenter = currentPos || map.getCenter();
 
@@ -250,16 +248,18 @@
                 if(targetMarker) targetMarker.setMap(null);
                 targetMarker = new AMap.Marker({ position: targetPos, title: poi.name });
                 targetMarker.setMap(map);
-                map.setFitView();
 
-                tip.innerText = `✅ 已找到：${poi.name}`;
-                setTimeout(() => tip.style.display = 'none', 2000);
+                // 将地图视野移至目标点，留出顶部控制栏位置
+                map.setCenter(targetPos);
+                map.setZoom(15);
+
+                tip.innerText = `✅ 已找到：${poi.name}\n请点击下方【步行】或【骑行】按钮开始导航`;
                 
-                // 弹窗确认导航模式
+                // 10秒后自动隐藏提示
                 setTimeout(() => {
-                    const isWalk = confirm(`已找到目的地【${poi.name}】。\n\n点击“确定”开始【步行导航】，点击“取消”开始【骑行导航】。`);
-                    startNav(isWalk ? 'walking' : 'riding');
-                }, 500);
+                    if(tip.innerText.includes('已找到')) tip.style.display = 'none';
+                }, 10000);
+                
             } else {
                 tip.innerText = `❌ 附近没找到“${keyword}”`;
                 setTimeout(() => tip.style.display = 'none', 3000);
@@ -285,7 +285,6 @@
       processVoiceText(testText);
     }
 
-    // ========== 模拟摔倒检测（纯前端弹窗） ==========
     function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，正在研判风险...';
       tip.style.display = 'block';
@@ -295,7 +294,6 @@
       }, 1500);
     }
 
-    // ========== 骑行前综合评估（纯前端模拟） ==========
     function checkRideCondition() {
       tip.innerText = '🚴 正在融合生理指标与实时天气进行综合评估...';
       tip.style.display = 'block';
@@ -368,12 +366,17 @@
       tip.style.display = "block";
 
       AMap.plugin(plugin, ()=>{
-        const route = type === 'walking' ? new AMap.Walking({ map, autoFitView: true }) : new AMap.Riding({ map, autoFitView: true });
+        const route = type === 'walking' ? new AMap.Walking({ map, hideMarkers: true }) : new AMap.Riding({ map, hideMarkers: true });
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
+        
         route.search(currentPos, targetPos, (status, res) => {
           if(status === "complete" && res.routes && res.routes.length>0){
             tip.innerText = `${typeText}路线规划成功`;
             setTimeout(()=>tip.style.display = "none", 2000);
+            
+            // 【关键修复】手动控制视野，保证路线不被顶部遮挡
+            map.setFitView(null, false, [160, 20, 40, 20]); 
+            
           } else if (type === 'riding') {
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
