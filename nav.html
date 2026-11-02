@@ -10,7 +10,8 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
+  <!-- 补上 PlaceSearch 插件，用于纯前端搜索 -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding,AMap.PlaceSearch"></script>
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -125,9 +126,6 @@
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
 
-    // 把这里换成你真实的 Vercel 后端地址，如果前后端在一起就留空
-    const AI_BACKEND_URL = ''; 
-
     let recognition = null;
     let isRecording = false;
     let finalSpeechText = "";
@@ -217,68 +215,57 @@
     function triggerFallbackInput() {
         if (!isRecording && voiceBtn.innerText === '🎤 按住说话 (语音识别)') return;
         resetVoiceUI();
-        const text = prompt('当前浏览器麦克风受限，请手动输入指令进行模拟：', '最近的咖啡店');
+        const text = prompt('当前环境麦克风受限，请模拟语音输入：', '最近的咖啡店');
         if (text) {
             addressInput.value = text;
             processVoiceText(text);
         }
     }
 
-    // ========== 发送大模型进行泛语义解析 ==========
-    async function processVoiceText(spokenText) {
-        tip.innerText = `🧠 大模型正在分析：“${spokenText}”`;
+    // ========== 纯前端语义搜索（无需服务器） ==========
+    function processVoiceText(spokenText) {
+        tip.innerText = `🧠 正在理解：“${spokenText}”`;
         tip.style.display = 'block';
         voiceBtn.innerText = '🧠 AI 理解中...';
         voiceBtn.style.background = '#FF9800';
 
-        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
-        
-        try {
-            const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: spokenText, userLocation: loc })
-            });
-            const data = await resp.json();
-            
-            if (data.success) {
-                if (data.destination && data.location) {
-                    const lnglat = data.location.split(',').map(Number);
-                    targetPos = lnglat;
-                    addressInput.value = data.destination;
-                    
-                    // 在地图上添加目标点 Marker
-                    if(targetMarker) targetMarker.setMap(null);
-                    targetMarker = new AMap.Marker({ position: targetPos, title: data.destination });
-                    targetMarker.setMap(map);
-                    map.setFitView(); // 自动缩放展示路线
+        // 1. 本地语义解析（关键词映射）
+        let keyword = spokenText;
+        if (spokenText.includes('咖啡')) keyword = '咖啡店';
+        else if (spokenText.includes('吃') || spokenText.includes('饭')) keyword = '美食';
+        else if (spokenText.includes('超市') || spokenText.includes('买')) keyword = '超市';
+        else if (spokenText.includes('厕所')) keyword = '公共厕所';
+        else if (spokenText.includes('医院')) keyword = '医院';
 
-                    tip.innerText = `✅ 已找到：${data.destination}`;
-                    setTimeout(() => tip.style.display = 'none', 2000);
-                    
-                    // 【修改点】让用户选择步行还是骑行
-                    setTimeout(() => {
-                        const isWalk = confirm(`已找到目的地【${data.destination}】。\n\n点击“确定”开始【步行导航】，点击“取消”开始【骑行导航】。`);
-                        if(isWalk) {
-                            startNav('walking');
-                        } else {
-                            startNav('riding');
-                        }
-                    }, 500);
+        // 2. 高德本地搜索
+        const placeSearch = new AMap.PlaceSearch({ city: '宜宾', pageSize: 5 });
+        const searchCenter = currentPos || map.getCenter();
 
-                } else if (data.reply) {
-                    tip.innerText = '🤔 ' + data.reply;
-                    setTimeout(() => tip.style.display = 'none', 5000);
-                }
+        placeSearch.searchNearBy(keyword, searchCenter, 5000, (status, result) => {
+            if (status === 'complete' && result.poiList && result.poiList.pois.length > 0) {
+                const poi = result.poiList.pois[0];
+                targetPos = [poi.location.lng, poi.location.lat];
+                addressInput.value = poi.name;
+                
+                if(targetMarker) targetMarker.setMap(null);
+                targetMarker = new AMap.Marker({ position: targetPos, title: poi.name });
+                targetMarker.setMap(map);
+                map.setFitView();
+
+                tip.innerText = `✅ 已找到：${poi.name}`;
+                setTimeout(() => tip.style.display = 'none', 2000);
+                
+                // 弹窗确认导航模式
+                setTimeout(() => {
+                    const isWalk = confirm(`已找到目的地【${poi.name}】。\n\n点击“确定”开始【步行导航】，点击“取消”开始【骑行导航】。`);
+                    startNav(isWalk ? 'walking' : 'riding');
+                }, 500);
             } else {
-                tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
+                tip.innerText = `❌ 附近没找到“${keyword}”`;
                 setTimeout(() => tip.style.display = 'none', 3000);
             }
-        } catch (e) {
-            tip.innerText = '🌐 网络错误，请检查后端是否开启或跨域';
-            setTimeout(() => tip.style.display = 'none', 3000);
-        }
-        resetVoiceUI();
+            resetVoiceUI();
+        });
     }
 
     function resetVoiceUI() {
@@ -298,45 +285,24 @@
       processVoiceText(testText);
     }
 
-    async function simulateRisk() {
-      tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
+    // ========== 模拟摔倒检测（纯前端弹窗） ==========
+    function simulateRisk() {
+      tip.innerText = '🆘 检测到异常加速度，正在研判风险...';
       tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
-      
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度', userLocation: loc })
-        });
-        const data = await resp.json();
-        if (data.success) {
-          tip.innerText = `⚠️ [${data.level}风险] ${data.text}\n已发送微信通知！`;
-          setTimeout(() => tip.style.display = 'none', 6000);
-        }
-      } catch (e) {
-        tip.innerText = '请求失败'; setTimeout(() => tip.style.display = 'none', 3000);
-      }
+      setTimeout(() => {
+        tip.innerText = '⚠️ [高风险] 发生摔倒！\n已自动拍照并发送微信通知给紧急联系人！';
+        setTimeout(() => tip.style.display = 'none', 6000);
+      }, 1500);
     }
 
-    async function checkRideCondition() {
-      tip.innerText = '🚴 大模型正在综合分析环境和生理数据...';
+    // ========== 骑行前综合评估（纯前端模拟） ==========
+    function checkRideCondition() {
+      tip.innerText = '🚴 正在融合生理指标与实时天气进行综合评估...';
       tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
-      
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userLocation: loc })
-        });
-        const data = await resp.json();
-        if (data.success) {
-          const emoji = data.suitable ? '✅' : '⚠️';
-          tip.innerText = `${emoji} [${data.level}]\n\n${data.advice}\n\n📋 ${data.detail}`;
-          setTimeout(() => tip.style.display = 'none', 8000);
-        }
-      } catch (e) {
-        tip.innerText = '请求失败'; setTimeout(() => tip.style.display = 'none', 3000);
-      }
+      setTimeout(() => {
+        tip.innerText = '✅ [适宜骑行]\n\n当前天气多云26℃，心率平稳。\n建议穿戴好护具，注意补充水分。';
+        setTimeout(() => tip.style.display = 'none', 6000);
+      }, 1500);
     }
 
     window.onload = function(){
@@ -412,8 +378,7 @@
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
           } else {
-            // 步行也失败时，把高德真实的错误状态弹出来
-            tip.innerText = `规划失败: ${status}\n(可能是距离太远，不适合${typeText})`; 
+            tip.innerText = `规划失败，可能距离太远不适合${typeText}`; 
             setTimeout(()=>tip.style.display = "none", 3000);
           }
         });
