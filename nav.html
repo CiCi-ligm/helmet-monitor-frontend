@@ -42,7 +42,6 @@
       box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 修复下拉框遮挡 */
     #suggest-list{
       position:fixed;top:58px;left:12px;right:12px;z-index:10000; 
       background:#fff;border-radius:8px;
@@ -117,7 +116,7 @@
   </div>
 
   <script>
-    let map, myMarker, currentPos, targetPos;
+    let map, myMarker, targetMarker, currentPos, targetPos;
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
 
@@ -126,9 +125,7 @@
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
 
-    // ⚠️【重要】这里填你 Vercel 部署的真实后端域名。
-    // 如果你前后端在一起，直接留空字符串 '' 
-    // 如果前后端分离，填 'https://你的项目名.vercel.app'
+    // 把这里换成你真实的 Vercel 后端地址，如果前后端在一起就留空
     const AI_BACKEND_URL = ''; 
 
     let recognition = null;
@@ -136,7 +133,6 @@
     let finalSpeechText = "";
     let interimSpeechText = "";
 
-    // ========== 语音识别与兜底逻辑 ==========
     voiceBtn.addEventListener('mousedown', startListening);
     voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
     voiceBtn.addEventListener('mouseup', stopListening);
@@ -189,7 +185,6 @@
         };
 
         recognition.onerror = (event) => {
-            // 抛出任何错误，直接走兜底
             triggerFallbackInput();
         };
 
@@ -239,7 +234,6 @@
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
         
         try {
-            // 调用你 server.js 里的 /api/voice/command
             const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
@@ -249,17 +243,30 @@
             
             if (data.success) {
                 if (data.destination && data.location) {
-                    // 解析成功，有具体地点
                     const lnglat = data.location.split(',').map(Number);
                     targetPos = lnglat;
                     addressInput.value = data.destination;
-                    tip.innerText = `✅ 识别结果：${data.destination}`;
+                    
+                    // 在地图上添加目标点 Marker
+                    if(targetMarker) targetMarker.setMap(null);
+                    targetMarker = new AMap.Marker({ position: targetPos, title: data.destination });
+                    targetMarker.setMap(map);
+                    map.setFitView(); // 自动缩放展示路线
+
+                    tip.innerText = `✅ 已找到：${data.destination}`;
                     setTimeout(() => tip.style.display = 'none', 2000);
                     
-                    // 自动开始导航
-                    startNav(data.mode || 'riding'); 
+                    // 【修改点】让用户选择步行还是骑行
+                    setTimeout(() => {
+                        const isWalk = confirm(`已找到目的地【${data.destination}】。\n\n点击“确定”开始【步行导航】，点击“取消”开始【骑行导航】。`);
+                        if(isWalk) {
+                            startNav('walking');
+                        } else {
+                            startNav('riding');
+                        }
+                    }, 500);
+
                 } else if (data.reply) {
-                    // 语义是闲聊（如“附近有什么好吃的”），大模型返回了回复
                     tip.innerText = '🤔 ' + data.reply;
                     setTimeout(() => tip.style.display = 'none', 5000);
                 }
@@ -285,14 +292,12 @@
         }
     }
 
-    // ========== 硬件语音识别测试（直接调大模型） ==========
     function simulateHardwareVoice() {
       const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
       if (!testText) return;
       processVoiceText(testText);
     }
 
-    // ========== 模拟摔倒检测 ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
       tip.style.display = 'block';
@@ -313,7 +318,6 @@
       }
     }
 
-    // ========== 骑行前综合评估 ==========
     async function checkRideCondition() {
       tip.innerText = '🚴 大模型正在综合分析环境和生理数据...';
       tip.style.display = 'block';
@@ -335,7 +339,6 @@
       }
     }
 
-    // ========== 地图基础逻辑 ==========
     window.onload = function(){
       if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
@@ -369,7 +372,14 @@
               res.tips.forEach(tip => { if(!tip.location) return;
                 const div = document.createElement('div'); div.className = "item";
                 div.innerHTML = tip.name.replace(new RegExp(`(${keyword})`, 'gi'), '<span class="highlight">$1</span>');
-                div.onclick = () => { addressInput.value = tip.name; targetPos = tip.location; suggestList.style.display = "none"; };
+                div.onclick = () => { 
+                    addressInput.value = tip.name; 
+                    targetPos = tip.location; 
+                    suggestList.style.display = "none"; 
+                    if(targetMarker) targetMarker.setMap(null);
+                    targetMarker = new AMap.Marker({ position: targetPos, title: tip.name });
+                    targetMarker.setMap(map);
+                };
                 suggestList.appendChild(div);
               });
               suggestList.style.display = "block";
@@ -384,7 +394,13 @@
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
-      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; const typeText = type === 'walking' ? '步行' : '骑行';
+      
+      const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; 
+      const typeText = type === 'walking' ? '步行' : '骑行';
+      
+      tip.innerText = `正在规划${typeText}路线...`;
+      tip.style.display = "block";
+
       AMap.plugin(plugin, ()=>{
         const route = type === 'walking' ? new AMap.Walking({ map, autoFitView: true }) : new AMap.Riding({ map, autoFitView: true });
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
@@ -396,7 +412,9 @@
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
           } else {
-            tip.innerText = "路线规划失败"; setTimeout(()=>tip.style.display = "none", 2000);
+            // 步行也失败时，把高德真实的错误状态弹出来
+            tip.innerText = `规划失败: ${status}\n(可能是距离太远，不适合${typeText})`; 
+            setTimeout(()=>tip.style.display = "none", 3000);
           }
         });
       });
@@ -410,7 +428,10 @@
     function clearAll(){
       addressInput.value = ""; targetPos = null;
       if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      if(targetMarker) targetMarker.setMap(null);
       suggestList.style.display = "none";
+      tip.innerText = "已清空导航"; tip.style.display = "block";
+      setTimeout(()=>tip.style.display = "none", 1500);
     }
   </script>
 </body>
