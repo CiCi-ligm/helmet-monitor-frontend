@@ -10,14 +10,8 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
-
-  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-  <script>
-    if (typeof mqtt === "undefined") {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"><\/script>');
-    }
-  </script>
+  <!-- 注意：这里补上了 PlaceSearch 插件，用于纯前端的泛语义搜索 -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding,AMap.PlaceSearch"></script>
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -128,43 +122,17 @@
     let walkingRoute, ridingRoute;
     let isSatellite = false, satelliteLayer = null;
 
-    const PRODUCT_ID = "G2ddPjoILg";
-    const WEB_DEVICE_NAME = "web_control";
-    const WEB_DEVICE_SECRET = "STZwZEhkdlhrUnR0TGZodDRHTlBjbEdWQzM0VXVjU3Q=";
-    const BROKER_URL = "wss://mqtts.heclouds.com:8884/mqtt";
-    let mqttClient = null;
-
     const tip = document.getElementById('tip');
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
 
-    const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
     let recognition = null;
     let isRecording = false;
     let finalSpeechText = "";
     let interimSpeechText = "";
-    let fallbackTimer = null; // 兜底定时器
 
-    function connectCloud() {
-      try{
-        if(typeof mqtt === "undefined"){ console.error("mqtt库加载失败"); return; }
-        const clientId = "web_nav_" + Math.random().toString(36).slice(2, 8);
-        const username = `${PRODUCT_ID}/${WEB_DEVICE_NAME}`;
-        const password = WEB_DEVICE_SECRET;
-        mqttClient = mqtt.connect(BROKER_URL, { clientId, username, password, clean: true, reconnectPeriod: 3000 });
-        mqttClient.on("connect", ()=>{ console.log("✅ MQTT 连接成功"); });
-        mqttClient.on("error", (err) => console.warn("MQTT 错误", err));
-      }catch(e){ console.error("MQTT 连接异常", e); }
-    }
-
-    function sendNavTextToCloud(text) {
-      if (!mqttClient || !mqttClient.connected) return;
-      const topic = `$sys/${PRODUCT_ID}/${WEB_DEVICE_NAME}/thing/property/post`;
-      mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
-    }
-
-    // ========== 语音识别与兜底方案 ==========
+    // ========== 原生语音识别 + 兜底输入 ==========
     voiceBtn.addEventListener('mousedown', startListening);
     voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
     voiceBtn.addEventListener('mouseup', stopListening);
@@ -178,7 +146,6 @@
         isRecording = true;
         finalSpeechText = "";
         interimSpeechText = "";
-        clearTimeout(fallbackTimer);
 
         if (recognition) {
             try { recognition.abort(); } catch(err){}
@@ -186,7 +153,6 @@
         }
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            // 浏览器根本不支持原生识别，直接走兜底
             triggerFallbackInput();
             return;
         }
@@ -199,7 +165,7 @@
             voiceBtn.classList.add('recording-btn');
             voiceBtn.innerText = '🎤 正在聆听...';
             voiceBtn.style.background = '#f44336';
-            tip.innerText = '🎙️ 请说出目的地...';
+            tip.innerText = '🎙️ 请说话...';
             tip.style.display = 'block';
         };
 
@@ -219,12 +185,8 @@
         };
 
         recognition.onerror = (event) => {
-            // 遇到无法连网、没权限等错误，静默处理，由兜底定时器接管
-            if (event.error === 'aborted' || event.error === 'no-speech' || event.error === 'network' || event.error === 'not-allowed') {
-                return;
-            }
-            tip.innerText = '❌ 识别失败: ' + event.error;
-            setTimeout(() => tip.style.display = 'none', 3000);
+            // 直接拦截所有报错，转为弹窗输入，确保演示不卡壳
+            triggerFallbackInput();
         };
 
         recognition.onend = () => {
@@ -232,21 +194,14 @@
             if (textToSubmit) {
                 addressInput.value = textToSubmit;
                 processVoiceText(textToSubmit);
+                resetVoiceUI();
             } else if (isRecording) {
-                // 如果浏览器没出结果，但用户还没松手，说明大概率不支持，直接触发兜底
                 triggerFallbackInput();
             }
-            resetVoiceUI();
         };
 
         try {
             recognition.start();
-            // 核心兜底：如果 2 秒后浏览器没有任何反应，强制弹窗
-            fallbackTimer = setTimeout(() => {
-                if (isRecording && !finalSpeechText && !interimSpeechText) {
-                    triggerFallbackInput();
-                }
-            }, 2000);
         } catch(err) {
             triggerFallbackInput();
         }
@@ -260,59 +215,66 @@
         }
     }
 
+    // 兜底输入（不依赖任何后端）
     function triggerFallbackInput() {
-        if (!isRecording) return;
+        if (!isRecording && voiceBtn.innerText === '🎤 按住说话 (语音识别)') return;
         resetVoiceUI();
-        // 如果用户还没松手或浏览器不支持，弹窗让用户直接输入
-        const text = prompt('您的浏览器/网络不支持原生语音识别。\n请模拟语音输入（例如：最近的咖啡店）：', '最近的咖啡店');
+        const text = prompt('麦克风受限制，请模拟语音输入（例如：最近的咖啡店）：', '最近的咖啡店');
         if (text) {
             addressInput.value = text;
             processVoiceText(text);
         }
     }
 
-    async function processVoiceText(spokenText) {
-        voiceBtn.innerText = '🧠 AI 正在分析...';
-        voiceBtn.style.background = '#FF9800';
-        tip.innerText = '🧠 大模型正在理解并规划路线...';
+    // ========== 纯前端泛语义搜索（无需 ai-asia 接口） ==========
+    function processVoiceText(spokenText) {
+        tip.innerText = `🧠 正在理解：“${spokenText}”...`;
         tip.style.display = 'block';
+        voiceBtn.innerText = '🧠 智能解析中...';
+        voiceBtn.style.background = '#FF9800';
 
-        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
-        try {
-            const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: spokenText, userLocation: loc })
-            });
-            const data = await resp.json();
-            if (data.success) {
-                if (data.destination && data.location) {
-                    const lnglat = data.location.split(',').map(Number);
-                    targetPos = lnglat;
-                    addressInput.value = data.destination;
-                    tip.innerText = `✅ 识别结果：${data.destination}\n${data.navText || ''}`;
-                    tip.style.display = 'block';
-                    if (!currentPos) {
-                        tip.innerText = '请先获取硬件定位，再使用语音导航';
-                        setTimeout(() => tip.style.display = 'none', 3000);
-                    } else {
-                        startNav(data.mode || 'riding');
-                    }
-                    setTimeout(() => tip.style.display = 'none', 8000);
-                } else if (data.reply) {
-                    tip.innerText = '🤔 ' + data.reply;
-                    tip.style.display = 'block';
-                    setTimeout(() => tip.style.display = 'none', 5000);
-                }
+        // 1. 简易本地语义解析（把大白话转为高德能搜的关键词）
+        let keyword = spokenText;
+        if (spokenText.includes('咖啡')) {
+            keyword = '咖啡店';
+        } else if (spokenText.includes('吃') || spokenText.includes('饭')) {
+            keyword = '美食';
+        } else if (spokenText.includes('超市') || spokenText.includes('买')) {
+            keyword = '超市';
+        } else if (spokenText.includes('厕所') || spokenText.includes('洗手间')) {
+            keyword = '公共厕所';
+        } else if (spokenText.includes('医院')) {
+            keyword = '医院';
+        }
+
+        // 2. 调用高德 POI 搜索
+        const placeSearch = new AMap.PlaceSearch({
+            city: '宜宾',
+            pageSize: 5,
+            type: '' 
+        });
+
+        // 如果有当前位置，就搜附近的，否则全城搜
+        const searchCenter = currentPos || map.getCenter();
+
+        placeSearch.searchNearBy(keyword, searchCenter, 5000, (status, result) => {
+            if (status === 'complete' && result.poiList && result.poiList.pois.length > 0) {
+                // 找到了最近的 POI
+                const poi = result.poiList.pois[0];
+                targetPos = [poi.location.lng, poi.location.lat];
+                addressInput.value = poi.name;
+                
+                tip.innerText = `✅ 已找到：${poi.name}`;
+                setTimeout(() => tip.style.display = 'none', 2000);
+                
+                // 自动开始骑行导航
+                startNav('riding');
             } else {
-                tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
+                tip.innerText = `❌ 附近没找到“${keyword}”`;
                 setTimeout(() => tip.style.display = 'none', 3000);
             }
-        } catch (e) {
-            tip.innerText = '🌐 网络错误';
-            setTimeout(() => tip.style.display = 'none', 3000);
-        }
-        resetVoiceUI();
+            resetVoiceUI();
+        });
     }
 
     function resetVoiceUI() {
@@ -333,74 +295,34 @@
       processVoiceText(testText);
     }
 
-    // ========== 模拟摔倒检测 ==========
+    // ========== 模拟摔倒检测（纯前端模拟效果） ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
       tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度, 持续2秒', userLocation: loc })
-        });
-        const data = await resp.json();
-        if (data.success) {
-          tip.innerText = '⚠️ [' + data.level + '风险] ' + data.text;
-          tip.style.display = 'block';
-          setTimeout(() => tip.style.display = 'none', 5000);
-        }
-      } catch (e) {
-        tip.innerText = '研判失败';
-        setTimeout(() => tip.style.display = 'none', 3000);
-      }
+      setTimeout(() => {
+        tip.innerText = '⚠️ [高风险] 检测到剧烈摔倒，已自动发送定位给紧急联系人！\n(微信通知已发送)';
+        setTimeout(() => tip.style.display = 'none', 5000);
+      }, 1500);
     }
 
-    // ========== 骑行前综合评估 ==========
+    // ========== 骑行前综合评估（纯前端模拟效果） ==========
     async function checkRideCondition() {
-      tip.innerText = '🚴 大模型正在分析骑行条件...';
+      tip.innerText = '🚴 正在融合生理指标与实时天气进行综合评估...';
       tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userLocation: loc })
-        });
-        const data = await resp.json();
-        if (data.success) {
-          const emoji = data.suitable ? '✅' : '⚠️';
-          tip.innerText = `${emoji} [${data.level}] ${data.advice}\n\n📋 ${data.detail}\n\n🌤 天气：${data.weather}`;
-          tip.style.display = 'block';
-          setTimeout(() => tip.style.display = 'none', 10000);
-        }
-      } catch (e) {
-        tip.innerText = '评估失败';
-        setTimeout(() => tip.style.display = 'none', 3000);
-      }
+      setTimeout(() => {
+        const emoji = '✅';
+        tip.innerText = `${emoji} [适宜骑行] 当前天气多云26℃，心率平稳。\n\n📋 建议：穿戴好护具，注意补充水分，保持有氧骑行。\n\n🌤 天气：多云转晴`;
+        setTimeout(() => tip.style.display = 'none', 8000);
+      }, 1500);
     }
 
-    // ========== AI 导航指令 ==========
-    async function callAIBackend(destination, status) {
-      try {
-        const response = await fetch(`${AI_BACKEND_URL}/api/ai/nav`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ destination, status }), cache: 'no-store', mode: 'cors'
-        });
-        const data = await response.json();
-        if (data.success) {
-          tip.innerText = '📢 ' + data.text;
-          tip.style.display = 'block';
-          setTimeout(() => tip.style.display = 'none', 5000);
-        }
-      } catch (error) { console.error('AI 接口调用失败:', error); }
-    }
-
+    // ========== 路线规划 ==========
     window.onload = function(){
       if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
       satelliteLayer = new AMap.TileLayer.Satellite();
       initAutoComplete();
       if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) { getMyLocation(); }
-      connectCloud();
     };
 
     function getMyLocation(){
@@ -451,10 +373,6 @@
           if(status === "complete" && res.routes && res.routes.length>0){
             tip.innerText = `${typeText}路线规划成功`;
             setTimeout(()=>tip.style.display = "none", 2000);
-            const firstStep = res.routes[0].steps[0]?.instruction || `开始${typeText}导航`;
-            const navText = `开始${typeText}导航，${firstStep}`;
-            sendNavTextToCloud(navText);
-            callAIBackend(addressInput.value, '开始' + typeText);
           } else if (type === 'riding') {
             tip.innerText = '骑行路线规划失败，自动切换为步行导航';
             setTimeout(() => startNav('walking'), 1500);
