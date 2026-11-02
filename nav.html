@@ -21,10 +21,10 @@
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-    html,body{height:100%;overflow:hidden}
+    html,body{height:100%;overflow:hidden;padding-bottom:60px;}
     #container{width:100%;height:100vh;background:#e5e5e5;}
 
-    /* 顶部控制面板，改为更紧凑的卡片式设计 */
+    /* 顶部控制面板 */
     .top-panel{
       position:fixed;top:0;left:0;right:0;z-index:9999;
       background:rgba(255, 255, 255, 0.95);backdrop-filter:blur(10px);padding:12px;
@@ -36,7 +36,7 @@
     }
     .input-box input:focus{border-color:#1677ff;background:#fff}
     
-    /* 功能按钮使用网格布局，两列排布 */
+    /* 功能按钮网格布局 */
     .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
     .span-2{grid-column:span 2;}
     .action-btn{
@@ -51,19 +51,28 @@
     }
     .btn-group button.gray{background:#909399}
 
-    /* 卫星图悬浮按钮：移至地图右下角，不再遮挡 */
+    /* 卫星图悬浮按钮：放在右侧中部，避开下拉框 */
     #switchMapBtn{
-      position:fixed;bottom:80px;right:16px;z-index:9998;
+      position:fixed;top:320px;right:12px;z-index:9998;
       padding:10px 16px;background:#fff;
       border:1px solid #ddd;border-radius:24px;font-size:13px;font-weight:bold;color:#333;
       box-shadow:0 4px 12px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 搜索建议列表 */
+    /* 搜索建议列表：修复被遮挡问题 */
     #suggest-list{
-      position:fixed;top:64px;left:12px;right:12px;z-index:9998;
-      background:#fff;border-radius:8px;box-shadow:0 4px 15px rgba(0,0,0,0.15);
-      max-height:260px;overflow-y:auto;display:none;border:1px solid #eee;
+      position:fixed;
+      top: 58px; /* 正好在输入框正下方 */
+      left:12px;
+      right:12px;
+      z-index: 10000; /* 提高到 10000，强行盖住下方的按钮 */
+      background:#fff;
+      border-radius:8px;
+      box-shadow:0 4px 15px rgba(0,0,0,0.2);
+      max-height:260px;
+      overflow-y:auto;
+      display:none;
+      border: 1px solid #eee;
     }
     #suggest-list .item{padding:12px 14px;font-size:15px;border-bottom:1px solid #f0f0f0;cursor:pointer;color:#333;}
     #suggest-list .item:last-child{border-bottom:none}
@@ -96,7 +105,7 @@
 <body>
   <div id="container"></div>
 
-  <!-- 顶部面板重排 -->
+  <!-- 顶部面板 -->
   <div class="top-panel">
     <div class="input-box">
       <input id="addressInput" placeholder="输入目的地（或使用下方语音）" />
@@ -116,10 +125,12 @@
     </div>
   </div>
 
+  <!-- 悬浮控件和下拉框 -->
   <button id="switchMapBtn" onclick="switchSatellite()">🛰️ 切换卫星图</button>
   <div id="suggest-list"></div>
   <div id="tip">正在获取硬件GPS位置...</div>
 
+  <!-- 底部导航 -->
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active">
       <span class="icon">🗺️</span><span>导航</span>
@@ -172,7 +183,6 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ========== 浏览器原生高精度语音识别 ==========
     voiceBtn.addEventListener('mousedown', startListening);
     voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
     voiceBtn.addEventListener('mouseup', stopListening);
@@ -434,7 +444,6 @@
       });
     }
 
-    // 添加卫星图切换逻辑（你原代码里没有写，我帮你补上了）
     function switchSatellite() {
       if (!isSatellite) {
         map.setLayers([satelliteLayer]);
