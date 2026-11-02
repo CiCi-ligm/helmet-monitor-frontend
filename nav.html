@@ -51,7 +51,7 @@
     }
     .btn-group button.gray{background:#909399}
 
-    /* 卫星图悬浮按钮：放在右侧中部，避开下拉框 */
+    /* 卫星图悬浮按钮 */
     #switchMapBtn{
       position:fixed;top:320px;right:12px;z-index:9998;
       padding:10px 16px;background:#fff;
@@ -59,13 +59,13 @@
       box-shadow:0 4px 12px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 搜索建议列表：修复被遮挡问题 */
+    /* 搜索建议列表：解决被遮挡问题 */
     #suggest-list{
       position:fixed;
-      top: 58px; /* 正好在输入框正下方 */
+      top: 58px; 
       left:12px;
       right:12px;
-      z-index: 10000; /* 提高到 10000，强行盖住下方的按钮 */
+      z-index: 10000; /* 盖住按钮 */
       background:#fff;
       border-radius:8px;
       box-shadow:0 4px 15px rgba(0,0,0,0.2);
@@ -78,13 +78,11 @@
     #suggest-list .item:last-child{border-bottom:none}
     #suggest-list .highlight{color:#1677ff;font-weight:bold}
 
-    /* 提示框 */
     #tip{
       position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;
       background:rgba(0,0,0,0.75);color:#fff;padding:12px 20px;border-radius:20px;font-size:14px;line-height:1.5;max-width:80%;text-align:center;display:none;
     }
 
-    /* 录音动画 */
     .recording-btn{animation:pulse 1.5s infinite;transition:all 0.3s ease;}
     @keyframes pulse {
       0% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
@@ -92,7 +90,6 @@
       100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
     }
 
-    /* 底部 Tab */
     .tab-bar{
       position:fixed;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #eee;
       display:flex;justify-content:space-around;align-items:center;z-index:9999;
@@ -105,7 +102,6 @@
 <body>
   <div id="container"></div>
 
-  <!-- 顶部面板 -->
   <div class="top-panel">
     <div class="input-box">
       <input id="addressInput" placeholder="输入目的地（或使用下方语音）" />
@@ -125,12 +121,10 @@
     </div>
   </div>
 
-  <!-- 悬浮控件和下拉框 -->
   <button id="switchMapBtn" onclick="switchSatellite()">🛰️ 切换卫星图</button>
   <div id="suggest-list"></div>
   <div id="tip">正在获取硬件GPS位置...</div>
 
-  <!-- 底部导航 -->
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active">
       <span class="icon">🗺️</span><span>导航</span>
@@ -164,6 +158,7 @@
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
     let recognition = null;
+    let isRecording = false; // 增加录音状态锁
 
     function connectCloud() {
       try{
@@ -183,8 +178,10 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
+    // ====== 语音识别逻辑优化 ======
     voiceBtn.addEventListener('mousedown', startListening);
     voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
+    
     voiceBtn.addEventListener('mouseup', stopListening);
     voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopListening(e); });
     voiceBtn.addEventListener('mouseleave', stopListening);
@@ -192,12 +189,24 @@
 
     function startListening(e) {
         if (e) e.preventDefault();
-        if (recognition) { recognition.abort(); recognition = null; }
+        if (isRecording) return;
+        isRecording = true;
+
+        if (recognition) { 
+            try { recognition.abort(); } catch(err){}
+            recognition = null; 
+        }
+        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) { alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器'); return; }
+        if (!SpeechRecognition) { 
+            alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器'); 
+            isRecording = false;
+            return; 
+        }
+        
         recognition = new SpeechRecognition();
         recognition.lang = 'zh-CN';
-        recognition.continuous = false;
+        recognition.continuous = false; 
         recognition.interimResults = true;
 
         recognition.onstart = () => {
@@ -211,26 +220,48 @@
         recognition.onresult = (event) => {
             let finalText = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
-                if (event.results[i].isFinal) { finalText += event.results[i][0].transcript; }
+                if (event.results[i].isFinal) { 
+                    finalText += event.results[i][0].transcript; 
+                }
             }
-            if (finalText) { addressInput.value = finalText; recognition.stop(); processVoiceText(finalText); }
+            if (finalText) { 
+                addressInput.value = finalText; 
+                recognition.stop(); 
+                processVoiceText(finalText); 
+            }
         };
 
         recognition.onerror = (event) => {
+            // 过滤掉正常松手导致的 aborted 错误，防止误报
+            if (event.error === 'aborted' || event.error === 'no-speech') {
+                resetVoiceUI();
+                return;
+            }
             tip.innerText = '❌ 识别失败: ' + event.error;
             setTimeout(() => tip.style.display = 'none', 3000);
             resetVoiceUI();
         };
-        recognition.onend = () => { resetVoiceUI(); };
-        recognition.start();
+        
+        recognition.onend = () => { 
+            resetVoiceUI(); 
+        };
+        
+        try {
+            recognition.start();
+        } catch(err) {
+            isRecording = false;
+            console.error("启动识别异常", err);
+        }
     }
 
     function stopListening(e) {
         if (e) e.preventDefault();
         if (recognition) {
-            recognition.stop();
-            setTimeout(() => { if (recognition) { recognition.abort(); resetVoiceUI(); } }, 1000);
+            try {
+                recognition.stop(); // 使用 stop 自然结束
+            } catch (err) {}
         }
+        isRecording = false;
     }
 
     async function processVoiceText(spokenText) {
@@ -271,10 +302,14 @@
     }
 
     function resetVoiceUI() {
+        isRecording = false;
         voiceBtn.innerText = '🎤 按住说话 (语音识别)';
         voiceBtn.style.background = '#4CAF50';
         voiceBtn.classList.remove('recording-btn');
-        if (recognition) { recognition.abort(); recognition = null; }
+        if (recognition) { 
+            try { recognition.abort(); } catch(e){}
+            recognition = null; 
+        }
     }
 
     async function simulateHardwareVoice() {
