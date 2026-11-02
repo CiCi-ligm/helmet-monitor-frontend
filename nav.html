@@ -10,8 +10,7 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <!-- 注意：这里补上了 PlaceSearch 插件，用于纯前端的泛语义搜索 -->
-  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding,AMap.PlaceSearch"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding"></script>
 
   <style>
     * {margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft Yahei"}
@@ -43,7 +42,7 @@
       box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 修复遮挡问题 */
+    /* 修复下拉框遮挡 */
     #suggest-list{
       position:fixed;top:58px;left:12px;right:12px;z-index:10000; 
       background:#fff;border-radius:8px;
@@ -127,12 +126,17 @@
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
 
+    // ⚠️【重要】这里填你 Vercel 部署的真实后端域名。
+    // 如果你前后端在一起，直接留空字符串 '' 
+    // 如果前后端分离，填 'https://你的项目名.vercel.app'
+    const AI_BACKEND_URL = ''; 
+
     let recognition = null;
     let isRecording = false;
     let finalSpeechText = "";
     let interimSpeechText = "";
 
-    // ========== 原生语音识别 + 兜底输入 ==========
+    // ========== 语音识别与兜底逻辑 ==========
     voiceBtn.addEventListener('mousedown', startListening);
     voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
     voiceBtn.addEventListener('mouseup', stopListening);
@@ -185,7 +189,7 @@
         };
 
         recognition.onerror = (event) => {
-            // 直接拦截所有报错，转为弹窗输入，确保演示不卡壳
+            // 抛出任何错误，直接走兜底
             triggerFallbackInput();
         };
 
@@ -215,66 +219,59 @@
         }
     }
 
-    // 兜底输入（不依赖任何后端）
     function triggerFallbackInput() {
         if (!isRecording && voiceBtn.innerText === '🎤 按住说话 (语音识别)') return;
         resetVoiceUI();
-        const text = prompt('麦克风受限制，请模拟语音输入（例如：最近的咖啡店）：', '最近的咖啡店');
+        const text = prompt('当前浏览器麦克风受限，请手动输入指令进行模拟：', '最近的咖啡店');
         if (text) {
             addressInput.value = text;
             processVoiceText(text);
         }
     }
 
-    // ========== 纯前端泛语义搜索（无需 ai-asia 接口） ==========
-    function processVoiceText(spokenText) {
-        tip.innerText = `🧠 正在理解：“${spokenText}”...`;
+    // ========== 发送大模型进行泛语义解析 ==========
+    async function processVoiceText(spokenText) {
+        tip.innerText = `🧠 大模型正在分析：“${spokenText}”`;
         tip.style.display = 'block';
-        voiceBtn.innerText = '🧠 智能解析中...';
+        voiceBtn.innerText = '🧠 AI 理解中...';
         voiceBtn.style.background = '#FF9800';
 
-        // 1. 简易本地语义解析（把大白话转为高德能搜的关键词）
-        let keyword = spokenText;
-        if (spokenText.includes('咖啡')) {
-            keyword = '咖啡店';
-        } else if (spokenText.includes('吃') || spokenText.includes('饭')) {
-            keyword = '美食';
-        } else if (spokenText.includes('超市') || spokenText.includes('买')) {
-            keyword = '超市';
-        } else if (spokenText.includes('厕所') || spokenText.includes('洗手间')) {
-            keyword = '公共厕所';
-        } else if (spokenText.includes('医院')) {
-            keyword = '医院';
-        }
-
-        // 2. 调用高德 POI 搜索
-        const placeSearch = new AMap.PlaceSearch({
-            city: '宜宾',
-            pageSize: 5,
-            type: '' 
-        });
-
-        // 如果有当前位置，就搜附近的，否则全城搜
-        const searchCenter = currentPos || map.getCenter();
-
-        placeSearch.searchNearBy(keyword, searchCenter, 5000, (status, result) => {
-            if (status === 'complete' && result.poiList && result.poiList.pois.length > 0) {
-                // 找到了最近的 POI
-                const poi = result.poiList.pois[0];
-                targetPos = [poi.location.lng, poi.location.lat];
-                addressInput.value = poi.name;
-                
-                tip.innerText = `✅ 已找到：${poi.name}`;
-                setTimeout(() => tip.style.display = 'none', 2000);
-                
-                // 自动开始骑行导航
-                startNav('riding');
+        const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+        
+        try {
+            // 调用你 server.js 里的 /api/voice/command
+            const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: spokenText, userLocation: loc })
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                if (data.destination && data.location) {
+                    // 解析成功，有具体地点
+                    const lnglat = data.location.split(',').map(Number);
+                    targetPos = lnglat;
+                    addressInput.value = data.destination;
+                    tip.innerText = `✅ 识别结果：${data.destination}`;
+                    setTimeout(() => tip.style.display = 'none', 2000);
+                    
+                    // 自动开始导航
+                    startNav(data.mode || 'riding'); 
+                } else if (data.reply) {
+                    // 语义是闲聊（如“附近有什么好吃的”），大模型返回了回复
+                    tip.innerText = '🤔 ' + data.reply;
+                    setTimeout(() => tip.style.display = 'none', 5000);
+                }
             } else {
-                tip.innerText = `❌ 附近没找到“${keyword}”`;
+                tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
                 setTimeout(() => tip.style.display = 'none', 3000);
             }
-            resetVoiceUI();
-        });
+        } catch (e) {
+            tip.innerText = '🌐 网络错误，请检查后端是否开启或跨域';
+            setTimeout(() => tip.style.display = 'none', 3000);
+        }
+        resetVoiceUI();
     }
 
     function resetVoiceUI() {
@@ -288,35 +285,57 @@
         }
     }
 
-    // ========== 硬件语音识别测试 ==========
-    async function simulateHardwareVoice() {
+    // ========== 硬件语音识别测试（直接调大模型） ==========
+    function simulateHardwareVoice() {
       const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
       if (!testText) return;
       processVoiceText(testText);
     }
 
-    // ========== 模拟摔倒检测（纯前端模拟效果） ==========
+    // ========== 模拟摔倒检测 ==========
     async function simulateRisk() {
       tip.innerText = '🆘 检测到异常加速度，大模型正在研判...';
       tip.style.display = 'block';
-      setTimeout(() => {
-        tip.innerText = '⚠️ [高风险] 检测到剧烈摔倒，已自动发送定位给紧急联系人！\n(微信通知已发送)';
-        setTimeout(() => tip.style.display = 'none', 5000);
-      }, 1500);
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/risk`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: '摔倒', data: '加速度8.5g, 倾角75度', userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          tip.innerText = `⚠️ [${data.level}风险] ${data.text}\n已发送微信通知！`;
+          setTimeout(() => tip.style.display = 'none', 6000);
+        }
+      } catch (e) {
+        tip.innerText = '请求失败'; setTimeout(() => tip.style.display = 'none', 3000);
+      }
     }
 
-    // ========== 骑行前综合评估（纯前端模拟效果） ==========
+    // ========== 骑行前综合评估 ==========
     async function checkRideCondition() {
-      tip.innerText = '🚴 正在融合生理指标与实时天气进行综合评估...';
+      tip.innerText = '🚴 大模型正在综合分析环境和生理数据...';
       tip.style.display = 'block';
-      setTimeout(() => {
-        const emoji = '✅';
-        tip.innerText = `${emoji} [适宜骑行] 当前天气多云26℃，心率平稳。\n\n📋 建议：穿戴好护具，注意补充水分，保持有氧骑行。\n\n🌤 天气：多云转晴`;
-        setTimeout(() => tip.style.display = 'none', 8000);
-      }, 1500);
+      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.5647,28.7658';
+      
+      try {
+        const resp = await fetch(`${AI_BACKEND_URL}/api/ai/ride-check`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userLocation: loc })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          const emoji = data.suitable ? '✅' : '⚠️';
+          tip.innerText = `${emoji} [${data.level}]\n\n${data.advice}\n\n📋 ${data.detail}`;
+          setTimeout(() => tip.style.display = 'none', 8000);
+        }
+      } catch (e) {
+        tip.innerText = '请求失败'; setTimeout(() => tip.style.display = 'none', 3000);
+      }
     }
 
-    // ========== 路线规划 ==========
+    // ========== 地图基础逻辑 ==========
     window.onload = function(){
       if(localStorage.getItem('isLogin') !== '1'){ location.href = 'login.html'; return; }
       map = new AMap.Map("container", { zoom: 16, resizeEnable: true, center: [104.5647, 28.7658] });
