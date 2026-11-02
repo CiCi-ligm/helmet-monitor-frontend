@@ -24,7 +24,6 @@
     html,body{height:100%;overflow:hidden;padding-bottom:60px;}
     #container{width:100%;height:100vh;background:#e5e5e5;}
 
-    /* 顶部控制面板 */
     .top-panel{
       position:fixed;top:0;left:0;right:0;z-index:9999;
       background:rgba(255, 255, 255, 0.95);backdrop-filter:blur(10px);padding:12px;
@@ -36,7 +35,6 @@
     }
     .input-box input:focus{border-color:#1677ff;background:#fff}
     
-    /* 功能按钮网格布局 */
     .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
     .span-2{grid-column:span 2;}
     .action-btn{
@@ -49,17 +47,15 @@
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
-      touch-action: none; /* 阻止页面滑动 */
+      touch-action: none;
     }
 
-    /* 导航按钮组 */
     .btn-group{display:flex;gap:8px;}
     .btn-group button{
       flex:1;padding:10px;background:#1677ff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;
     }
     .btn-group button.gray{background:#909399}
 
-    /* 卫星图悬浮按钮 */
     #switchMapBtn{
       position:fixed;top:320px;right:12px;z-index:9998;
       padding:10px 16px;background:#fff;
@@ -67,20 +63,10 @@
       box-shadow:0 4px 12px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 搜索建议列表 */
     #suggest-list{
-      position:fixed;
-      top: 58px; 
-      left:12px;
-      right:12px;
-      z-index: 10000;
-      background:#fff;
-      border-radius:8px;
-      box-shadow:0 4px 15px rgba(0,0,0,0.2);
-      max-height:260px;
-      overflow-y:auto;
-      display:none;
-      border: 1px solid #eee;
+      position:fixed; top: 58px; left:12px; right:12px; z-index: 10000;
+      background:#fff; border-radius:8px; box-shadow:0 4px 15px rgba(0,0,0,0.2);
+      max-height:260px; overflow-y:auto; display:none; border: 1px solid #eee;
     }
     #suggest-list .item{padding:12px 14px;font-size:15px;border-bottom:1px solid #f0f0f0;cursor:pointer;color:#333;}
     #suggest-list .item:last-child{border-bottom:none}
@@ -164,6 +150,11 @@
     let isProcessing = false;
     let finalSpeechText = ""; 
     let interimSpeechText = "";
+    let startTime = 0;
+    let submitTimer = null;
+
+    // 判断是否是触屏设备
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
     function connectCloud() {
       try{
@@ -183,25 +174,32 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ====== 彻底兼容移动端的触摸事件 ======
-    // 使用 touchstart 和 touchend 替代 pointer，防止断触
-    voiceBtn.addEventListener('touchstart', handleStart, { passive: false });
-    voiceBtn.addEventListener('touchend', handleEnd, { passive: false });
-    voiceBtn.addEventListener('touchcancel', handleEnd, { passive: false });
-    // PC端鼠标兼容
-    voiceBtn.addEventListener('mousedown', handleStart);
-    voiceBtn.addEventListener('mouseup', handleEnd);
-    voiceBtn.addEventListener('mouseleave', handleEnd);
-    // 禁用右键
+    // ====== 事件绑定（彻底分离触屏和鼠标） ======
+    if (isTouchDevice) {
+        voiceBtn.addEventListener('touchstart', handleStart, { passive: false });
+        voiceBtn.addEventListener('touchend', handleEnd, { passive: false });
+        voiceBtn.addEventListener('touchcancel', handleEnd, { passive: false });
+    } else {
+        voiceBtn.addEventListener('mousedown', handleStart);
+        voiceBtn.addEventListener('mouseup', handleEnd);
+        voiceBtn.addEventListener('mouseleave', handleEnd);
+    }
     voiceBtn.addEventListener('contextmenu', e => e.preventDefault());
 
     function handleStart(e) {
-        if (e && e.cancelable) e.preventDefault();
+        // 防止在触屏设备上同时触发 mousedown
+        if (e) {
+            if (e.type === 'mousedown' && isTouchDevice) return; 
+            if (e.cancelable) e.preventDefault();
+        }
+        
         if (isRecording || isProcessing) return;
         
+        startTime = Date.now();
         isRecording = true;
         finalSpeechText = "";
         interimSpeechText = "";
+        clearTimeout(submitTimer);
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) { 
@@ -238,7 +236,8 @@
                 }
             }
             if(interim) interimSpeechText = interim;
-            // 实时显示到输入框
+            
+            // 实时在输入框展示
             if(finalSpeechText || interimSpeechText) {
                 addressInput.value = finalSpeechText + interimSpeechText;
             }
@@ -252,8 +251,13 @@
         };
         
         recognition.onend = () => { 
-            // 浏览器识别结束时触发
-            if (isRecording) handleEnd(); 
+            // 如果浏览器提前结束（比如判定环境太安静），但用户手指还没松开
+            // 我们不在这里报错，而是等用户松开，或者最多等5秒强制结束
+            if (isRecording) {
+                setTimeout(() => {
+                    if (isRecording) handleEnd();
+                }, 3000);
+            }
         };
         
         try {
@@ -264,28 +268,38 @@
     }
 
     function handleEnd(e) {
-        if (e && e.cancelable) e.preventDefault();
+        if (e) {
+            if (e.type === 'mouseup' && isTouchDevice) return;
+            if (e.cancelable) e.preventDefault();
+        }
+        
         if (!isRecording) return;
         
+        let duration = Date.now() - startTime;
         isRecording = false;
+
+        // 1. 误触判定：按得太快
+        if (duration < 800) {
+            if (recognition) { try { recognition.abort(); } catch(err){} }
+            resetUI();
+            tip.innerText = '请按住说话';
+            setTimeout(() => tip.style.display = 'none', 2000);
+            return;
+        }
+
+        // 2. 进入处理状态
         isProcessing = true;
-        
-        // 1. 立即修改UI，给用户反馈
-        voiceBtn.classList.remove('recording-btn');
         voiceBtn.innerText = '⏳ 处理中...';
         voiceBtn.style.background = '#FF9800';
-        tip.innerText = '⏳ 正在识别并理解意图...';
         
-        // 2. 尝试停止浏览器录音
         if (recognition) {
             try { recognition.stop(); } catch(err) {}
         }
 
-        // 3. 核心兜底：延迟 500ms 强制提取结果提交
-        setTimeout(() => {
-            if (!isProcessing) return; // 如果已经被 onend 触发了，就跳过
+        // 3. 给浏览器 1.5 秒的时间把最终结果传回来
+        submitTimer = setTimeout(() => {
+            if (!isProcessing) return;
             
-            // 优先使用最终的，如果没有就用中间临时的
             let textToSubmit = finalSpeechText.trim() || interimSpeechText.trim();
             
             if (textToSubmit) {
@@ -296,7 +310,7 @@
                 tip.innerText = '没有听到声音，请重试';
                 setTimeout(() => tip.style.display = 'none', 2000);
             }
-        }, 500);
+        }, 1500);
     }
 
     // ====== 发送给后端大模型 ======
@@ -315,8 +329,8 @@
             });
             const data = await resp.json();
             
-            isProcessing = false; // 释放锁
-            resetUI(); // 恢复按钮UI
+            isProcessing = false; 
+            resetUI(); 
             
             if (data.success) {
                 if (data.destination && data.location) {
