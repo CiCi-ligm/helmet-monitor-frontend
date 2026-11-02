@@ -44,6 +44,14 @@
     }
     .action-btn:active{opacity:0.8;}
 
+    /* 语音按钮特殊处理：防止移动端长按弹出菜单或选中文字 */
+    #voiceBtn {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none; /* 防止按住时页面滚动 */
+    }
+
     /* 导航按钮组 */
     .btn-group{display:flex;gap:8px;}
     .btn-group button{
@@ -65,7 +73,7 @@
       top: 58px; 
       left:12px;
       right:12px;
-      z-index: 10000; /* 盖住按钮 */
+      z-index: 10000; /* 盖住下方按钮 */
       background:#fff;
       border-radius:8px;
       box-shadow:0 4px 15px rgba(0,0,0,0.2);
@@ -158,7 +166,8 @@
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
     let recognition = null;
-    let isRecording = false; // 增加录音状态锁
+    let isRecording = false; 
+    let finalSpeechText = ""; // 暂存识别的结果
 
     function connectCloud() {
       try{
@@ -178,25 +187,31 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ====== 语音识别逻辑优化 ======
-    voiceBtn.addEventListener('mousedown', startListening);
-    voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startListening(e); });
-    
-    voiceBtn.addEventListener('mouseup', stopListening);
-    voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopListening(e); });
-    voiceBtn.addEventListener('mouseleave', stopListening);
-    voiceBtn.addEventListener('touchcancel', stopListening);
+    // ====== 优化的语音识别逻辑 ======
+    // 使用 PointerEvents 统一鼠标和触摸事件，防止感应不良
+    voiceBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        startListening();
+    });
 
-    function startListening(e) {
-        if (e) e.preventDefault();
+    voiceBtn.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        stopListening();
+    });
+
+    // 如果手指移出按钮，也当做松开处理
+    voiceBtn.addEventListener('pointerleave', (e) => {
+        if (isRecording) stopListening();
+    });
+
+    // 阻止右键和长按菜单
+    voiceBtn.addEventListener('contextmenu', e => e.preventDefault());
+
+    function startListening() {
         if (isRecording) return;
         isRecording = true;
+        finalSpeechText = "";
 
-        if (recognition) { 
-            try { recognition.abort(); } catch(err){}
-            recognition = null; 
-        }
-        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) { 
             alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器'); 
@@ -204,6 +219,11 @@
             return; 
         }
         
+        if (recognition) { 
+            try { recognition.abort(); } catch(err){}
+            recognition = null; 
+        }
+
         recognition = new SpeechRecognition();
         recognition.lang = 'zh-CN';
         recognition.continuous = false; 
@@ -213,63 +233,68 @@
             voiceBtn.classList.add('recording-btn');
             voiceBtn.innerText = '🎤 正在聆听...';
             voiceBtn.style.background = '#f44336';
-            tip.innerText = '🎙️ 请说话...';
+            tip.innerText = '🎙️ 请说出目的地（如：最近的咖啡店）';
             tip.style.display = 'block';
         };
 
         recognition.onresult = (event) => {
-            let finalText = '';
+            let interimText = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) { 
-                    finalText += event.results[i][0].transcript; 
+                    finalSpeechText = event.results[i][0].transcript; 
+                } else {
+                    interimText += event.results[i][0].transcript;
                 }
             }
-            if (finalText) { 
-                addressInput.value = finalText; 
-                recognition.stop(); 
-                processVoiceText(finalText); 
+            // 如果中间状态有文字，也可以存着，防止松手太快没拿到最终结果
+            if(!finalSpeechText && interimText) {
+                finalSpeechText = interimText;
             }
         };
 
         recognition.onerror = (event) => {
-            // 过滤掉正常松手导致的 aborted 错误，防止误报
             if (event.error === 'aborted' || event.error === 'no-speech') {
-                resetVoiceUI();
-                return;
+                return; // 忽略正常松手和没听到声音的错误
             }
             tip.innerText = '❌ 识别失败: ' + event.error;
             setTimeout(() => tip.style.display = 'none', 3000);
-            resetVoiceUI();
         };
         
         recognition.onend = () => { 
             resetVoiceUI(); 
+            // 松手后，如果拿到了文字，直接调用后端大模型解析语义
+            if (finalSpeechText.trim()) {
+                addressInput.value = finalSpeechText.trim();
+                processVoiceText(finalSpeechText.trim()); 
+            } else {
+                tip.innerText = '没有听到声音，请重试';
+                setTimeout(() => tip.style.display = 'none', 2000);
+            }
         };
         
         try {
             recognition.start();
         } catch(err) {
             isRecording = false;
-            console.error("启动识别异常", err);
         }
     }
 
-    function stopListening(e) {
-        if (e) e.preventDefault();
+    function stopListening() {
         if (recognition) {
-            try {
-                recognition.stop(); // 使用 stop 自然结束
-            } catch (err) {}
+            try { recognition.stop(); } catch (err) {} // 使用 stop 触发 onend 拿到最终结果
         }
         isRecording = false;
     }
 
+    // ====== 发送给后端进行大模型泛语义解析 ======
     async function processVoiceText(spokenText) {
-        voiceBtn.innerText = '🧠 AI 正在分析...';
+        voiceBtn.innerText = '🧠 AI 正在理解...';
         voiceBtn.style.background = '#FF9800';
-        tip.innerText = '🧠 大模型正在理解并规划路线...';
+        tip.innerText = `🧠 大模型正在分析：“${spokenText}”`;
         tip.style.display = 'block';
+        
         const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
+        
         try {
             const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -285,18 +310,22 @@
                     if (!currentPos) {
                         tip.innerText = '请先获取硬件定位，再使用语音导航';
                         setTimeout(() => tip.style.display = 'none', 3000);
-                    } else { startNav(data.mode || 'riding'); }
+                    } else { 
+                        startNav(data.mode || 'riding'); 
+                    }
                     setTimeout(() => tip.style.display = 'none', 8000);
                 } else if (data.reply) {
-                    tip.innerText = '🤔 ' + data.reply; tip.style.display = 'block';
+                    tip.innerText = '🤔 ' + data.reply; 
+                    tip.style.display = 'block';
                     setTimeout(() => tip.style.display = 'none', 5000);
                 }
             } else {
-                tip.innerText = '❌ 识别失败: ' + (data.error || '请重试');
+                tip.innerText = '❌ 无法理解目的地: ' + (data.error || '请重试');
                 setTimeout(() => tip.style.display = 'none', 3000);
             }
         } catch (e) {
-            tip.innerText = '🌐 网络错误'; setTimeout(() => tip.style.display = 'none', 3000);
+            tip.innerText = '🌐 网络请求错误'; 
+            setTimeout(() => tip.style.display = 'none', 3000);
         }
         resetVoiceUI();
     }
@@ -315,27 +344,7 @@
     async function simulateHardwareVoice() {
       const testText = prompt('模拟硬件语音输入，请输入文本：', '附近有什么好吃的');
       if (!testText) return;
-      tip.innerText = '🎙️ 硬件模拟：正在处理...'; tip.style.display = 'block';
-      const loc = currentPos ? `${currentPos.lng},${currentPos.lat}` : '104.080,30.659';
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/voice/command`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: testText, userLocation: loc })
-        });
-        const data = await resp.json();
-        if (data.success && data.destination && data.location) {
-          targetPos = data.location.split(',').map(Number);
-          addressInput.value = data.destination;
-          tip.innerText = `✅ 硬件识别：${data.destination}\n${data.navText || ''}`; tip.style.display = 'block';
-          if (currentPos) startNav(data.mode || 'riding');
-          setTimeout(() => tip.style.display = 'none', 8000);
-        } else if (data.reply) {
-          tip.innerText = '🤔 ' + data.reply; tip.style.display = 'block';
-          setTimeout(() => tip.style.display = 'none', 5000);
-        }
-      } catch (e) {
-        tip.innerText = '🌐 网络错误'; setTimeout(() => tip.style.display = 'none', 3000);
-      }
+      processVoiceText(testText);
     }
 
     async function simulateRisk() {
@@ -373,27 +382,6 @@
         }
       } catch (e) {
         tip.innerText = '评估失败'; setTimeout(() => tip.style.display = 'none', 3000);
-      }
-    }
-
-    async function resolveNaturalLanguage(spokenText) {
-      tip.innerText = '🧠 大模型正在理解...';
-      try {
-        const resp = await fetch(`${AI_BACKEND_URL}/api/nlp/nav`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: spokenText })
-        });
-        const data = await resp.json();
-        if (data.success) {
-          targetPos = data.location.split(',').map(Number);
-          addressInput.value = data.destination;
-          startNav(data.mode || 'riding');
-        } else {
-          tip.innerText = '📍 ' + (data.error || '未识别到目的地，请重试');
-          setTimeout(() => tip.style.display = 'none', 5000);
-        }
-      } catch (e) {
-        tip.innerText = '🌐 网络错误'; setTimeout(() => tip.style.display = 'none', 5000);
       }
     }
 
