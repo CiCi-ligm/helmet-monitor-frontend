@@ -10,7 +10,6 @@
       securityJsCode: "fc5eab52eb041ff4874aba0dd149d954"
     };
   </script>
-  <!-- 补上 PlaceSearch 插件，用于纯前端搜索 -->
   <script src="https://webapi.amap.com/maps?v=2.0&key=977b6123358698744cd4f2a96e219145&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Walking,AMap.Riding,AMap.PlaceSearch"></script>
 
   <style>
@@ -65,6 +64,39 @@
       max-width:80%;text-align:center;display:none;
     }
 
+    /* 新增：底部导航文字面板 */
+    #nav-panel {
+      position: fixed;
+      bottom: 60px; /* 在底部Tab上方 */
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+      z-index: 9998;
+      padding: 15px;
+      display: none; /* 默认隐藏 */
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+    #nav-panel .summary {
+      font-size: 16px;
+      font-weight: bold;
+      color: #1677ff;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    #nav-panel .step {
+      font-size: 14px;
+      color: #333;
+      padding: 8px 0;
+      line-height: 1.5;
+      border-bottom: 1px dashed #eee;
+    }
+    #nav-panel .step:last-child { border-bottom: none; }
+    #nav-panel .step .icon { color: #4CAF50; margin-right: 8px; font-weight: bold; }
+
     .recording-btn {
       animation: pulse 1.5s infinite;
       transition: all 0.3s ease;
@@ -109,6 +141,12 @@
   <div id="suggest-list"></div>
   <div id="tip">正在获取硬件GPS位置...</div>
 
+  <!-- 新增的底部导航文本面板 -->
+  <div id="nav-panel">
+    <div id="nav-summary" class="summary"></div>
+    <div id="nav-steps"></div>
+  </div>
+
   <div class="tab-bar">
     <a href="nav.html" class="tab-item active"><span class="icon">🗺️</span><span>导航</span></a>
     <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
@@ -125,6 +163,11 @@
     const addressInput = document.getElementById('addressInput');
     const suggestList = document.getElementById('suggest-list');
     const voiceBtn = document.getElementById('voiceBtn');
+    
+    // 获取导航面板的元素
+    const navPanel = document.getElementById('nav-panel');
+    const navSummary = document.getElementById('nav-summary');
+    const navSteps = document.getElementById('nav-steps');
 
     let recognition = null;
     let isRecording = false;
@@ -222,7 +265,6 @@
         }
     }
 
-    // ========== 纯前端语义搜索 ==========
     function processVoiceText(spokenText) {
         tip.innerText = `🧠 正在理解：“${spokenText}”`;
         tip.style.display = 'block';
@@ -233,8 +275,6 @@
         if (spokenText.includes('咖啡')) keyword = '咖啡店';
         else if (spokenText.includes('吃') || spokenText.includes('饭')) keyword = '美食';
         else if (spokenText.includes('超市') || spokenText.includes('买')) keyword = '超市';
-        else if (spokenText.includes('厕所')) keyword = '公共厕所';
-        else if (spokenText.includes('医院')) keyword = '医院';
 
         const placeSearch = new AMap.PlaceSearch({ city: '宜宾', pageSize: 5 });
         const searchCenter = currentPos || map.getCenter();
@@ -249,16 +289,13 @@
                 targetMarker = new AMap.Marker({ position: targetPos, title: poi.name });
                 targetMarker.setMap(map);
 
-                // 将地图视野移至目标点，留出顶部控制栏位置
                 map.setCenter(targetPos);
                 map.setZoom(15);
 
                 tip.innerText = `✅ 已找到：${poi.name}\n请点击下方【步行】或【骑行】按钮开始导航`;
-                
-                // 10秒后自动隐藏提示
                 setTimeout(() => {
                     if(tip.innerText.includes('已找到')) tip.style.display = 'none';
-                }, 10000);
+                }, 8000);
                 
             } else {
                 tip.innerText = `❌ 附近没找到“${keyword}”`;
@@ -354,10 +391,13 @@
       addressInput.addEventListener('blur', ()=>{ setTimeout(()=>suggestList.style.display = "none", 200); });
     }
 
+    // ========== 真正画出路线和文字导航 ==========
     function startNav(type){
       if(!currentPos){ tip.innerText = "请等待硬件定位成功"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
       if(!targetPos){ tip.innerText = "请先选择目的地"; tip.style.display = "block"; setTimeout(()=>tip.style.display = "none", 2000); return; }
-      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      
+      if(walkingRoute) walkingRoute.clear(); 
+      if(ridingRoute) ridingRoute.clear();
       
       const plugin = type === 'walking' ? 'AMap.Walking' : 'AMap.Riding'; 
       const typeText = type === 'walking' ? '步行' : '骑行';
@@ -366,23 +406,56 @@
       tip.style.display = "block";
 
       AMap.plugin(plugin, ()=>{
-        const route = type === 'walking' ? new AMap.Walking({ map, hideMarkers: true }) : new AMap.Riding({ map, hideMarkers: true });
+        // 去掉 hideMarkers，保留起终点图标
+        const route = type === 'walking' ? new AMap.Walking({ map: map }) : new AMap.Riding({ map: map });
         type === 'walking' ? walkingRoute = route : ridingRoute = route;
         
         route.search(currentPos, targetPos, (status, res) => {
-          if(status === "complete" && res.routes && res.routes.length>0){
-            tip.innerText = `${typeText}路线规划成功`;
-            setTimeout(()=>tip.style.display = "none", 2000);
+          tip.style.display = "none"; // 隐藏加载提示
+          
+          if(status === "complete" && res.routes && res.routes.length > 0){
+            const routeData = res.routes[0];
             
-            // 【关键修复】手动控制视野，保证路线不被顶部遮挡
-            map.setFitView(null, false, [160, 20, 40, 20]); 
+            // 1. 弹出底部导航面板
+            navPanel.style.display = 'block';
             
-          } else if (type === 'riding') {
-            tip.innerText = '骑行路线规划失败，自动切换为步行导航';
-            setTimeout(() => startNav('walking'), 1500);
+            // 2. 填充概览信息
+            const distanceKm = (routeData.distance / 1000).toFixed(2);
+            const timeMin = Math.ceil(routeData.time / 60);
+            navSummary.innerText = `🚀 ${typeText}导航 | 全程 ${distanceKm} 公里 | 约 ${timeMin} 分钟`;
+
+            // 3. 填充具体的文字步骤
+            navSteps.innerHTML = '';
+            const steps = routeData.steps || routeData.paths[0].steps; // 兼容不同返回格式
+            steps.forEach((step, index) => {
+                const div = document.createElement('div');
+                div.className = 'step';
+                // 高德的 instruction 里包含 HTML 标签，需要清洗掉
+                const cleanText = step.instruction.replace(/<[^>]+>/g, ''); 
+                div.innerHTML = `<span class="icon">${index + 1}.</span> ${cleanText} (${step.distance}米)`;
+                navSteps.appendChild(div);
+            });
+
+            // 4. 调整地图视野，避开顶部面板和底部卡片
+            map.setFitView(null, false, [160, 20, 150, 20]); 
+            
           } else {
-            tip.innerText = `规划失败，可能距离太远不适合${typeText}`; 
-            setTimeout(()=>tip.style.display = "none", 3000);
+            // 捕获高德静默失败的真实原因
+            let errorMsg = res.info || '未知错误';
+            if(errorMsg.includes('距离过近') || errorMsg.includes('起点终点太近')) {
+                tip.innerText = `❌ 距离太近，无法规划${typeText}路线`;
+            } else if (errorMsg.includes('距离太远') || status === 'no_data') {
+                tip.innerText = `❌ 距离太远，超出${typeText}导航范围`;
+            } else {
+                tip.innerText = `❌ 规划失败: ${errorMsg}`;
+            }
+            
+            // 骑行失败了，自动试试步行
+            if (type === 'riding') {
+               setTimeout(() => startNav('walking'), 2000);
+            } else {
+               setTimeout(()=>tip.style.display = "none", 3000);
+            }
           }
         });
       });
@@ -395,9 +468,11 @@
 
     function clearAll(){
       addressInput.value = ""; targetPos = null;
-      if(walkingRoute) walkingRoute.clear(); if(ridingRoute) ridingRoute.clear();
+      if(walkingRoute) walkingRoute.clear(); 
+      if(ridingRoute) ridingRoute.clear();
       if(targetMarker) targetMarker.setMap(null);
       suggestList.style.display = "none";
+      navPanel.style.display = 'none'; // 隐藏面板
       tip.innerText = "已清空导航"; tip.style.display = "block";
       setTimeout(()=>tip.style.display = "none", 1500);
     }
