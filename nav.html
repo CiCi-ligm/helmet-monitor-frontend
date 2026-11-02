@@ -44,12 +44,12 @@
     }
     .action-btn:active{opacity:0.8;}
 
-    /* 语音按钮特殊处理：防止移动端长按弹出菜单或选中文字 */
+    /* 语音按钮特殊处理 */
     #voiceBtn {
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
-      touch-action: none; /* 防止按住时页面滚动 */
+      touch-action: none; /* 阻止页面滑动 */
     }
 
     /* 导航按钮组 */
@@ -67,13 +67,13 @@
       box-shadow:0 4px 12px rgba(0,0,0,0.15);cursor:pointer;
     }
 
-    /* 搜索建议列表：解决被遮挡问题 */
+    /* 搜索建议列表 */
     #suggest-list{
       position:fixed;
       top: 58px; 
       left:12px;
       right:12px;
-      z-index: 10000; /* 盖住下方按钮 */
+      z-index: 10000;
       background:#fff;
       border-radius:8px;
       box-shadow:0 4px 15px rgba(0,0,0,0.2);
@@ -134,18 +134,10 @@
   <div id="tip">正在获取硬件GPS位置...</div>
 
   <div class="tab-bar">
-    <a href="nav.html" class="tab-item active">
-      <span class="icon">🗺️</span><span>导航</span>
-    </a>
-    <a href="blind.html" class="tab-item">
-      <span class="icon">⛑️</span><span>头盔</span>
-    </a>
-    <a href="record.html" class="tab-item">
-      <span class="icon">📋</span><span>记录</span>
-    </a>
-    <a href="profile.html" class="tab-item">
-      <span class="icon">👤</span><span>我的</span>
-    </a>
+    <a href="nav.html" class="tab-item active"><span class="icon">🗺️</span><span>导航</span></a>
+    <a href="blind.html" class="tab-item"><span class="icon">⛑️</span><span>头盔</span></a>
+    <a href="record.html" class="tab-item"><span class="icon">📋</span><span>记录</span></a>
+    <a href="profile.html" class="tab-item"><span class="icon">👤</span><span>我的</span></a>
   </div>
 
   <script>
@@ -166,8 +158,12 @@
 
     const AI_BACKEND_URL = 'https://www.helmet-ai.asia';
     let recognition = null;
+    
+    // 语音状态控制
     let isRecording = false; 
-    let finalSpeechText = ""; // 暂存识别的结果
+    let isProcessing = false;
+    let finalSpeechText = ""; 
+    let interimSpeechText = "";
 
     function connectCloud() {
       try{
@@ -187,34 +183,29 @@
       mqttClient.publish(topic, JSON.stringify({ id: Date.now().toString(), version: "1.0", params: { nav_cmd: { value: text } } }));
     }
 
-    // ====== 优化的语音识别逻辑 ======
-    // 使用 PointerEvents 统一鼠标和触摸事件，防止感应不良
-    voiceBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        startListening();
-    });
-
-    voiceBtn.addEventListener('pointerup', (e) => {
-        e.preventDefault();
-        stopListening();
-    });
-
-    // 如果手指移出按钮，也当做松开处理
-    voiceBtn.addEventListener('pointerleave', (e) => {
-        if (isRecording) stopListening();
-    });
-
-    // 阻止右键和长按菜单
+    // ====== 彻底兼容移动端的触摸事件 ======
+    // 使用 touchstart 和 touchend 替代 pointer，防止断触
+    voiceBtn.addEventListener('touchstart', handleStart, { passive: false });
+    voiceBtn.addEventListener('touchend', handleEnd, { passive: false });
+    voiceBtn.addEventListener('touchcancel', handleEnd, { passive: false });
+    // PC端鼠标兼容
+    voiceBtn.addEventListener('mousedown', handleStart);
+    voiceBtn.addEventListener('mouseup', handleEnd);
+    voiceBtn.addEventListener('mouseleave', handleEnd);
+    // 禁用右键
     voiceBtn.addEventListener('contextmenu', e => e.preventDefault());
 
-    function startListening() {
-        if (isRecording) return;
+    function handleStart(e) {
+        if (e && e.cancelable) e.preventDefault();
+        if (isRecording || isProcessing) return;
+        
         isRecording = true;
         finalSpeechText = "";
+        interimSpeechText = "";
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) { 
-            alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器'); 
+            alert('您的浏览器不支持语音识别，请使用 Chrome 或 Edge 浏览器'); 
             isRecording = false;
             return; 
         }
@@ -233,43 +224,36 @@
             voiceBtn.classList.add('recording-btn');
             voiceBtn.innerText = '🎤 正在聆听...';
             voiceBtn.style.background = '#f44336';
-            tip.innerText = '🎙️ 请说出目的地（如：最近的咖啡店）';
+            tip.innerText = '🎙️ 请说出目的地';
             tip.style.display = 'block';
         };
 
         recognition.onresult = (event) => {
-            let interimText = '';
+            let interim = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) { 
-                    finalSpeechText = event.results[i][0].transcript; 
+                    finalSpeechText += event.results[i][0].transcript; 
                 } else {
-                    interimText += event.results[i][0].transcript;
+                    interim += event.results[i][0].transcript;
                 }
             }
-            // 如果中间状态有文字，也可以存着，防止松手太快没拿到最终结果
-            if(!finalSpeechText && interimText) {
-                finalSpeechText = interimText;
+            if(interim) interimSpeechText = interim;
+            // 实时显示到输入框
+            if(finalSpeechText || interimSpeechText) {
+                addressInput.value = finalSpeechText + interimSpeechText;
             }
         };
 
         recognition.onerror = (event) => {
-            if (event.error === 'aborted' || event.error === 'no-speech') {
-                return; // 忽略正常松手和没听到声音的错误
-            }
+            if (event.error === 'aborted' || event.error === 'no-speech') return;
             tip.innerText = '❌ 识别失败: ' + event.error;
             setTimeout(() => tip.style.display = 'none', 3000);
+            resetUI();
         };
         
         recognition.onend = () => { 
-            resetVoiceUI(); 
-            // 松手后，如果拿到了文字，直接调用后端大模型解析语义
-            if (finalSpeechText.trim()) {
-                addressInput.value = finalSpeechText.trim();
-                processVoiceText(finalSpeechText.trim()); 
-            } else {
-                tip.innerText = '没有听到声音，请重试';
-                setTimeout(() => tip.style.display = 'none', 2000);
-            }
+            // 浏览器识别结束时触发
+            if (isRecording) handleEnd(); 
         };
         
         try {
@@ -279,17 +263,46 @@
         }
     }
 
-    function stopListening() {
-        if (recognition) {
-            try { recognition.stop(); } catch (err) {} // 使用 stop 触发 onend 拿到最终结果
-        }
+    function handleEnd(e) {
+        if (e && e.cancelable) e.preventDefault();
+        if (!isRecording) return;
+        
         isRecording = false;
+        isProcessing = true;
+        
+        // 1. 立即修改UI，给用户反馈
+        voiceBtn.classList.remove('recording-btn');
+        voiceBtn.innerText = '⏳ 处理中...';
+        voiceBtn.style.background = '#FF9800';
+        tip.innerText = '⏳ 正在识别并理解意图...';
+        
+        // 2. 尝试停止浏览器录音
+        if (recognition) {
+            try { recognition.stop(); } catch(err) {}
+        }
+
+        // 3. 核心兜底：延迟 500ms 强制提取结果提交
+        setTimeout(() => {
+            if (!isProcessing) return; // 如果已经被 onend 触发了，就跳过
+            
+            // 优先使用最终的，如果没有就用中间临时的
+            let textToSubmit = finalSpeechText.trim() || interimSpeechText.trim();
+            
+            if (textToSubmit) {
+                addressInput.value = textToSubmit;
+                processVoiceText(textToSubmit);
+            } else {
+                resetUI();
+                tip.innerText = '没有听到声音，请重试';
+                setTimeout(() => tip.style.display = 'none', 2000);
+            }
+        }, 500);
     }
 
-    // ====== 发送给后端进行大模型泛语义解析 ======
+    // ====== 发送给后端大模型 ======
     async function processVoiceText(spokenText) {
-        voiceBtn.innerText = '🧠 AI 正在理解...';
-        voiceBtn.style.background = '#FF9800';
+        if(!isProcessing) isProcessing = true;
+        
         tip.innerText = `🧠 大模型正在分析：“${spokenText}”`;
         tip.style.display = 'block';
         
@@ -301,6 +314,10 @@
                 body: JSON.stringify({ text: spokenText, userLocation: loc })
             });
             const data = await resp.json();
+            
+            isProcessing = false; // 释放锁
+            resetUI(); // 恢复按钮UI
+            
             if (data.success) {
                 if (data.destination && data.location) {
                     const lnglat = data.location.split(',').map(Number);
@@ -316,7 +333,6 @@
                     setTimeout(() => tip.style.display = 'none', 8000);
                 } else if (data.reply) {
                     tip.innerText = '🤔 ' + data.reply; 
-                    tip.style.display = 'block';
                     setTimeout(() => tip.style.display = 'none', 5000);
                 }
             } else {
@@ -324,14 +340,16 @@
                 setTimeout(() => tip.style.display = 'none', 3000);
             }
         } catch (e) {
+            isProcessing = false;
+            resetUI();
             tip.innerText = '🌐 网络请求错误'; 
             setTimeout(() => tip.style.display = 'none', 3000);
         }
-        resetVoiceUI();
     }
 
-    function resetVoiceUI() {
+    function resetUI() {
         isRecording = false;
+        isProcessing = false;
         voiceBtn.innerText = '🎤 按住说话 (语音识别)';
         voiceBtn.style.background = '#4CAF50';
         voiceBtn.classList.remove('recording-btn');
